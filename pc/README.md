@@ -31,7 +31,9 @@ Only one program can have the serial port open. While the server runs, start the
 
 [ibuki/serial_reader.py](ibuki/serial_reader.py) parses the board's lines, counts lost lines and reconnects on its own when the USB cable gets pulled.
 
-[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) stands in until the real Brain is ready. It shows the breathing wave, movement and whether someone is there, but it never gives a breathing rate and never raises an alert.
+[ibuki/brain.py](ibuki/brain.py) is the Brain: presence, movement, breathing rate, and the states and alerts described below. The server uses it automatically. The no-breathing alert waits 10 s for demos. For a baby, start the server with `IBUKI_NO_BREATH_S=20`. Its thresholds come from Ramadhan's and lemonwasp's recordings, and the comments in the file say which recording each number comes from.
+
+[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) is the simple stand-in from before the Brain existed (`--brain placeholder`). It never gives a breathing rate and never raises an alert.
 
 [ibuki/shake.py](ibuki/shake.py) notices when the board itself is moving. Normally the walls and furniture don't move, so if all of their echoes jump at once, it's the board.
 
@@ -139,7 +141,7 @@ The session asks for your name, so each person gets their own folder, `recording
 
 `board_connected` is false: check the cable. If it's plugged in, another program probably has the port, so close the viewer or start it with `--server`.
 
-The log says "team Brain not found, using the PLACEHOLDER": that's normal until `pc/ibuki/brain.py` exists.
+The log says "Brain ... FAILED to load": `pc/ibuki/brain.py` has an error. The message names it, and the server falls back to the placeholder.
 
 No notification: check that `/api/health` shows `"ntfy": true`, that the app is subscribed to the right topic, and that the laptop is online.
 
@@ -172,7 +174,9 @@ http://localhost:8000/api/health を開いて、`board_connected` が `true` に
 
 [ibuki/serial_reader.py](ibuki/serial_reader.py) はボードの行を読み取り、抜けた行を数えます。USB が抜けても自分でつなぎ直します。
 
-[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) は、本物の Brain ができるまでの仮の処理です。呼吸の波形、動き、人がいるかどうかは出しますが、呼吸数は出さず、警告も出しません。
+[ibuki/brain.py](ibuki/brain.py) が Brain です。在室、動き、呼吸数、下に書いた状態と警告を判定します。サーバーが自動で使います。「呼吸なし」の警告はデモ用に 10 秒で出ます。赤ちゃん向けには `IBUKI_NO_BREATH_S=20` を付けてサーバーを起動してください。しきい値は Ramadhan と lemonwasp の録画から決めていて、どの数値がどの録画から来たかはファイル内のコメントに書いてあります。
+
+[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) は、Brain ができる前の簡単な代わりです（`--brain placeholder`）。呼吸数は出さず、警告も出しません。
 
 [ibuki/shake.py](ibuki/shake.py) はボード自体が動いたことに気づく処理です。ふだん壁や家具は動かないので、それらの反射が一斉に動いたら、動いたのはボードだと判断します。
 
@@ -280,6 +284,6 @@ class Brain:
 
 `board_connected` が false：ケーブルを確認してください。つながっているなら、ほかのプログラムがポートを使っているはずです。ライブ表示を閉じるか、`--server` を付けて起動してください。
 
-ログに「team Brain not found, using the PLACEHOLDER」と出る：`pc/ibuki/brain.py` ができるまでは正常です。
+ログに「Brain ... FAILED to load」と出る：`pc/ibuki/brain.py` にエラーがあります。メッセージに理由が出て、サーバーは仮の Brain で動き続けます。
 
 通知が来ない：`/api/health` で `"ntfy": true` になっているか、アプリが正しいトピックを購読しているか、PC がインターネットにつながっているかを確認してください。

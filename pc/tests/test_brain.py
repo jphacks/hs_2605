@@ -1,0 +1,87 @@
+"""The Brain on synthetic board data: states, rate, alerts, button."""
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from ibuki.brain import Brain  # noqa: E402
+from tests.synth import make_lines  # noqa: E402
+
+FIELDS = {"t", "state", "bpm", "disp_mm", "dt_ms", "motion", "present", "chest_cm", "shaking"}
+
+
+def run(lines, brain=None):
+    brain = brain or Brain(no_breath_s=10)
+    statuses, events = [], []
+    for ln in lines:
+        for o in brain.feed(ln):
+            (events if "type" in o else statuses).append(o)
+    return statuses, events
+
+
+def states_between(statuses, t0, t1):
+    return {s["state"] for s in statuses if t0 * 1000 <= s["t"] < t1 * 1000}
+
+
+class BrainTest(unittest.TestCase):
+    def test_empty_room(self):
+        st, ev = run(make_lines(seconds=20, target_bin=None))
+        self.assertEqual(states_between(st, 3, 20), {"EMPTY"})
+        self.assertEqual(ev, [])
+
+    def test_breathing_is_still_with_the_right_rate(self):
+        st, ev = run(make_lines(seconds=40, target_bin=9, breaths_per_min=40, amp_mm=1.0))
+        for s in st:
+            self.assertTrue(FIELDS <= set(s), s)
+        self.assertEqual(states_between(st, 15, 40), {"STILL"})
+        rates = [s["bpm"] for s in st if s["t"] > 25000 and s["bpm"] is not None]
+        self.assertTrue(rates, "no breathing rate reported")
+        self.assertAlmostEqual(sum(rates) / len(rates), 40.0, delta=2.0)
+        self.assertEqual(ev, [])
+
+    def test_breath_hold_alerts_and_recovers(self):
+        st, ev = run(make_lines(seconds=60, target_bin=9, breaths_per_min=20, amp_mm=1.0,
+                                hold=(25, 45)))
+        self.assertEqual(states_between(st, 15, 25), {"STILL"})
+        alerts = [e for e in ev if e["type"] == "alert" and e["reason"] == "no_breath"]
+        self.assertEqual(len(alerts), 1)
+        self.assertIn("ALERT", states_between(st, 35, 45))
+        self.assertIn("STILL", states_between(st, 52, 60))  # breathing again
+
+    def test_moving_is_awake_and_never_alerts(self):
+        st, ev = run(make_lines(seconds=40, target_bin=9, move=(10, 40, (7, 8, 9, 10, 11))))
+        self.assertIn("OK", states_between(st, 15, 40))
+        self.assertNotIn("ALERT", states_between(st, 0, 40))
+        self.assertEqual([e for e in ev if e["type"] == "alert"], [])
+
+    def test_leaving_the_bed_sends_left_bed(self):
+        st, ev = run(make_lines(seconds=40, target_bin=9, move=(17, 20, (7, 8, 9, 10, 11)), leave_at=20))
+        self.assertEqual(states_between(st, 26, 40), {"EMPTY"})
+        self.assertIn({"type": "alert", "reason": "left_bed", "since_s": 0}, ev)
+        self.assertNotIn("no_breath", [e["reason"] for e in ev])
+
+    def test_board_shake_never_alerts(self):
+        st, ev = run(make_lines(seconds=50, target_bin=9, breaths_per_min=20, amp_mm=1.0,
+                                shake=(25, 32, 0.5)))
+        self.assertTrue(any(s["shaking"] for s in st))
+        self.assertEqual([e for e in ev if e["type"] == "alert"], [])
+
+    def test_button_acknowledges_an_alert(self):
+        brain = Brain(no_breath_s=10)
+        lines = make_lines(seconds=60, target_bin=9, breaths_per_min=20, amp_mm=1.0, hold=(25, 60))
+        st, ev = run(lines[: int(len(lines) * 0.75)], brain)  # up to ~45 s: in ALERT
+        self.assertEqual(st[-1]["state"], "ALERT")
+        out = brain.feed("B,1")
+        self.assertEqual(out[0]["state"], "OK")  # acknowledged
+        st2, ev2 = run(lines[int(len(lines) * 0.75):], brain)
+        self.assertEqual([e for e in ev2 if e["type"] == "alert"], [])  # snoozed for 30 s
+
+    def test_ignores_junk(self):
+        brain = Brain()
+        for junk in ["", "garbage", "S,10,hello", "D,1,2"]:
+            self.assertEqual(brain.feed(junk), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
