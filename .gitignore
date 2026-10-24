@@ -23,9 +23,9 @@ mtb_shared/
 *.elf
 *.hex
 
-# Large raw recordings (commit only small samples, renamed *.sample.csv)
-recordings/*.csv
-!recordings/*.sample.csv
+# Large raw recordings, also in per-person folders (commit only small samples, *.sample.csv)
+recordings/**/*.csv
+!recordings/**/*.sample.csv
 
 # Web tooling
 node_modules/
