@@ -155,3 +155,4 @@ ehthumbs_vista.db
 images/
 bsps/TARGET_APP_KIT_PSE84_AI/docs/
 !bsps/TARGET_APP_KIT_PSE84_AI/config/GeneratedSource/
+*.o
