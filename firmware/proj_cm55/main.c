@@ -49,7 +49,7 @@
 #include "xensiv_bgt60trxx_platform.h"
 #include "radar_settings.h"
 #include "cy_scb_spi.h"
-#include "model.h"
+#include "ibuki.h"
 
 /*******************************************************************************
 * Macros
@@ -197,12 +197,9 @@ void xensiv_bgt60trxx_interrupt_handler(void)
 *******************************************************************************/
 cy_rslt_t radar_data_process(void)
 {
-    const char* class_map[] = IMAI_DATA_OUT_SYMBOLS;
     int a;
     int words_a_24;
     int fifo_size_32;
-    int imai_result_enqueue;
-    float model_out[IMAI_DATA_OUT_COUNT];
 
     xensiv_bgt60trxx_t* p_device = &radar.bgt60_obj.dev;
 
@@ -318,50 +315,9 @@ cy_rslt_t radar_data_process(void)
 
             t = 0;
 
-            /* Move cursor home */
-            printf("\033[H");
-            printf("DEEPCRAFT Radar Model Example\r\n\n");
-
-            imai_result_enqueue = IMAI_enqueue(radar.bgt60_send_buffer);
-            if (IMAI_RET_SUCCESS != imai_result_enqueue)
-            {
-                CY_ASSERT(0);
-            }
-            if (xensiv_bgt60trxx_start_frame(&radar.bgt60_obj.dev, false) != XENSIV_BGT60TRXX_STATUS_OK)
-            {
-
-            }
-            int imai_result = IMAI_dequeue(model_out);
-            if (xensiv_bgt60trxx_start_frame(&radar.bgt60_obj.dev, true) != XENSIV_BGT60TRXX_STATUS_OK)
-            {
-
-            }
-            int16_t best_label = 0;
-            float max_score = -1000.0f;
-
-            switch (imai_result)
-            {
-                case IMAI_RET_SUCCESS:
-                    for (uint8_t i = 0; i < IMAI_DATA_OUT_COUNT; i++)
-                    {
-                        printf("label: %-10s: score: %.2f\r\n", class_map[i], model_out[i]);
-                        if (model_out[i] > max_score)
-                        {
-                            max_score = model_out[i];
-                            best_label = i;
-                        }
-                    }
-                    printf("\r\n");
-                    printf("Output: %-30s\r\n", class_map[best_label]);
-                    break;
-                case IMAI_RET_NODATA:
-                    break;
-                case IMAI_RET_ERROR:
-                    /* Something went wrong, stop the program */
-                    printf("Unable to perform inference. Unknown error occurred.\n");
-                    break;
-                }
-
+            /* IBUKI: range FFT per chirp; sends a D line every IBUKI_FRAMES_PER_LINE frames.
+             * The radar keeps running (no stop/start per frame) so frames stay evenly spaced. */
+            ibuki_on_frame(radar.bgt60_send_buffer);
         }
     }
     return 0;
@@ -590,17 +546,8 @@ int main(void)
 *******************************************************************************/
 static cy_rslt_t system_init(void)
 {
-    cy_rslt_t result;
-
-    /* Initialize DEEPCRAFT pre-processing library */
-    IMAI_init();
-
-    result = radar_init();
-
-    /* ANSI ESC sequence for clear screen */
-    printf("\x1b[2J\x1b[;H\x1b[?25l;");
-    
-    return result;
+    /* IBUKI: no DEEPCRAFT model; only the radar. */
+    return radar_init();
 }
 
 /*******************************************************************************
@@ -627,26 +574,27 @@ static void cm55_ml_deepcraft_task(void)
     /* Initializes retarget-io middleware. */
     init_retarget_io();
 
-    /* \x1b[2J\x1b[;H - ANSI ESC sequence for clear screen */
-    printf("\x1b[2J\x1b[;H");    
-    
-    /* Initialize inference engine and sensors */
+    /* IBUKI: time base, FFT tables, "S,..,ibuki fw start" and the first C line */
+    ibuki_init();
+
+    /* Initialize the radar sensor */
     result = system_init();
 
-    /* Initialization failed */
+    /* Initialization failed: keep reporting it so the PC can see why there is no data */
     if(CY_RSLT_SUCCESS != result)
     {
-        /* Failed to initialize properly */
-        printf("System initialization fail\r\n");
-        while(1);
+        for (;;)
+        {
+            ibuki_status_code("system init failed", (uint32_t)result);
+            Cy_SysLib_Delay(2000U);
+        }
     }
 
     for (;;)
     {
-        /* Invoke the PDM Data Processing function that sends the data for
-         * pre-processing, inferencing, and print the results when enough data
-         * is received.
-         */
+        /* Read radar frames; each full frame goes to ibuki_on_frame(). */
         radar_data_process();
+        /* C line every 5 s, L lines from the PC, B line on the user button. */
+        ibuki_poll();
     }
 }
