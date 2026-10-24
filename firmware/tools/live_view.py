@@ -62,7 +62,8 @@ class Stream:
 def read_serial(stream, port, save_path=None):
     import serial
 
-    out = open(save_path, "a", encoding="ascii") if save_path else None
+    # The first bytes after opening the port can be garbage, so never let encoding stop the reader.
+    out = open(save_path, "a", encoding="ascii", errors="replace") if save_path else None
     with serial.Serial(port, 115200, timeout=0.2) as ser:
         rest = b""
         while True:
