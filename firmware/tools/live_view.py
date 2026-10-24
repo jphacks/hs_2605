@@ -14,11 +14,15 @@ Window:
 import argparse
 import collections
 import glob
+import os
 import sys
 import threading
 import time
 
 import numpy as np
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "pc"))
+from ibuki.shake import ShakeDetector  # noqa: E402  (shared with the server's placeholder Brain)
 
 WINDOW_S = 20.0
 PROFILE_S = 3.0
@@ -55,6 +59,8 @@ class Stream:
         self.last_seq = None
         self.gaps = 0
         self.status = ""
+        self.min_cm = 28.0
+        self.shake = ShakeDetector()
 
     def feed(self, line):
         p = line.strip().split(",")
@@ -70,8 +76,10 @@ class Stream:
                 if self.last_seq is not None and seq != self.last_seq + 1:
                     self.gaps += 1
                 self.last_seq = seq
+                rng = self.cfg[0] + np.arange(len(z)) * self.cfg[1] / 10.0
+                shaking = self.shake.feed(z, rng >= self.min_cm)
                 with self.lock:
-                    self.buf.append((t_ms / 1000.0, z))
+                    self.buf.append((t_ms / 1000.0, z, shaking))
         except (ValueError, IndexError):
             pass
 
@@ -137,8 +145,9 @@ def analyse(stream, min_cm):
     t = np.array([d[0] for d in data])
     n = min(len(d[1]) for d in data)
     z = np.array([d[1][:n] for d in data])
+    shake = np.array([d[2] for d in data])
     keep = t >= t[-1] - WINDOW_S
-    t, z = t[keep], z[keep]
+    t, z, shake = t[keep], z[keep], shake[keep]
     first_cm, step_mm = stream.cfg[0], stream.cfg[1]
     rng = first_cm + np.arange(n) * step_mm / 10.0
     use = rng >= min_cm
@@ -160,10 +169,13 @@ def analyse(stream, min_cm):
     return dict(t=t - t[-1], rng=rng, profile=profile, use=use, motion=motion,
                 moving=moving, bin_cm=rng[b], disp=disp, present=profile[b] >= PRESENT_LEVEL,
                 activity=float(profile[b]), snr_db=snr_db, peak_per_min=peak,
-                gate=(float(rng[use][0]) if use.any() else float(rng[0]), float(rng[-1])))
+                gate=(float(rng[use][0]) if use.any() else float(rng[0]), float(rng[-1])),
+                shake=shake, shaking=bool(shake[t >= t[-1] - 1.0].any()))
 
 
 def quality_text(a):
+    if a["shake"].any():
+        return "signal quality: - (board moved in the last 20 s)"
     if not a["present"]:
         return "signal quality: - (nothing in range)"
     if a["snr_db"] is None:
@@ -174,6 +186,8 @@ def quality_text(a):
 
 
 def banner(a):
+    if a["shaking"]:
+        return "BOARD SHAKING - breathing unknown (keep the board still)", "tab:orange"
     if a["present"]:
         return f"IN RANGE - radar sees something at {a['bin_cm']:.0f} cm", "tab:green"
     lo, hi = a["gate"]
@@ -203,6 +217,9 @@ def draw(fig, ax, a, stream):
     ax[0].set_title(f"Most active: {a['bin_cm']:.0f} cm   (seq gaps: {stream.gaps})")
 
     ax[1].plot(a["t"], a["motion"], color="tab:orange")
+    for x in (ax[1], ax[2]):  # shade the moments when the board itself moved
+        x.fill_between(a["t"], 0, 1, where=a["shake"], transform=x.get_xaxis_transform(),
+                       color="tab:orange", alpha=0.2, lw=0)
     ax[1].set_ylabel("motion")
     ax[1].set_xlim(-WINDOW_S, 0)
     label, col = ("MOVING", "tab:red") if a["moving"] else ("STILL", "tab:green")
@@ -231,6 +248,7 @@ def main():
     a = ap.parse_args()
 
     stream = Stream()
+    stream.min_cm = a.min_cm
     if a.snapshot:
         if not a.file:
             sys.exit("--snapshot needs --file")
