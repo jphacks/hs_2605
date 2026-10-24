@@ -43,8 +43,30 @@ The register values come from Infineon's tool ([proj_cm55/radar_settings.h](proj
 | `S,t_ms,text` | board → PC | Status and errors, for example `S,0,ibuki fw start`. |
 | `B,1` | board → PC | User button pressed. |
 | `L,1` / `L,0` | PC → board | Red LED on / off. |
+| `R,1` | PC → board | Restart the radar (stop, clear the FIFO, start). |
+| `T,<ms>` | PC → board | Test only: stall the board up to 2000 ms to check the recovery. |
 
 Ignore any other line.
+
+### Reliability
+
+The board recovers by itself and reports it as an `S` line:
+
+| Problem | What the board does | S line |
+|---|---|---|
+| Sensor FIFO overflow (data could be shifted) | Drops that block and restarts the radar | `radar restart: fifo overflow 0x00000000` |
+| No frame for 1 s | Watchdog restarts the radar | `radar restart: no frames for 1 s 0x00000000` |
+| PC sent `R,1` | Restarts the radar | `radar restart: requested 0x00000000` |
+
+The last number is the driver status (0 = OK). After a restart, `t_ms` jumps forward while `seq` keeps counting. The PC should restart phase tracking when it sees a `radar restart` line or a `t_ms` step over 0.5 s.
+
+Test it on the board (nothing else may use the port):
+
+```
+../env/bin/python firmware/tools/recovery_test.py
+```
+
+Measured on 2026-10-24: all four phases passed, with no seq gaps and data continuing after every restart.
 
 ### Tools (macOS, Apple Silicon)
 
@@ -75,10 +97,16 @@ Expected: about 16.6 D lines/s and `gaps: 0`. The plot shows the mean magnitude 
 
 Measured on 2026-10-24: 16.64 D lines/s, no seq gaps in 336 lines, 3.8 KB/s on the UART (a third of the limit).
 
+Other tools in [tools/](tools/): `live_view.py` (live plots of movement, breathing wave, signal quality and board shakes) and `recovery_test.py` (see Reliability).
+
 ### Known issues
 
-- Bins under ~25 cm contain strong antenna leakage. Keep the baby farther than ~20 cm from the board, or ignore those bins on the PC.
-- `make program` warns that the KitProg3 firmware is out of date. Flashing still works.
+- Bins under ~28 cm contain the radar's own TX→RX leakage. They are still sent, because a child in a bed can be close to the board. The PC tools ignore them for picking the target by default (`--min-cm`). Whether a child closer than ~25 cm stands out above the leakage is not tested yet.
+- If `make program` warns that the KitProg3 firmware is out of date, update it once (takes about a minute; done on our board on 2026-10-24, 2.80 → 2.90):
+  ```
+  /Applications/ModusToolboxProgtools-2.0/fw-loader/bin/fw-loader --update-kp3 all
+  ```
+- VS Code shows false "undefined identifier" errors in `main.c` because it does not know the ModusToolbox include paths. The real build is clean. `make vscode` in `firmware/` sets the paths up.
 - The repo-root `.gitignore` must ignore `mtb_shared/` (240 MB of libraries).
 
 ### Troubleshooting
@@ -128,8 +156,30 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 | `S,t_ms,text` | ボード → PC | 状態・エラー。例：`S,0,ibuki fw start`。 |
 | `B,1` | ボード → PC | ユーザーボタンが押された。 |
 | `L,1` / `L,0` | PC → ボード | 赤 LED の点灯 / 消灯。 |
+| `R,1` | PC → ボード | レーダーを再起動（停止・FIFO クリア・再開）。 |
+| `T,<ms>` | PC → ボード | テスト専用：復帰処理の確認のため、ボードを最大 2000 ms 止める。 |
 
 それ以外の行は無視してください。
+
+### 信頼性
+
+ボードは自動で復帰し、`S` 行で知らせます：
+
+| 問題 | ボードの動作 | S 行 |
+|---|---|---|
+| センサー FIFO のオーバーフロー（データがずれる可能性） | そのブロックを捨ててレーダーを再起動 | `radar restart: fifo overflow 0x00000000` |
+| 1 秒間フレームが来ない | ウォッチドッグがレーダーを再起動 | `radar restart: no frames for 1 s 0x00000000` |
+| PC から `R,1` | レーダーを再起動 | `radar restart: requested 0x00000000` |
+
+最後の数値はドライバの状態です（0 = 正常）。再起動のあと `t_ms` は先に飛びますが、`seq` は続けて増えます。PC 側は `radar restart` の行、または 0.5 秒を超える `t_ms` の飛びを見たら位相の追跡をやり直してください。
+
+ボードでのテスト（他のプログラムがポートを使っていないこと）：
+
+```
+../env/bin/python firmware/tools/recovery_test.py
+```
+
+2026-10-24 の測定結果：4 つの段階すべて合格。seq の欠落なし、再起動のたびにデータが再開。
 
 ### 必要なツール（macOS、Apple Silicon）
 
@@ -160,10 +210,16 @@ python firmware/tools/check_stream.py --seconds 20 --out range.png
 
 2026-10-24 の測定結果：D 行 16.64 行/秒、336 行で seq の欠落なし、UART 使用量 3.8 KB/秒（上限の約 3 分の 1）。
 
+[tools/](tools/) にはほかに `live_view.py`（動き・呼吸の波形・信号品質・ボードの揺れのライブ表示）と `recovery_test.py`（「信頼性」参照）があります。
+
 ### 既知の問題
 
-- 約 25 cm より近いビンにはアンテナの強い漏れ込みがあります。赤ちゃんはボードから 20 cm 以上離すか、PC 側でそのビンを無視してください。
-- `make program` で KitProg3 のファームウェアが古いという警告が出ますが、書き込みは成功します。
+- 約 28 cm より近いビンには、レーダー自身の送信→受信の漏れ込みがあります。ベッドの子どもがボードの近くにいることもあるため、このビンも送信しています。PC のツールは標準では対象の選択にこのビンを使いません（`--min-cm`）。約 25 cm より近い子どもが漏れ込みより強く見えるかは、まだ確認していません。
+- `make program` で KitProg3 のファームウェアが古いという警告が出たら、一度だけ更新してください（約 1 分。私たちのボードは 2026-10-24 に 2.80 → 2.90 に更新済み）：
+  ```
+  /Applications/ModusToolboxProgtools-2.0/fw-loader/bin/fw-loader --update-kp3 all
+  ```
+- VS Code では `main.c` に「undefined identifier」という誤ったエラーが表示されます。ModusToolbox のインクルードパスを知らないためで、実際のビルドは問題ありません。`firmware/` で `make vscode` を実行すると設定されます。
 - リポジトリ直下の `.gitignore` で `mtb_shared/`（ライブラリ 240 MB）を除外する必要があります。
 
 ### トラブルシューティング

@@ -13,7 +13,9 @@
 #define IBUKI_RX_USED           (0U)    /* first RX antenna only, for now */
 
 /* Range gate: FFT bins 4..27 = 15.0 cm .. 101.25 cm, 3.75 cm per bin (4 GHz sweep).
- * Covers a baby 20-60 cm from the board in a crib, and the 80 cm bench test. */
+ * A child in a bed can be close to the board, so the near bins are kept. Bins under ~28 cm also
+ * hold the radar's own TX->RX leakage (measured on the board); the PC removes the static part,
+ * and a close child reflects much more strongly than one at 50 cm. */
 #define IBUKI_FIRST_BIN         (4U)
 #define IBUKI_NUM_BINS          (24U)
 #define IBUKI_BIN_STEP_UM       (37500U) /* bin step in micrometres */
@@ -28,5 +30,7 @@ void     ibuki_poll(void);                 /* call often from the main loop */
 void     ibuki_status(const char* text);   /* sends "S,t_ms,text" */
 void     ibuki_status_code(const char* text, uint32_t code); /* "S,t_ms,text 0x........" */
 uint32_t ibuki_millis(void);
+void     ibuki_reset_frames(void);         /* drop a half-filled frame average (radar restart) */
+bool     ibuki_take_restart_request(void); /* true once after the PC sent "R,1" */
 
 #endif /* IBUKI_H */

@@ -141,7 +141,44 @@ typedef struct {
     int skipped_frames;
 } dev_bgt60trxx_t;
 
-__attribute__ ((section(".cy_socmem_data"), used)) dev_bgt60trxx_t radar = {0}; 
+__attribute__ ((section(".cy_socmem_data"), used)) dev_bgt60trxx_t radar = {0};
+
+/* IBUKI: time of the last full radar frame, for the watchdog. */
+static uint32_t last_frame_ms = 0U;
+#define RADAR_WATCHDOG_MS   (1000U)
+
+/*******************************************************************************
+* Function Name: radar_restart
+********************************************************************************
+* Summary:
+*  IBUKI: recover from a FIFO overflow or a stalled radar. Aborts any SPI transfer,
+*  stops chirps, clears the sensor FIFO and our ring buffer, and starts frames again,
+*  so the next data starts on a frame boundary. Reports "S,t_ms,<why> 0x<status>".
+*******************************************************************************/
+static void radar_restart(const char* why)
+{
+    xensiv_bgt60trxx_t* dev = &radar.bgt60_obj.dev;
+
+    Cy_SCB_SPI_AbortTransfer(RADAR_SPI_CONTROLLER_HW, &SPI_context);
+    xensiv_bgt60trxx_platform_spi_cs_set(dev->iface, true);
+    sp_state = IDLE;
+
+    int32_t status = xensiv_bgt60trxx_start_frame(dev, false);
+    if (status == XENSIV_BGT60TRXX_STATUS_OK)
+    {
+        status = xensiv_bgt60trxx_soft_reset(dev, XENSIV_BGT60TRXX_RESET_FIFO);
+    }
+    bgt60_ring_next_to_write = 0;
+    bgt60_ring_next_to_read = 0;
+    bgt60_ring_level = 0;
+    ibuki_reset_frames();
+    if (status == XENSIV_BGT60TRXX_STATUS_OK)
+    {
+        status = xensiv_bgt60trxx_start_frame(dev, true);
+    }
+    ibuki_status_code(why, (uint32_t)status);
+    last_frame_ms = ibuki_millis();
+}
 
 /*******************************************************************************
 * Function Name: mSPI_Interrupt
@@ -286,6 +323,16 @@ cy_rslt_t radar_data_process(void)
     {
         radar.have_data = false;
 
+        /* IBUKI: after an overflow this block may not start on a frame boundary. Throw it
+         * away and restart cleanly instead of sending shifted data. SPI is idle here. */
+        uint32_t fifo_status = 0U;
+        if ((xensiv_bgt60trxx_get_fifo_status(p_device, &fifo_status) == XENSIV_BGT60TRXX_STATUS_OK) &&
+            ((fifo_status & XENSIV_BGT60TRXX_REG_FSTAT_FOF_ERR_MSK) != 0U))
+        {
+            radar_restart("radar restart: fifo overflow");
+            return 0;
+        }
+
 /*********************************************************************************
 **  Data copying is now made as a 32-bit data copying to reduce the number of
 **  clock cycles needed.
@@ -318,6 +365,7 @@ cy_rslt_t radar_data_process(void)
             /* IBUKI: range FFT per chirp; sends a D line every IBUKI_FRAMES_PER_LINE frames.
              * The radar keeps running (no stop/start per frame) so frames stay evenly spaced. */
             ibuki_on_frame(radar.bgt60_send_buffer);
+            last_frame_ms = ibuki_millis();
         }
     }
     return 0;
@@ -449,6 +497,7 @@ cy_rslt_t radar_init(void)
     {
         ibuki_status_code("radar start frame error", (uint32_t)status);
     }
+    last_frame_ms = ibuki_millis(); /* IBUKI: watchdog starts now */
 
     return CY_RSLT_SUCCESS;
 
@@ -601,5 +650,14 @@ static void cm55_ml_deepcraft_task(void)
         radar_data_process();
         /* C line every 5 s, L lines from the PC, B line on the user button. */
         ibuki_poll();
+        if (ibuki_take_restart_request())
+        {
+            radar_restart("radar restart: requested");
+        }
+        /* IBUKI watchdog: a frame normally arrives every 30 ms. */
+        if ((ibuki_millis() - last_frame_ms) > RADAR_WATCHDOG_MS)
+        {
+            radar_restart("radar restart: no frames for 1 s");
+        }
     }
 }
