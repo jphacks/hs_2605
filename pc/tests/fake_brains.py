@@ -30,6 +30,30 @@ class AlertBrain:
         return out
 
 
+class StoryBrain:
+    """Baby story by D-line count: awake, woke-up info, left the bed (alert), back asleep."""
+
+    name = "story-test"
+
+    def __init__(self):
+        self.d = 0
+
+    def feed(self, line):
+        if not line.startswith("D,"):
+            return []
+        self.d += 1
+        d, out = self.d, []
+        if d == 20:
+            out.append({"type": "info", "reason": "woke_up"})
+        if d == 30:
+            out.append({"type": "alert", "reason": "left_bed"})
+        if d % 2 == 0:
+            state = "OK" if d < 30 else "EMPTY" if d < 60 else "STILL"
+            out.append({"t": d * 60, "state": state, "bpm": None, "disp_mm": [], "motion": 1.0,
+                        "present": state != "EMPTY", "chest_cm": 48.75})
+        return out
+
+
 class CrashBrain:
     name = "crash-test"
 

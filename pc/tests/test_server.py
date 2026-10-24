@@ -108,11 +108,51 @@ class ServerTest(unittest.TestCase):
             s.stop()
         self.assertIn({"type": "alert", "reason": "no_breath", "since_s": 10}, msgs)
         self.assertIn("ALERT", [m.get("state") for m in msgs])
-        self.assertIn("would send to board: L,1", s.output)
+        self.assertEqual(s.output.count("would send to board: L,1"), 1)  # once, not per status
         self.assertIn("would send to board: L,0", s.output)
-        self.assertIn("ntfy: not sent (failed", s.output)
+        self.assertIn("ntfy [no_breath, priority 5]: not sent (failed", s.output)
         self.assertTrue(alive["ntfy"])
+        self.assertFalse(alive["led_on"])
         self.assertFalse(test_push["ok"])
+
+    def test_woke_up_is_info_left_bed_is_alert(self):
+        env = {"IBUKI_NTFY_TOPIC": "ibuki-test", "IBUKI_NTFY_URL": "http://127.0.0.1:9"}
+        s = ServerRun(self.recording, "tests.fake_brains:StoryBrain", env)
+        try:
+            msgs = s.messages(2.5)
+        finally:
+            s.stop()
+        out = s.output
+        self.assertIn({"type": "info", "reason": "woke_up"}, msgs)
+        self.assertIn({"type": "alert", "reason": "left_bed"}, msgs)
+        self.assertIn("ntfy [woke_up, priority 2]: not sent", out)  # low: arrives silently
+        self.assertIn("ntfy [left_bed, priority 4]: not sent", out)  # high: time sensitive
+        led_on = out.index("would send to board: L,1")
+        self.assertLess(out.index("INFO event"), led_on)  # woke up: no LED
+        self.assertLess(out.index("'reason': 'left_bed'"), led_on)  # left bed: LED on
+        self.assertGreater(out.index("would send to board: L,0"), led_on)  # back in bed: off
+
+    def test_message_texts(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from ibuki.server import Notifier
+
+        self.assertEqual(Notifier.message_for({"reason": "no_breath", "since_s": 20}),
+                         "赤ちゃんの呼吸が確認できません（20秒）")
+        self.assertEqual(Notifier.message_for({"reason": "left_bed"}), "赤ちゃんがベッドにいません")
+        self.assertEqual(Notifier.message_for({"reason": "woke_up"}), "赤ちゃんが起きたようです")
+        self.assertEqual(Notifier.message_for({"reason": "fast_breathing", "bpm": 62.4}),
+                         "赤ちゃんの呼吸がいつもより速いようです（1分に62回）")
+
+    def test_urgency_levels(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from ibuki.server import Notifier
+
+        self.assertEqual(Notifier.level_for({"reason": "no_breath"}, True), (5, "rotating_light"))
+        self.assertEqual(Notifier.level_for({"reason": "left_bed"}, True), (4, "warning"))
+        self.assertEqual(Notifier.level_for({"reason": "fast_breathing"}, False), (4, "warning"))
+        self.assertEqual(Notifier.level_for({"reason": "woke_up"}, False), (2, "baby"))
+        self.assertEqual(Notifier.level_for({"reason": "something_new"}, True), (5, "warning"))
+        self.assertEqual(Notifier.level_for({"reason": "something_new"}, False), (3, "baby"))
 
     def test_raw_lines_stream(self):
         s = ServerRun(self.recording, "placeholder")

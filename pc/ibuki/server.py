@@ -15,9 +15,11 @@ Endpoints (port 8000, also reachable from phones on the same Wi-Fi at http://<la
 
 Messages on /ws:
   Brain status   {"t", "state", "bpm", "disp_mm", "motion", "present", "chest_cm", ...}
-  Brain event    {"type": "alert", "reason": "no_breath", "since_s": 10}
+  Brain alert    {"type": "alert", "reason": "no_breath"|"left_bed", ...}   -> LED red + urgent push
+  Brain info     {"type": "info", "reason": "woke_up"|"fast_breathing", ...} -> normal push, no LED
   Board state    {"type": "board", "connected": true|false}
 A client may send {"type": "button"} to act like the board's user button (B,1).
+The LED goes off when a status says OK or STILL again, or when the button is pressed.
 
 Notifications: put IBUKI_NTFY_TOPIC=<topic> in <repo>/.env (git-ignored, never commit it) or set
 it in the shell. If ntfy fails (no internet), the LED and dashboard alert keep working.
@@ -48,8 +50,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from ibuki.placeholder_brain import PlaceholderBrain  # noqa: E402
-from ibuki.serial_reader import (BoardLink, Data, FileReplay, SeqTracker, Status,  # noqa: E402
-                                 parse_line)
+from ibuki.serial_reader import (BoardLink, Button, Data, FileReplay, SeqTracker,  # noqa: E402
+                                 Status, parse_line)
 
 DEFAULT_BRAINS = ["ibuki.brain:Brain", "ibuki.states:Brain", "ibuki.processing:Brain"]
 
@@ -100,23 +102,49 @@ class Notifier:
     def enabled(self) -> bool:
         return bool(self.topic)
 
+    # Seconds between two pushes for the same reason (a baby waking up and dozing off again
+    # should not buzz the phone every minute).
+    MIN_INTERVAL_S = {"woke_up": 300.0}
+
+    # reason -> (ntfy priority, tag shown as an icon). On the iPhone, 5 (urgent) and 4 (high)
+    # arrive as Time Sensitive and can break through Focus; 2 (low) arrives silently.
+    LEVELS = {
+        "no_breath": (5, "rotating_light"),
+        "left_bed": (4, "warning"),
+        "fast_breathing": (4, "warning"),
+        "woke_up": (2, "baby"),
+    }
+
+    @classmethod
+    def level_for(cls, event: dict, urgent: bool) -> tuple[int, str]:
+        default = (5, "warning") if urgent else (3, "baby")
+        return cls.LEVELS.get(str(event.get("reason")), default)
+
     @staticmethod
     def message_for(event: dict) -> str:
-        reason, since = event.get("reason"), event.get("since_s")
+        reason, since, bpm = event.get("reason"), event.get("since_s"), event.get("bpm")
         if reason == "no_breath":
             return "赤ちゃんの呼吸が確認できません" + (f"（{since}秒）" if since else "")
+        if reason == "left_bed":
+            return "赤ちゃんがベッドにいません"
+        if reason == "woke_up":
+            return "赤ちゃんが起きたようです"
+        if reason == "fast_breathing":
+            return "赤ちゃんの呼吸がいつもより速いようです" + (f"（1分に{round(bpm)}回）" if bpm else "")
         return f"赤ちゃんの様子を確認してください（{reason}）"
 
-    def send(self, title: str, message: str, key: str = "", force: bool = False) -> tuple[bool, str]:
+    def send(self, title: str, message: str, key: str = "", force: bool = False,
+             priority: int = 5, tag: str = "warning") -> tuple[bool, str]:
         if not self.enabled:
             return False, "ntfy disabled (set IBUKI_NTFY_TOPIC)"
         now = time.time()
-        if not force and key and now - self.last_sent.get(key, 0.0) < self.min_interval_s:
+        wait = self.MIN_INTERVAL_S.get(key, self.min_interval_s)
+        if not force and key and now - self.last_sent.get(key, 0.0) < wait:
             return False, "skipped (sent recently)"
         try:
             r = requests.post(self.url, json={"topic": self.topic, "title": title,
-                                              "message": message, "priority": 5,
-                                              "tags": ["warning"]}, timeout=5)
+                                              "message": message, "priority": priority,
+                                              "tags": [tag]}, timeout=5)
             ok = r.status_code < 300
             if ok and key:
                 self.last_sent[key] = now
@@ -142,6 +170,7 @@ class Hub:
         self.loop: asyncio.AbstractEventLoop | None = None
         self.queue: asyncio.Queue | None = None
         self.brain_errors = 0
+        self.led_on = False
         self.lines = 0
 
     # called from the board thread
@@ -157,6 +186,8 @@ class Hub:
             if kind == "board":
                 self.board_connected = value
                 log("board connected" if value else "board DISCONNECTED (waiting to reconnect)")
+                if value and self.led_on:
+                    self.set_led(True, force=True)  # a replugged board forgets its LED
                 await self.broadcast({"type": "board", "connected": value})
             else:
                 await self.handle_line(value)
@@ -175,6 +206,9 @@ class Hub:
                 log(f"lost {lost} line(s) from the board")
             elif lost < 0:
                 log("board restarted")
+        elif isinstance(m, Button):
+            log("button pressed (B,1)")
+            self.set_led(False)  # a parent saw it: acknowledge
         elif isinstance(m, Status):
             self.last_board_status = m.text
             log(f"board: {m.text}")
@@ -189,26 +223,35 @@ class Hub:
             await self.handle_output(o)
 
     async def handle_output(self, o: dict):
-        if o.get("type") == "alert":
-            log(f"ALERT event: {o}")
-            self.set_led(True)
-            asyncio.get_running_loop().run_in_executor(None, self._notify, o)
+        kind = o.get("type")
+        if kind in ("alert", "info"):
+            # alert (no_breath, left_bed): LED red + urgent push.
+            # info (woke_up, fast_breathing): normal push only.
+            log(f"{kind.upper()} event: {o}")
+            if kind == "alert":
+                self.set_led(True)
+            asyncio.get_running_loop().run_in_executor(None, self._notify, o, kind == "alert")
         elif "state" in o:
             self.latest = o
             state = o["state"]
             if state == "ALERT" and self.last_state != "ALERT":
                 self.set_led(True)
-            elif state != "ALERT" and self.last_state == "ALERT":
-                self.set_led(False)
+            elif state in ("OK", "STILL") and self.led_on:
+                self.set_led(False)  # the baby is there and fine again
             self.last_state = state
         await self.broadcast(o)
 
-    def _notify(self, event: dict):
-        ok, info = self.notifier.send("IBUKI", Notifier.message_for(event),
-                                      key=str(event.get("reason")))
-        log(f"ntfy: {'sent' if ok else 'not sent'} ({info})")
+    def _notify(self, event: dict, urgent: bool = True):
+        reason = str(event.get("reason"))
+        priority, tag = Notifier.level_for(event, urgent)
+        ok, info = self.notifier.send("IBUKI", Notifier.message_for(event), key=reason,
+                                      priority=priority, tag=tag)
+        log(f"ntfy [{reason}, priority {priority}]: {'sent' if ok else 'not sent'} ({info})")
 
-    def set_led(self, on: bool):
+    def set_led(self, on: bool, force: bool = False):
+        if on == self.led_on and not force:
+            return
+        self.led_on = on
         cmd = "L,1" if on else "L,0"
         sent = self.source.send(cmd) if self.source else False
         log(f"LED {'red ON' if on else 'off'} ({cmd}{'' if sent else ', board not connected'})")
@@ -239,6 +282,7 @@ class Hub:
             "seq": {"lost": self.seq.lost, "gaps": self.seq.gaps, "resets": self.seq.resets},
             "last_board_status": self.last_board_status,
             "brain_errors": self.brain_errors,
+            "led_on": self.led_on,
             "ntfy": self.notifier.enabled,
         }
 
@@ -279,7 +323,8 @@ def create_app(args) -> FastAPI:
 
     @app.post("/api/test-notification")
     def test_notification():
-        ok, info = notifier.send("IBUKI", "テスト通知です（IBUKI）", force=True)
+        ok, info = notifier.send("IBUKI", "テスト通知です（IBUKI）", force=True, priority=3,
+                                 tag="white_check_mark")
         log(f"test notification: {'sent' if ok else 'not sent'} ({info})")
         return {"ok": ok, "info": info}
 
