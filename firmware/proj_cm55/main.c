@@ -516,15 +516,15 @@ static void spi_set_data_width(CySCB_Type* base, uint32_t data_width)
 *******************************************************************************/
 static void load_presets()
 {
-    radar_configs.start_freq =            P0_XENSIV_BGT60TRXX_CONF_START_FREQ_HZ;
-    radar_configs.end_freq =              P0_XENSIV_BGT60TRXX_CONF_END_FREQ_HZ;
-    radar_configs.samples_per_chirp =     P0_XENSIV_BGT60TRXX_CONF_NUM_SAMPLES_PER_CHIRP;
-    radar_configs.chirps_per_frame =      P0_XENSIV_BGT60TRXX_CONF_NUM_CHIRPS_PER_FRAME;
-    radar_configs.rx_antennas =           P0_XENSIV_BGT60TRXX_CONF_NUM_RX_ANTENNAS;
-    radar_configs.tx_antennas =           P0_XENSIV_BGT60TRXX_CONF_NUM_TX_ANTENNAS;
-    radar_configs.sample_rate =           P0_XENSIV_BGT60TRXX_CONF_SAMPLE_RATE;
-    radar_configs.chirp_repetition_time = P0_XENSIV_BGT60TRXX_CONF_CHIRP_REPETITION_TIME_S;
-    radar_configs.frame_repetition_time = P0_XENSIV_BGT60TRXX_CONF_FRAME_REPETITION_TIME_S;
+    radar_configs.start_freq =            P1_XENSIV_BGT60TRXX_CONF_START_FREQ_HZ;
+    radar_configs.end_freq =              P1_XENSIV_BGT60TRXX_CONF_END_FREQ_HZ;
+    radar_configs.samples_per_chirp =     P1_XENSIV_BGT60TRXX_CONF_NUM_SAMPLES_PER_CHIRP;
+    radar_configs.chirps_per_frame =      P1_XENSIV_BGT60TRXX_CONF_NUM_CHIRPS_PER_FRAME;
+    radar_configs.rx_antennas =           P1_XENSIV_BGT60TRXX_CONF_NUM_RX_ANTENNAS;
+    radar_configs.tx_antennas =           P1_XENSIV_BGT60TRXX_CONF_NUM_TX_ANTENNAS;
+    radar_configs.sample_rate =           P1_XENSIV_BGT60TRXX_CONF_SAMPLE_RATE;
+    radar_configs.chirp_repetition_time = P1_XENSIV_BGT60TRXX_CONF_CHIRP_REPETITION_TIME_S;
+    radar_configs.frame_repetition_time = P1_XENSIV_BGT60TRXX_CONF_FRAME_REPETITION_TIME_S;
 
     radar_configs.frame_rate = (int)(0.5 + 1.0/radar_configs.frame_repetition_time);
     radar_configs.num_samples_per_frame =
@@ -534,8 +534,8 @@ static void load_presets()
 
     radar_configs.fifo_int_level = DEFAULT_FIFO_SETTING; /* This will equal 75% of the fifo. 12288 samples */
 
-    radar_configs.number_of_regs = P0_XENSIV_BGT60TRXX_CONF_NUM_REGS;
-    radar_configs.register_list = register_list_p0;
+    radar_configs.number_of_regs = P1_XENSIV_BGT60TRXX_CONF_NUM_REGS;
+    radar_configs.register_list = register_list_p1;
 
 }
 
