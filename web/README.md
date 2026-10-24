@@ -1,10 +1,12 @@
-# IBUKI Web — DEMO / LIVE
+# IBUKI Web — DEMO / team-server LIVE
 
-React + TypeScript + Vite + Recharts. Default mode is DEMO. LIVE receives statuses from `ws://localhost:8000/ws`. The existing server is `pc/ibuki/server.py` on `origin/main`; its code and `pc/README.md` were inspected read-only after fetching. They have not been merged into this checkout. There is no separate `gateway/`. The dashboard sends no phone notifications and implements no diagnostic rules, infant alert thresholds, or SIDS prevention capability.
+React + TypeScript + Vite + Recharts. Uses the existing `pc/ibuki/server.py` at `/ws` and `/api/health`; no separate Python gateway. This branch may not yet contain `pc/`: the integration tools below run an unchanged, fetched Git snapshot in an owned temporary directory, without merging or modifying `pc/` or `firmware/`.
 
-## Local use
+No medical judgement, infant thresholds, SIDS prevention capability, phone requests, or device commands are implemented in the web client. The team server has notification capabilities; the integration tools explicitly disable them and select the non-alerting placeholder.
 
-Requires Node.js 20.19+ or 22.12+.
+## Local development
+
+Node.js 22.12+ recommended (22+ required for the native-WebSocket integration checker).
 
 ```sh
 cd web
@@ -12,90 +14,93 @@ npm install
 npm run dev
 ```
 
-Open Vite's printed URL (normally http://127.0.0.1:5173).
+Open Vite's printed URL, normally http://127.0.0.1:5173. Default DEMO runs independently with all five scene controls and simulation labels. Select LIVE to subscribe to the team server. Mode changes close sockets, abort health requests, cancel timers, and clear prior readings/events/history.
+
+Vite proxies `/ws` and `/api` to the laptop's `127.0.0.1:8000`. Production uses the page's host and port: the team server serves `web/dist` after `npm run build`. Phones opening `http://<laptop>:8000/` connect to that laptop, not their own localhost. For Vite on another device, start it with `npm run dev -- --host 0.0.0.0`.
+
+Optional build/dev configuration:
+
+- `VITE_LIVE_WS_URL`: full WebSocket URL or relative `/ws`; default `/ws` on the page origin, using `wss` for HTTPS.
+- `VITE_LIVE_HEALTH_URL`: health URL override; default `/api/health` on the WebSocket server's HTTP(S) origin.
+- `VITE_LIVE_SAMPLE_INTERVAL_MS`: positive fallback sample spacing only when a status omits `dt_ms`. Otherwise timing is estimated from consecutive batches. No live 20 Hz assumption.
+
+Restart Vite or rebuild after setting variables. Prefer the default same-origin proxy: a cross-origin health URL requires server CORS support, which the current team server does not configure. Health failure is handled as unverified provenance; it does not crash the page or replace readings with mocks.
+
+## Team messages
+
+```json
+{"t":123456,"state":"OK","bpm":null,"disp_mm":[0.12,0.15],"dt_ms":60,"motion":12.5,"present":true,"source":"placeholder","shaking":false,"chest_cm":48.75}
+```
+
+The six core fields remain `t`, `disp_mm`, `bpm`, `motion`, `present`, `state`; there are no new mandatory keys. Optional `dt_ms`, `source`, `shaking` are read directly from the existing server; other fields are safely ignored. `bpm` may be null. The five states are EMPTY, OK, STILL, CHECK, ALERT. Array length is bounded at 4096; empty arrays are valid. Nonfinite numbers, wrong core types, invalid optional-field types, or invalid states are rejected without crashing.
+
+- **Time:** `t` is milliseconds since the board/replay start, marking the newest sample. Point `i` of `n` is at `t - (n - 1 - i) * dt_ms`. This matches `pc/README.md` and the placeholder implementation. The roles PDF's seconds-like `t:76.6` example is older/ambiguous; a future Brain must preserve ms or agree a change explicitly. No magnitude guessing occurs.
+- **Interval priority:** per-message `dt_ms` → positive frontend fallback → estimated `(current.t - previous.t) / n`. Estimation waits for two reliable batches and is visibly labeled. Only new samples are expected, oldest first; rolling windows would duplicate data.
+- **Empty/shaking:** `disp_mm: []` clears waveform history. `shaking: true` hides/clears the wave even if samples are present and shows an unreliable/unavailable notice, never a no-breathing judgement. No zero samples are fabricated. BPM is also hidden while the wave is unavailable.
+- **Placeholder:** status `source: "placeholder"` or health `brain: "placeholder"` is visibly labeled provisional processing, never a breathing verdict. BPM is always hidden even if a malformed producer supplies a numeric value. Placeholder input can be board or replay; it is not automatically simulated input.
+
+Separate messages:
+
+```json
+{"type":"alert","reason":"no_breath","since_s":10}
+{"type":"board","connected":false}
+```
+
+Alert events are displayed as records, not substituted for status. Board input connection is independent from WebSocket connection. Board false immediately hides readings and clears the waveform generation; reconnect waits for advancing timestamps. Board events do not refresh the status freshness timer. Unsupported events, including `type: "source"`, are ignored safely; no custom provenance envelope is required.
+
+## Freshness, source and cleanup
+
+- WebSocket connecting/connected/disconnected/stale states remain visible. Closed sockets retry with a 1/2/4/8/10-second capped backoff. Only a valid status resets the 3-second stale timer; valid empty-sample statuses still count as activity. The timer is transport freshness, not a medical threshold.
+- The server initially sends cached `hub.latest`; LIVE waits for two statuses with progressing `t` before displaying current values. Stale/disconnected, a board disconnect, and a mode change hide values and reset history. A clock restart or gap clears waveform continuity.
+- `/api/health` is polled without overlap every three seconds after completion, with a two-second request timeout and abort on cleanup. `source: BoardLink` is labeled board input (accuracy unverified); `FileReplay` is labeled **recording replay, not live measurement**. Failed/invalid health responses clear provenance to unknown. The WebSocket board event is authoritative for input connection; health board state is not substituted for it.
+- Polling means provenance changes may take one polling cycle to appear. The protocol does not attest accuracy or the true origin of replay files. No verified-breathing claim is made from a successful socket/health request.
+- DEMO's 16.2 BPM and movement cutoff are illustrative only. LIVE never applies that movement cutoff and only displays the received motion index.
+
+## Tests and browser verification without merging pc/
+
+From the repository root, prepare the team's Python dependencies in a virtual environment:
+
+```powershell
+# Windows
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install fastapi uvicorn numpy requests python-dotenv pyserial websockets
+.\.venv\Scripts\python.exe web/scripts/test_pc_integration.py
+```
 
 ```sh
+# macOS
+python3 -m venv .venv
+./.venv/bin/python -m pip install fastapi uvicorn numpy requests python-dotenv pyserial websockets
+./.venv/bin/python web/scripts/test_pc_integration.py
+```
+
+The tool reads the already fetched `origin/main` (`--ref` is configurable) with `git show`, copies its actual `pc/` code into a temporary folder, and starts that original server on an ephemeral local port. It prefers a local `recordings/*.csv` or `--replay path.csv`; if none exists, it creates a clearly identified **synthetic replay** using the team's unchanged `pc/tests/synth.py` fixture. It does not create another server implementation. The native TypeScript client receives actual statuses/board events and checks placeholder, replay, timing and waveform; the synthetic test additionally checks shaking and empty samples. All child processes/temporary files are owned by the test and cleaned up on exit. It requires no serial device and sends no client commands. Environment-file loading is disabled and the ntfy topic is explicitly empty.
+
+For browser QA on this branch, build once, then keep that unchanged server snapshot running:
+
+```powershell
+cd web
+npm run build
+cd ..
+.\.venv\Scripts\python.exe web/scripts/test_pc_integration.py --serve
+```
+
+On macOS replace the interpreter with `./.venv/bin/python`. Open **http://127.0.0.1:8000**, select **LIVE**, and confirm `録画再生`, `暫定処理`, `placeholder`, BPM `—`, waveform after learning, and unavailable-wave notices during shaking. The synthetic fixture loops, so transitions repeat. Stop with Ctrl+C. Alternatively leave the snapshot server running and use `npm run dev` for the Vite proxy. Real sensor integration remains separate from synthetic replay verification.
+
+After `pc/` is available in the working tree through the team's normal review process, run the existing server directly (no test snapshot needed), for example:
+
+```sh
+python pc/ibuki/server.py --brain placeholder --replay recordings/your-file.csv --loop
+```
+
+Consult `pc/README.md` for real server setup and notification configuration. The web never calls `/api/test-notification` or sends `type: button`.
+
+Frontend checks:
+
+```sh
+cd web
 npm test
 npm run build
-npm run preview
 ```
 
-DEMO retains five manually selectable states. LIVE has no scenario controls and never falls back to mock data. Switching modes resets readings/history/events and closes the prior subscription. LIVE denotes server receipt, **not verified sensor provenance**. The pending web changes support an optional `type: source` envelope, but the existing PC server does not emit that envelope. With that server, this pending UI currently shows source as unverified. BrainStatus fields are unchanged.
-
-## Data boundary
-
-- `src/data/status.ts`: unchanged dashboard-local mirror of `BrainStatus` / `StatusSource`. The shared protocol is untouched.
-- `src/data/mockSource.ts`: unchanged demo source: 20 Hz, four points every 200 ms.
-- `src/data/webSocketSource.ts`: a `StatusSource` implementation with runtime validation, separate alert callback, reconnection and cleanup.
-- `src/data/waveform.ts` / `src/useDashboard.ts`: bounded 30-second / 4096-point history, configurable or estimated timing.
-- `src/App.tsx`: Japanese mode controls, connection indicator, event display and dashboard.
-- `tests/sources.test.mjs`: deterministic fake-socket/timer tests using Node's test runner; no test server or extra dependencies.
-
-Expected status (unchanged):
-
-```json
-{"t":12345,"disp_mm":[0.81,0.95,1.02,1.07],"bpm":16.2,"motion":120,"present":true,"state":"OK"}
-```
-
-`bpm` can be `null`. States are EMPTY, OK, STILL, CHECK and ALERT. LIVE displays `motion` as a raw received index and does not apply the demo's illustrative movement cutoff. Demo BPM 16.2 is not an infant reference range.
-
-Alert events are routed separately (never interpreted as status):
-
-```json
-{"type":"alert","reason":"no_breath","since_s":10,"t":23456}
-```
-
-For events, `t` is optional. The most recent event is shown as an event record, not a replacement for current Brain state; it resets on reconnection/mode change. Neither mode sends commands, notification requests, or phone alerts.
-
-## Connection behavior
-
-- Connecting → socket open / connected → valid statuses displayed.
-- Socket closed/error → disconnected; retry after 1, 2, 4, 8, then at most 10 seconds. A valid status resets the backoff.
-- Open socket with no valid status for 3 seconds → stale. The deadline starts at socket open and resets only on valid statuses, not malformed traffic or alert events. This is transport freshness, **not a medical timeout**.
-- Disconnected/stale: readings and waveform are hidden. Valid status receipt restores display. Timestamp gaps >3 seconds or a backward/repeated timestamp reset waveform history to avoid misleading connections.
-- Invalid JSON, non-text frames, invalid status/event fields and unknown messages are ignored. Status arrays are capped at 4096 points and text frames at 1 MB as resource bounds, not physiological thresholds.
-- Unsubscribe closes the socket and clears retries/stale timers; late callbacks are ignored, including under React StrictMode.
-
-## Person 2 integration agreement — still required
-
-1. **Timestamp unit:** the inspected PC placeholder emits board `t_ms` as `t`, matching this client's milliseconds (`12345` → 12.345 s). The roles PDF instead shows `t: 76.6`, which appears to be seconds. No magnitude-based guessing/conversion is performed. Confirm the eventual Brain retains millisecond units and document its clock origin/reboot behavior.
-2. **Batch timing:** the client provisionally treats `t` as the last/newest sample timestamp in `disp_mm`, ordered oldest to newest, containing only new samples. Confirm this; a rolling window would duplicate data.
-3. **Sample rate is not 20 Hz by assumption.** Merged firmware reports ~16.6 D lines/s. Brain can emit a different/resampled cadence. Without a configured sample interval, live chart spacing is estimated as `(current.t - previous.t) / current.disp_mm.length`. The first batch waits for the next timestamp; estimates may be distorted by missing batches or changing batching, and are labeled as estimates.
-4. Once the Brain output sample interval is agreed, set the frontend-only `VITE_LIVE_SAMPLE_INTERVAL_MS` to that positive interval and restart Vite (or rebuild). For example, in PowerShell, **only if 60 ms is agreed**:
-
-   ```powershell
-   $env:VITE_LIVE_SAMPLE_INTERVAL_MS = '60'
-   npm run dev
-   ```
-
-   Leave unset to estimate; invalid/nonpositive values also fall back to estimation. This setting never changes the wire protocol. Clear the variable with `Remove-Item Env:VITE_LIVE_SAMPLE_INTERVAL_MS` when finished.
-5. Reuse `pc/ibuki/server.py`; it already owns the board connection, calls `Brain.feed(line)`, and forwards statuses/events. The server also exposes `/api/health`, `/api/status`, and `/ws/raw`. Do not implement a parallel server. A connected WebSocket alone does not prove a working sensor.
-
-## Existing PC server: pending web integration adjustments
-
-The uncommitted web edits remain available for review. This cleanup does **not** claim that the following adaptations are implemented:
-
-- Read optional `dt_ms` directly from each status and use it for sample placement (`t - (n - 1 - i) * dt_ms`). The current interval handling uses a frontend override, optional source envelope, or timestamp estimation; it ignores the PC server's `dt_ms`.
-- Accept `disp_mm: []` as a valid status with unavailable waveform. The placeholder uses this while learning or when `shaking: true`. The current committed validator rejects empty arrays, so it can incorrectly turn these updates into stale data. Do not substitute a flat zero line.
-- Surface status `source: "placeholder"` and `shaking` explicitly. Placeholder means provisional processing of board/replay input, not automatically simulated input or a real breathing verdict. It always returns `bpm: null` and never emits alerts. The pending `type: source` support is an optional extension, not a requirement of the existing PC server.
-- Handle `{ "type": "board", "connected": false }` separately from WebSocket connection state. The current client ignores it. Clear/hide stale sensor values promptly on board disconnection instead of relying only on the three-second transport timer.
-- Determine board versus replay input through `/api/health` (`source` is `BoardLink` or `FileReplay`; `brain` identifies the processor). Replay must be visibly labeled. The initial WebSocket status may be cached; do not present it as a newly measured sensor sample without freshness/source checks.
-- For access from another phone/computer, derive the WebSocket host from the page or provide an explicit URL setting. The current hardcoded `localhost` points to that other device, not the laptop serving the page. Keep `/ws/raw` out of the status parser.
-- The PC server can send ntfy notifications when configured. The web currently invokes neither notification endpoints nor button commands. Do not add automatic calls to `/api/test-notification` or `{ "type": "button" }` during review/demo. Those have side effects.
-
-These differences were established by reading `origin/main:pc/ibuki/server.py`, `placeholder_brain.py`, and `pc/README.md`, without checking them out or modifying `pc/` or `firmware/`.
-
-## Verification
-
-`npm test` covers status validation, alert separation, stale traffic, reconnect/backoff, constructor failures, cleanup/late callbacks, waveform timing/reset/history bounds, and all five demo states. `npm run build` checks TypeScript and production bundling.
-
-Manual checks (use the existing PC server after its changes are reviewed and merged separately):
-
-1. In DEMO select every state; check waveform, BPM, motion, presence and simulation labels.
-2. Switch to LIVE with no server: connecting/disconnected, blank readings, no mock waveform. Switch back: demo works again.
-3. With the agreed server, send the example JSON with increasing millisecond `t`; verify received values and waveform. First two batches are required when timing is estimated.
-4. Send invalid JSON, invalid status fields and alert events: no crash, no status replacement by events.
-5. Pause valid statuses for >3 seconds: stale and blank readings, even if alert/invalid traffic continues. Resume to recover.
-6. Stop/restart the server: automatic reconnect, no readings before a valid status arrives. Repeated mode switches should not leave open sockets/timers. Check mobile and keyboard controls.
-
-The retained optional source-envelope test uses a fake socket and has no Python dependency. Changing optional metadata does not reconnect the socket. The duplicate Python server and its exclusive smoke script have been removed. Actual PC-server integration and browser visual QA remain separate from the passing frontend unit tests/build.
+Unit tests cover core/optional status validation, empty/shaking/disconnected/placeholder behavior, dt_ms timing, fallback estimation, endpoint derivation, health failures/cleanup, ignored events, alert routing, retries, stale data and DEMO states. The integration checker uses the same TypeScript source over a real socket; it is not browser visual QA.

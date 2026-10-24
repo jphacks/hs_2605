@@ -2,32 +2,28 @@ import type { BrainStatus, StatusSource } from './status';
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'stale';
 export interface AlertEvent { type: 'alert'; reason: string; since_s: number; t?: number }
-// Optional gateway envelope; leaves BrainStatus and alert fields unchanged.
-export interface SourceInfo { type: 'source'; name: string; simulated: boolean; timestamp_unit: 'ms'; sample_interval_ms: number | null }
 export interface LiveOptions {
   url?: string;
   staleAfterMs?: number;
   onConnection?: (state: ConnectionState) => void;
   onAlert?: (event: AlertEvent) => void;
-  onSource?: (source: SourceInfo) => void;
+  onBoard?: (connected: boolean) => void;
 }
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 export function isBrainStatus(v: unknown): v is BrainStatus {
   return record(v) && !('type' in v) && finite(v.t) && v.t >= 0 &&
-    Array.isArray(v.disp_mm) && v.disp_mm.length > 0 && v.disp_mm.length <= 4096 && v.disp_mm.every(finite) &&
+    Array.isArray(v.disp_mm) && v.disp_mm.length <= 4096 && v.disp_mm.every(finite) &&
     (v.bpm === null || finite(v.bpm) && v.bpm >= 0) && finite(v.motion) &&
     typeof v.present === 'boolean' && typeof v.state === 'string' &&
-    ['EMPTY', 'OK', 'STILL', 'CHECK', 'ALERT'].includes(v.state);
+    ['EMPTY', 'OK', 'STILL', 'CHECK', 'ALERT'].includes(v.state) &&
+    (v.dt_ms === undefined || finite(v.dt_ms) && v.dt_ms > 0) &&
+    (v.source === undefined || typeof v.source === 'string') &&
+    (v.shaking === undefined || typeof v.shaking === 'boolean');
 }
 function isAlert(v: unknown): v is AlertEvent {
   return record(v) && v.type === 'alert' && typeof v.reason === 'string' && v.reason.length <= 256 &&
     finite(v.since_s) && v.since_s >= 0 && (v.t === undefined || finite(v.t) && v.t >= 0);
-}
-function isSource(v: unknown): v is SourceInfo {
-  return record(v) && v.type === 'source' && typeof v.name === 'string' && v.name.length > 0 && v.name.length <= 128 &&
-    typeof v.simulated === 'boolean' && v.timestamp_unit === 'ms' &&
-    (v.sample_interval_ms === null || finite(v.sample_interval_ms) && v.sample_interval_ms > 0);
 }
 
 // A subscription owns its socket and timers; teardown is safe under React StrictMode.
@@ -54,7 +50,11 @@ export function createWebSocketSource(options: LiveOptions = {}): StatusSource {
     function connect() {
       if (stopped) return;
       options.onConnection?.('connecting');
-      try { socket = new WebSocket(options.url ?? 'ws://localhost:8000/ws'); }
+      try {
+        const defaultUrl = new URL('/ws', globalThis.location?.href ?? 'http://localhost:8000');
+        defaultUrl.protocol = defaultUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        socket = new WebSocket(options.url ?? defaultUrl.href);
+      }
       catch { reconnect(); return; }
       const active = socket;
       const isCurrent = () => !stopped && socket === active;
@@ -74,8 +74,8 @@ export function createWebSocketSource(options: LiveOptions = {}): StatusSource {
           listener(value);
         } else if (isAlert(value)) {
           options.onAlert?.(value); // Events never masquerade as waveform/status updates.
-        } else if (isSource(value)) {
-          options.onSource?.(value); // Source declarations don't refresh status freshness.
+        } else if (record(value) && value.type === 'board' && typeof value.connected === 'boolean') {
+          options.onBoard?.(value.connected); // Does not change WebSocket freshness.
         }
       };
       active.onclose = () => { if (isCurrent()) { socket = undefined; reconnect(); } };

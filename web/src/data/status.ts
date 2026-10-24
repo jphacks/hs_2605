@@ -7,6 +7,9 @@ export interface BrainStatus {
   motion: number;
   present: boolean;
   state: BreathingState;
+  dt_ms?: number;
+  source?: string;
+  shaking?: boolean;
 }
 export interface StatusSource {
   subscribe: (listener: (status: BrainStatus) => void) => () => void;
