@@ -22,7 +22,7 @@ LAMBDA_MM = 5.0  # 60 GHz wavelength, ~4.96 mm
 class PlaceholderBrain:
     name = "placeholder"
 
-    def __init__(self, min_cm: float = 25.0, window_s: float = 20.0, profile_s: float = 3.0,
+    def __init__(self, min_cm: float = 28.0, window_s: float = 20.0, profile_s: float = 3.0,
                  repick_s: float = 5.0, present_level: float = 15.0, status_every: int = 2,
                  highpass_s: float = 8.0):
         self.cfg = Config(15.0, 37.5, 24, 10.0)
