@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1740" viewBox="0 0 760 1740" role="img" aria-label="IBUKI のしくみ">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f8fb"/>
+      <stop offset="1" stop-color="#eaf2f6"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1f2a44" flood-opacity="0.10"/>
+    </filter>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e63946" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#e63946" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      text { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", Meiryo, sans-serif; fill: #1f2a44; }
+      .title { font-size: 40px; font-weight: 700; }
+      .sub { font-size: 19px; fill: #5c677d; }
+      .h { font-size: 24px; font-weight: 700; }
+      .t { font-size: 18px; fill: #3d4a5c; }
+      .s { font-size: 15px; fill: #64748b; }
+      .q { font-size: 18px; font-weight: 600; }
+      .lab { font-size: 15px; font-weight: 600; fill: #64748b; }
+      .num { font-size: 22px; font-weight: 700; fill: #ffffff; }
+      .card { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; }
+      .flow { stroke: #94a3b8; stroke-width: 2.5; fill: none; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="760" height="1740" rx="28" fill="url(#bg)"/>
+
+  <!-- header -->
+  <text x="380" y="72" text-anchor="middle" class="title">IBUKI のしくみ</text>
+  <text x="380" y="112" text-anchor="middle" class="sub">映さない・触れない、赤ちゃんの呼吸の見守り</text>
+
+  <!-- ① radar -->
+  <rect x="40" y="150" width="680" height="300" rx="22" class="card" filter="url(#shadow)"/>
+  <circle cx="84" cy="194" r="22" fill="#2a9d8f"/>
+  <text x="84" y="202" text-anchor="middle" class="num">1</text>
+  <text x="120" y="203" class="h">レーダーがそっと見守る</text>
+  <!-- radar board and waves -->
+  <rect x="268" y="232" width="64" height="34" rx="7" fill="#264653"/>
+  <rect x="290" y="240" width="20" height="18" rx="3" fill="#2a9d8f"/>
+  <path d="M 268 284 Q 300 304 332 284" class="flow" style="stroke:#2a9d8f" opacity="0.9"/>
+  <path d="M 252 296 Q 300 326 348 296" class="flow" style="stroke:#2a9d8f" opacity="0.6"/>
+  <path d="M 236 308 Q 300 348 364 308" class="flow" style="stroke:#2a9d8f" opacity="0.35"/>
+  <!-- crib -->
+  <g stroke="#b6c6d6" stroke-width="5" stroke-linecap="round">
+    <line x1="150" y1="330" x2="450" y2="330"/>
+    <line x1="150" y1="330" x2="150" y2="420"/>
+    <line x1="450" y1="330" x2="450" y2="420"/>
+    <line x1="178" y1="330" x2="178" y2="392"/>
+    <line x1="206" y1="330" x2="206" y2="392"/>
+    <line x1="394" y1="330" x2="394" y2="392"/>
+    <line x1="422" y1="330" x2="422" y2="392"/>
+  </g>
+  <rect x="150" y="392" width="300" height="16" rx="8" fill="#b6c6d6"/>
+  <rect x="166" y="376" width="268" height="18" rx="9" fill="#e9f0f6"/>
+  <circle cx="232" cy="362" r="18" fill="#ffd8b1"/>
+  <rect x="252" y="350" width="160" height="30" rx="15" fill="#a8dadc"/>
+  <text x="575" y="290" text-anchor="middle" class="t">60 GHz の電波で</text>
+  <text x="575" y="318" text-anchor="middle" class="t">胸の数 mm の上下を</text>
+  <text x="575" y="346" text-anchor="middle" class="t">とらえます</text>
+  <text x="575" y="390" text-anchor="middle" class="s">カメラなし・体に何もつけない</text>
+
+  <!-- arrow -->
+  <line x1="380" y1="456" x2="380" y2="482" class="flow" marker-end="url(#arrow)"/>
+
+  <!-- ② board -->
+  <rect x="40" y="490" width="680" height="240" rx="22" class="card" filter="url(#shadow)"/>
+  <circle cx="84" cy="534" r="22" fill="#2a9d8f"/>
+  <text x="84" y="542" text-anchor="middle" class="num">2</text>
+  <text x="120" y="543" class="h">ボードが距離ごとに分ける</text>
+  <!-- range slots -->
+  <g fill="#cbd5e1">
+    <rect x="80" y="664" width="22" height="16" rx="4"/>
+    <rect x="110" y="660" width="22" height="20" rx="4"/>
+    <rect x="140" y="656" width="22" height="24" rx="4"/>
+    <rect x="170" y="650" width="22" height="30" rx="4"/>
+    <rect x="200" y="640" width="22" height="40" rx="4"/>
+    <rect x="260" y="636" width="22" height="44" rx="4"/>
+    <rect x="290" y="650" width="22" height="30" rx="4"/>
+    <rect x="320" y="660" width="22" height="20" rx="4"/>
+    <rect x="350" y="664" width="22" height="16" rx="4"/>
+    <rect x="380" y="666" width="22" height="14" rx="4"/>
+    <rect x="410" y="667" width="22" height="13" rx="4"/>
+  </g>
+  <rect x="230" y="596" width="22" height="84" rx="4" fill="#2a9d8f"/>
+  <text x="241" y="588" text-anchor="middle" class="lab" style="fill:#2a9d8f">胸</text>
+  <line x1="78" y1="686" x2="436" y2="686" stroke="#94a3b8" stroke-width="2"/>
+  <text x="80" y="710" class="s">15 cm</text>
+  <text x="436" y="710" text-anchor="end" class="s">1 m</text>
+  <text x="590" y="612" text-anchor="middle" class="t">3.75 cm ごとに</text>
+  <text x="590" y="640" text-anchor="middle" class="t">反射を分けて</text>
+  <text x="590" y="668" text-anchor="middle" class="t">1 秒に 16 回</text>
+  <text x="590" y="696" text-anchor="middle" class="t">パソコンへ送る</text>
+
+  <!-- arrow -->
+  <line x1="380" y1="736" x2="380" y2="762" class="flow" marker-end="url(#arrow)"/>
+
+  <!-- ③ brain -->
+  <rect x="40" y="770" width="680" height="530" rx="22" class="card" filter="url(#shadow)"/>
+  <circle cx="84" cy="814" r="22" fill="#2a9d8f"/>
+  <text x="84" y="822" text-anchor="middle" class="num">3</text>
+  <text x="120" y="823" class="h">Brain が判断する</text>
+
+  <!-- questions (left) -->
+  <g>
+    <rect x="80" y="852" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="205" y="886" text-anchor="middle" class="q">ベッドにいる？</text>
+    <rect x="80" y="948" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="205" y="982" text-anchor="middle" class="q">動いている？</text>
+    <rect x="80" y="1044" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="205" y="1078" text-anchor="middle" class="q">呼吸の波がある？</text>
+    <rect x="80" y="1140" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="205" y="1174" text-anchor="middle" class="q">そのまま 10 秒？</text>
+  </g>
+  <!-- yes / no down arrows -->
+  <line x1="205" y1="908" x2="205" y2="942" class="flow" marker-end="url(#arrow)"/>
+  <text x="217" y="931" class="lab">はい</text>
+  <line x1="205" y1="1004" x2="205" y2="1038" class="flow" marker-end="url(#arrow)"/>
+  <text x="217" y="1027" class="lab">いいえ</text>
+  <line x1="205" y1="1100" x2="205" y2="1134" class="flow" marker-end="url(#arrow)"/>
+  <text x="217" y="1123" class="lab">いいえ</text>
+  <line x1="205" y1="1196" x2="205" y2="1222" class="flow" marker-end="url(#arrow)"/>
+  <text x="217" y="1215" class="lab">はい</text>
+
+  <!-- outcomes (right) -->
+  <line x1="332" y1="879" x2="424" y2="879" class="flow" marker-end="url(#arrow)"/>
+  <text x="378" y="868" text-anchor="middle" class="lab">いいえ</text>
+  <rect x="430" y="852" width="250" height="54" rx="14" fill="#fde2dc"/>
+  <text x="527" y="886" text-anchor="middle" class="q" style="fill:#b5452b">ベッドにいません</text>
+  <rect x="614" y="866" width="52" height="26" rx="13" fill="#e76f51"/>
+  <text x="640" y="884" text-anchor="middle" class="lab" style="fill:#ffffff">通知</text>
+
+  <line x1="332" y1="975" x2="424" y2="975" class="flow" marker-end="url(#arrow)"/>
+  <text x="378" y="964" text-anchor="middle" class="lab">はい</text>
+  <rect x="430" y="948" width="250" height="54" rx="14" fill="#dbe9f6"/>
+  <text x="555" y="982" text-anchor="middle" class="q" style="fill:#2f5f8a">起きています</text>
+
+  <line x1="332" y1="1071" x2="424" y2="1071" class="flow" marker-end="url(#arrow)"/>
+  <text x="378" y="1060" text-anchor="middle" class="lab">はい</text>
+  <rect x="430" y="1044" width="250" height="54" rx="14" fill="#d8f3ee"/>
+  <text x="555" y="1078" text-anchor="middle" class="q" style="fill:#1f7a6d">眠っています＋呼吸数</text>
+
+  <line x1="332" y1="1167" x2="424" y2="1167" class="flow" marker-end="url(#arrow)"/>
+  <text x="378" y="1156" text-anchor="middle" class="lab">まだ</text>
+  <rect x="430" y="1140" width="250" height="54" rx="14" fill="#fdf0d5"/>
+  <text x="555" y="1174" text-anchor="middle" class="q" style="fill:#a8701d">呼吸を確認中</text>
+
+  <!-- final alert -->
+  <rect x="80" y="1226" width="600" height="54" rx="14" fill="#e76f51"/>
+  <text x="380" y="1260" text-anchor="middle" class="q" style="fill:#ffffff">呼吸が確認できません → 通知</text>
+
+  <!-- ④ notify -->
+  <line x1="380" y1="1306" x2="380" y2="1332" class="flow" marker-end="url(#arrow)"/>
+  <rect x="40" y="1340" width="680" height="300" rx="22" class="card" filter="url(#shadow)"/>
+  <circle cx="84" cy="1384" r="22" fill="#2a9d8f"/>
+  <text x="84" y="1392" text-anchor="middle" class="num">4</text>
+  <text x="120" y="1393" class="h">知らせる</text>
+
+  <!-- dashboard -->
+  <rect x="112" y="1430" width="136" height="88" rx="12" fill="#1f2a44"/>
+  <rect x="122" y="1440" width="116" height="68" rx="6" fill="#f8fafc"/>
+  <path d="M 128 1478 C 140 1458 150 1458 162 1478 S 184 1498 196 1478 S 218 1458 232 1478" fill="none" stroke="#2a9d8f" stroke-width="3"/>
+  <rect x="162" y="1518" width="36" height="10" rx="3" fill="#1f2a44"/>
+  <text x="180" y="1566" text-anchor="middle" class="t">ダッシュボード</text>
+  <text x="180" y="1592" text-anchor="middle" class="s">呼吸の波と状態</text>
+
+  <!-- phone and watch -->
+  <rect x="338" y="1424" width="56" height="104" rx="12" fill="#1f2a44"/>
+  <rect x="344" y="1436" width="44" height="80" rx="6" fill="#f8fafc"/>
+  <rect x="350" y="1450" width="32" height="18" rx="5" fill="#e76f51"/>
+  <rect x="412" y="1446" width="18" height="76" rx="7" fill="#cbd5e1"/>
+  <rect x="404" y="1462" width="34" height="42" rx="10" fill="#1f2a44"/>
+  <rect x="409" y="1467" width="24" height="32" rx="6" fill="#e76f51"/>
+  <text x="385" y="1566" text-anchor="middle" class="t">スマホ・Apple Watch</text>
+  <text x="385" y="1592" text-anchor="middle" class="s">緊急度つきで届く</text>
+
+  <!-- board LED -->
+  <rect x="520" y="1440" width="120" height="76" rx="10" fill="#264653"/>
+  <circle cx="580" cy="1478" r="34" fill="url(#glow)"/>
+  <circle cx="580" cy="1478" r="11" fill="#e63946"/>
+  <circle cx="540" cy="1500" r="4" fill="#9fb3c8"/>
+  <circle cx="620" cy="1458" r="4" fill="#9fb3c8"/>
+  <text x="580" y="1566" text-anchor="middle" class="t">ボードの LED</text>
+  <text x="580" y="1592" text-anchor="middle" class="s">赤く点滅</text>
+
+  <!-- footer -->
+  <text x="380" y="1690" text-anchor="middle" class="s">揺れや動きでは警告しません ・ ハッカソンの試作品で、医療機器ではありません</text>
+</svg>
