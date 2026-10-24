@@ -37,7 +37,7 @@ We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). 
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
 | `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. |
 | `B,1` | board to PC | The user button was pressed. |
-| `L,1` / `L,0` | PC to board | Red LED on or off. |
+| `L,1` / `L,0` | PC to board | Alert: the red LED blinks twice a second (so it stands out from the board's other red lights), or off. |
 | `R,1` | PC to board | Restart the radar. |
 | `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
 
@@ -123,7 +123,7 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | ボードから PC | データ本体。`seq` は 1 行ごとに 1 ずつ増え、`t_ms` は起動からの時間、ビンは近い順、値は整数を `scale` で割ったもの。 |
 | `S,t_ms,text` | ボードから PC | 状態やエラー。例：`S,0,ibuki fw start` |
 | `B,1` | ボードから PC | ユーザーボタンが押された |
-| `L,1` / `L,0` | PC からボード | 赤 LED をつける・消す |
+| `L,1` / `L,0` | PC からボード | 警告：赤 LED が 1 秒に 2 回点滅（ボードの他の赤いランプと区別するため）、または消灯 |
 | `R,1` | PC からボード | レーダーを再起動する |
 | `T,<ms>` | PC からボード | テスト用。ボードを最大 2000 ms 止める |
 
