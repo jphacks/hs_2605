@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib
+import importlib.util
 import json
 import os
 import sys
@@ -72,13 +73,16 @@ def load_brain(spec: str):
     specs = DEFAULT_BRAINS if spec == "auto" else [spec]
     for s in specs:
         mod_name, _, cls_name = s.partition(":")
+        if spec == "auto" and importlib.util.find_spec(mod_name) is None:
+            continue  # that file does not exist (yet)
         try:
             brain = getattr(importlib.import_module(mod_name), cls_name or "Brain")()
             log(f"Brain: {s}")
             return brain
-        except (ImportError, AttributeError) as e:
+        except Exception as e:  # the file exists but is broken: say why, loudly
             if spec != "auto":
-                raise SystemExit(f"cannot load Brain {s}: {e}")
+                raise SystemExit(f"cannot load Brain {s}: {e!r}")
+            log(f"Brain {s} exists but FAILED to load: {e!r}")
     log("Brain: team Brain not found, using the PLACEHOLDER (no bpm, no alerts)")
     return PlaceholderBrain()
 
