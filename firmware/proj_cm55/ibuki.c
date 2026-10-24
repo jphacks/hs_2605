@@ -18,6 +18,7 @@
 #define RX_LINE_MAX (16U)
 #define BTN_DEBOUNCE_MS (30U)
 #define TEST_STALL_MAX_MS (2000U)
+#define LED_BLINK_HALF_MS (250U) /* alert LED: 2 blinks per second */
 
 static arm_rfft_fast_instance_f32 rfft;
 static float hann[IBUKI_SAMPLES_PER_CHIRP];
@@ -153,10 +154,32 @@ static void send_data(void)
 }
 
 /* LED and button */
+static bool alert_on;          /* PC sent L,1: the red LED blinks so it stands out from the */
+static uint32_t blink_last_ms; /* board's other red lights (power, KitProg) */
+static bool blink_lit;
+
 static void led_red(bool on)
 {
     Cy_GPIO_Write(CYBSP_LED_RGB_RED_PORT, CYBSP_LED_RGB_RED_PIN,
                   on ? CYBSP_LED_STATE_ON : CYBSP_LED_STATE_OFF);
+}
+
+static void set_alert(bool on)
+{
+    alert_on = on;
+    blink_lit = on;
+    blink_last_ms = ibuki_millis();
+    led_red(on);
+}
+
+static void poll_blink(uint32_t now)
+{
+    if (alert_on && (now - blink_last_ms) >= LED_BLINK_HALF_MS)
+    {
+        blink_last_ms = now;
+        blink_lit = !blink_lit;
+        led_red(blink_lit);
+    }
 }
 
 static bool button_raw_pressed(void)
@@ -168,11 +191,11 @@ static void handle_rx_line(void)
 {
     if (strcmp(rx_line, "L,1") == 0)
     {
-        led_red(true);
+        set_alert(true);
     }
     else if (strcmp(rx_line, "L,0") == 0)
     {
-        led_red(false);
+        set_alert(false);
     }
     else if (strcmp(rx_line, "R,1") == 0)
     {
@@ -267,7 +290,7 @@ void ibuki_init(void)
     btn_last_raw = button_raw_pressed();
     btn_stable_pressed = btn_last_raw;
     btn_change_ms = 0U;
-    led_red(false);
+    set_alert(false);
 
     ibuki_status("ibuki fw start");
     send_config();
@@ -333,4 +356,5 @@ void ibuki_poll(void)
     }
     poll_uart_rx();
     poll_button(now);
+    poll_blink(now);
 }
