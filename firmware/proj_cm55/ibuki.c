@@ -291,6 +291,13 @@ void ibuki_on_frame(const float* frame)
     }
 }
 
+void ibuki_reset_frames(void)
+{
+    memset(acc_re, 0, sizeof(acc_re));
+    memset(acc_im, 0, sizeof(acc_im));
+    frames_in_acc = 0U;
+}
+
 void ibuki_poll(void)
 {
     uint32_t now = ibuki_millis();
