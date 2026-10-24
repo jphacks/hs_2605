@@ -114,6 +114,23 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(alive["ntfy"])
         self.assertFalse(test_push["ok"])
 
+    def test_raw_lines_stream(self):
+        s = ServerRun(self.recording, "placeholder")
+        try:
+            got = []
+            with connect(f"ws://127.0.0.1:{s.port}/ws/raw") as ws:
+                end = time.time() + 1.5
+                while time.time() < end:
+                    try:
+                        got.append(ws.recv(timeout=0.5))
+                    except TimeoutError:
+                        pass
+        finally:
+            s.stop()
+        d_lines = [g for g in got if g.startswith("D,")]
+        self.assertGreater(len(d_lines), 20)
+        self.assertEqual(len(d_lines[0].split(",")), 3 + 48)
+
     def test_brain_crash_does_not_stop_server(self):
         s = ServerRun(self.recording, "tests.fake_brains:CrashBrain")
         try:

@@ -7,6 +7,7 @@ Run from the repo root:
 
 Endpoints (port 8000, also reachable from phones on the same Wi-Fi at http://<laptop-ip>:8000):
   WS   /ws                     Brain statuses and events as JSON, one message per text frame
+  WS   /ws/raw                 every raw board line (live viewer / recorder use it via --server)
   GET  /api/health             board connection, lost lines, Brain name, clients, ntfy on/off
   GET  /api/status             latest Brain status
   POST /api/test-notification  sends a test push to the phone
@@ -127,6 +128,7 @@ class Hub:
         self.brain = brain
         self.notifier = notifier
         self.clients: set[WebSocket] = set()
+        self.raw_clients: set[WebSocket] = set()
         self.latest: dict | None = None
         self.board_connected = False
         self.last_board_status: str | None = None
@@ -157,6 +159,11 @@ class Hub:
 
     async def handle_line(self, text: str):
         self.lines += 1
+        for ws in list(self.raw_clients):  # live viewer / recorder while the server owns the port
+            try:
+                await ws.send_text(text)
+            except Exception:
+                self.raw_clients.discard(ws)
         m = parse_line(text)
         if isinstance(m, Data):
             lost = self.seq.feed(m.seq)
@@ -223,6 +230,7 @@ class Hub:
             "source": type(self.source).__name__ if self.source else None,
             "brain": getattr(self.brain, "name", type(self.brain).__name__),
             "clients": len(self.clients),
+            "raw_clients": len(self.raw_clients),
             "lines": self.lines,
             "seq": {"lost": self.seq.lost, "gaps": self.seq.gaps, "resets": self.seq.resets},
             "last_board_status": self.last_board_status,
@@ -291,6 +299,19 @@ def create_app(args) -> FastAPI:
             pass
         finally:
             hub.clients.discard(websocket)
+
+    @app.websocket("/ws/raw")
+    async def ws_raw(websocket: WebSocket):
+        """Every raw board line as a text frame (for the live viewer and the recorder)."""
+        await websocket.accept()
+        hub.raw_clients.add(websocket)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            pass
+        finally:
+            hub.raw_clients.discard(websocket)
 
     dist = args.web_dist
     if dist and os.path.isdir(dist):
