@@ -4,7 +4,8 @@ Usage (repo root):
   ../env/bin/python pc/record.py empty --seconds 60
   ../env/bin/python pc/record.py breathing_50cm --seconds 60
 
-Prints progress every 5 s. Close the live viewer first: only one program can use the port.
+Prints progress every 5 s. Only one program can open the serial port: if the server or the
+viewer is running, add --server to record through the running server instead.
 The files are ignored by git; copy a short one to recordings/<name>.sample.csv to share it.
 """
 import argparse
@@ -14,7 +15,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ibuki.serial_reader import BoardLink, Data, FileReplay, SeqTracker, parse_line  # noqa: E402
+from ibuki.serial_reader import (BoardLink, Data, FileReplay, SeqTracker, ServerLink,  # noqa: E402
+                                 parse_line)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,6 +28,8 @@ def main():
     ap.add_argument("--port")
     ap.add_argument("--countdown", type=int, default=3, help="seconds to get in position")
     ap.add_argument("--from-file", help="record from a saved file instead of the board (for tests)")
+    ap.add_argument("--server", nargs="?", const="ws://localhost:8000/ws/raw",
+                    help="record through the running IBUKI server instead of the port")
     ap.add_argument("--out-dir", default=os.path.join(REPO, "recordings"))
     a = ap.parse_args()
 
@@ -57,6 +61,8 @@ def main():
 
     if a.from_file:
         src = FileReplay(a.from_file, on_line=on_line, on_state=on_state, speed=20.0)
+    elif a.server:
+        src = ServerLink(a.server, on_line=on_line, on_state=on_state)
     else:
         src = BoardLink(a.port, on_line=on_line, on_state=on_state)
     recording[0] = True

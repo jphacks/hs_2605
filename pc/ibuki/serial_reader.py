@@ -179,6 +179,57 @@ class BoardLink:
             time.sleep(1.0)
 
 
+class ServerLink:
+    """Raw board lines from a running IBUKI server (ws://.../ws/raw); reconnects by itself.
+
+    Lets the recorder or viewer run while the server owns the serial port. send() is not
+    supported (the server talks to the board).
+    """
+
+    def __init__(self, url: str = "ws://localhost:8000/ws/raw",
+                 on_line: Callable[[str], None] = lambda s: None,
+                 on_state: Callable[[bool], None] = lambda c: None):
+        self.url = url
+        self.on_line = on_line
+        self.on_state = on_state
+        self.connected = False
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def start(self):
+        self._thread.start()
+        return self
+
+    def stop(self):
+        self._stop.set()
+
+    def send(self, text: str) -> bool:
+        return False
+
+    def _set_connected(self, value: bool):
+        if value != self.connected:
+            self.connected = value
+            self.on_state(value)
+
+    def _run(self):
+        from websockets.sync.client import connect
+
+        while not self._stop.is_set():
+            try:
+                with connect(self.url, open_timeout=3) as ws:
+                    self._set_connected(True)
+                    while not self._stop.is_set():
+                        try:
+                            self.on_line(ws.recv(timeout=0.5))
+                        except TimeoutError:
+                            continue
+            except Exception:
+                pass
+            self._set_connected(False)
+            if not self._stop.is_set():
+                time.sleep(1.0)
+
+
 class FileReplay:
     """Plays a recording (one board line per row) like a live board, optionally faster or looped.
 
