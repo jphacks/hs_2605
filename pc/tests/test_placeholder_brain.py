@@ -29,6 +29,7 @@ class PlaceholderBrainTest(unittest.TestCase):
             self.assertIsNone(s["bpm"])  # placeholder never claims a breathing rate
             self.assertEqual(s["source"], "placeholder")
         last = st[-1]
+        self.assertAlmostEqual(last["dt_ms"], 60.0, delta=1.0)
         self.assertAlmostEqual(last["chest_cm"], 48.75)
         self.assertTrue(last["present"])
         self.assertEqual(last["state"], "OK")

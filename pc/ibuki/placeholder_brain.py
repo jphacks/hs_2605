@@ -49,6 +49,7 @@ class PlaceholderBrain:
         self.was_shaking = False
         self.max_gap_s = 0.5  # a t_ms jump bigger than this breaks phase continuity
         self.last_t = None    # board time of the previous D line (also during shakes)
+        self.dt_ms = 60.0     # disp_mm sample spacing, learned from the board's t_ms
 
     # ------------------------------------------------------------------ helpers
     def _use(self, n: int) -> np.ndarray:
@@ -83,6 +84,8 @@ class PlaceholderBrain:
         if self.last_t is not None and (t < self.last_t or t - self.last_t > self.max_gap_s):
             self._relearn()  # board rebooted, radar restarted, or lines lost: start fresh
             self.shake.reset()
+        elif self.last_t is not None:  # learn the real line spacing (60 ms on our board)
+            self.dt_ms = round(0.95 * self.dt_ms + 0.05 * (t - self.last_t) * 1000.0, 1)
         self.last_t = t
         use = self._use(len(z))
         motion = 0.0
@@ -150,6 +153,7 @@ class PlaceholderBrain:
             "state": "OK" if self.present else "EMPTY",
             "bpm": None,
             "disp_mm": self.pending,
+            "dt_ms": self.dt_ms,  # spacing of the disp_mm samples (~60 ms = 16.6 Hz)
             "motion": round(float(np.mean(self.motion_acc)) if self.motion_acc else 0.0, 2),
             "present": bool(self.present),
             "chest_cm": chest,
