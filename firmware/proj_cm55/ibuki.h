@@ -31,5 +31,6 @@ void     ibuki_status(const char* text);   /* sends "S,t_ms,text" */
 void     ibuki_status_code(const char* text, uint32_t code); /* "S,t_ms,text 0x........" */
 uint32_t ibuki_millis(void);
 void     ibuki_reset_frames(void);         /* drop a half-filled frame average (radar restart) */
+bool     ibuki_take_restart_request(void); /* true once after the PC sent "R,1" */
 
 #endif /* IBUKI_H */

@@ -8,6 +8,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cybsp.h"
@@ -16,6 +17,7 @@
 #define TX_LINE_MAX    (512U)
 #define RX_LINE_MAX (16U)
 #define BTN_DEBOUNCE_MS (30U)
+#define TEST_STALL_MAX_MS (2000U)
 
 static arm_rfft_fast_instance_f32 rfft;
 static float hann[IBUKI_SAMPLES_PER_CHIRP];
@@ -29,6 +31,7 @@ static uint32_t last_config_ms;
 static char line[TX_LINE_MAX];
 static char rx_line[RX_LINE_MAX];
 static uint32_t rx_len;
+static bool restart_requested;
 static bool btn_stable_pressed;
 static bool btn_last_raw;
 static uint32_t btn_change_ms;
@@ -171,6 +174,28 @@ static void handle_rx_line(void)
     {
         led_red(false);
     }
+    else if (strcmp(rx_line, "R,1") == 0)
+    {
+        restart_requested = true; /* main loop restarts the radar */
+    }
+    else if ((rx_line[0] == 'T') && (rx_line[1] == ','))
+    {
+        /* Test only: stall the main loop so the radar FIFO overflows, to check the recovery. */
+        uint32_t ms = (uint32_t)strtoul(&rx_line[2], NULL, 10);
+        if (ms > TEST_STALL_MAX_MS)
+        {
+            ms = TEST_STALL_MAX_MS;
+        }
+        ibuki_status_code("test stall ms", ms);
+        Cy_SysLib_Delay(ms);
+    }
+}
+
+bool ibuki_take_restart_request(void)
+{
+    bool requested = restart_requested;
+    restart_requested = false;
+    return requested;
 }
 
 static void poll_uart_rx(void)

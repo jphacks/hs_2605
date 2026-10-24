@@ -650,6 +650,10 @@ static void cm55_ml_deepcraft_task(void)
         radar_data_process();
         /* C line every 5 s, L lines from the PC, B line on the user button. */
         ibuki_poll();
+        if (ibuki_take_restart_request())
+        {
+            radar_restart("radar restart: requested");
+        }
         /* IBUKI watchdog: a frame normally arrives every 30 ms. */
         if ((ibuki_millis() - last_frame_ms) > RADAR_WATCHDOG_MS)
         {
