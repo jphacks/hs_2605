@@ -1,199 +1,231 @@
-# IBUKI PC side (server, recorder, placeholder Brain)
+# IBUKI on the PC
 
 [English](#english) | [日本語](#日本語)
 
----
-
 ## English
 
-The laptop side of IBUKI. The server reads the radar board over USB, feeds every line to the Brain, and pushes the Brain's results to the web dashboard over WebSocket. It also sends the phone/wearable notification (ntfy) and switches the board's red LED. Everything runs locally. Not a medical device.
+This is the laptop side of IBUKI. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
 
-| File | What it does |
-|---|---|
-| [ibuki/server.py](ibuki/server.py) | Server: board → Brain → dashboard (`ws://localhost:8000/ws`), LED, ntfy |
-| [ibuki/serial_reader.py](ibuki/serial_reader.py) | Line parser, lost-line counter, board link (reconnects after an unplug), recording replay |
-| [ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) | Stand-in Brain until the real one lands: breathing wave, motion, presence. **No bpm, no alerts.** |
-| [ibuki/shake.py](ibuki/shake.py) | Detects the board itself moving (all calm echoes jump together) |
-| [record.py](record.py) | Saves raw board lines to `recordings/rec_<name>_<time>.csv` |
-| [tests/](tests/) | 19 tests, including end-to-end server tests |
+### Running it
 
-### Run (repo root, venv one folder up)
+From the repo folder:
 
 ```
-../env/bin/python pc/ibuki/server.py                      # live board
-../env/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop   # no board needed
+../env/bin/python pc/ibuki/server.py
 ```
 
-Check it: open http://localhost:8000/api/health. `board_connected` should be `true`.
+Then open http://localhost:8000/api/health and check that `board_connected` is `true`. If you don't have the board with you, replay a recording instead:
 
-While the server runs it owns the USB port. Use `--server` for the other tools:
+```
+../env/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop
+```
+
+Only one program can have the serial port open. While the server runs, start the live viewer and the recorder with `--server` so they read through it:
 
 ```
 ../env/bin/python firmware/tools/live_view.py --server
 ../env/bin/python pc/record.py breathing_50cm --seconds 60 --server
 ```
 
-### Notifications to the phone and watch (ntfy)
+### What's in here
 
-1. On the iPhone, install **ntfy** from the App Store.
-2. Tap **+**, enter the topic from the repo's `.env` file (`IBUKI_NTFY_TOPIC=...`), keep the server `ntfy.sh`, and subscribe. Allow notifications.
-3. Apple Watch: in the iPhone's Watch app → Notifications, turn on mirroring for ntfy.
-4. Test (server running): `curl -X POST http://localhost:8000/api/test-notification`. The phone shows 「テスト通知です（IBUKI）」.
+[ibuki/serial_reader.py](ibuki/serial_reader.py) parses the board's lines, counts lost lines and reconnects on its own when the USB cable gets pulled.
 
-The topic is like a password: anyone who knows it can read and send. `.env` is git-ignored; never commit it. Without internet the push fails, but the LED and the dashboard alert keep working.
+[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) stands in until the real Brain is ready. It shows the breathing wave, movement and whether someone is there, but it never gives a breathing rate and never raises an alert.
 
-### For the Brain owner: the interface
+[ibuki/shake.py](ibuki/shake.py) notices when the board itself is moving. Normally the walls and furniture don't move, so if all of their echoes jump at once, it's the board.
 
-Put a class `Brain` in `pc/ibuki/brain.py` (the server finds it automatically), or start the server with `--brain module:Class`.
+[record.py](record.py) saves the raw board lines to `recordings/rec_<name>_<time>.csv`.
 
-```python
-class Brain:
-    def feed(self, line: str) -> list[dict]:
-        ...  # called for every board line (C, D, S, B and junk). Return [] most of the time.
-```
-
-- **Status**, 5–10 times per second:
-  `{"t": board_ms, "state": "EMPTY|OK|STILL|CHECK|ALERT", "bpm": number or None, "disp_mm": [new samples], "dt_ms": 60, "motion": number, "present": bool, "chest_cm": number}`
-- **Event**: `{"type": "alert", "reason": "no_breath", "since_s": 10}` → the server turns the LED red and sends the push. Leaving `ALERT` turns the LED off.
-- `B,1` (board button, or the dashboard's cancel) arrives as a normal line.
-- A crash inside `feed()` is logged and skipped; the server keeps running.
-
-Rules from the board data: D lines come every ~60 ms (16.6 Hz, not 20 Hz). After `S,...,radar restart: ...` or a `t_ms` jump over 0.5 s, restart phase tracking. Treat a board shake (see `ibuki/shake.py`) as breathing **unknown**, never as "no breathing". The data spec is in [firmware/README.md](../firmware/README.md).
-
-### For the dashboard: messages on `ws://<laptop>:8000/ws`
-
-| Message | Meaning |
-|---|---|
-| Status (fields above) | Placeholder statuses also carry `"source": "placeholder"` and `"shaking": true/false`. While shaking, `disp_mm` is empty. |
-| `{"type": "alert", ...}` | Alert event from the Brain |
-| `{"type": "board", "connected": true/false}` | Sent on connect and when the USB board drops or comes back |
-
-Place the samples with `dt_ms`: sample `i` of `n` is at `t - (n - 1 - i) * dt_ms`. The dashboard may send `{"type": "button"}` to cancel, like the board button. If `web/dist` exists (`npm run build`), the server also serves the dashboard at http://<laptop-ip>:8000 for phones on the same Wi-Fi.
-
-### Recording plan (60 s each, ~230 KB each)
-
-```
-../env/bin/python pc/record.py <name> --seconds 60       # add --server if the server is running
-```
-
-| Name | What to do |
-|---|---|
-| `empty` | Nobody within 1.2 m of the board |
-| `breathing_20cm` | Chest 20 cm from the board, still, normal breathing (near test) |
-| `breathing_30cm`, `breathing_50cm` | Same at 30 cm and 50 cm |
-| `hold` | 20 s breathing, 20 s holding breath, 20 s breathing |
-| `moving` | Shift around, move arms |
-| `shake` | Breathing still, then tap or bump the table/board a few times |
-| `leave` | 20 s breathing, then walk away |
-
-Files go to `recordings/` and are git-ignored. To share one, copy it to `recordings/<name>.sample.csv`.
-
-### Tests
+[tests/](tests/) has 19 tests, including ones that start the real server. Run them with:
 
 ```
 ../env/bin/python -m unittest discover -s pc/tests -t pc
 ```
 
-### Troubleshooting
+### Notifications
 
-- **`board_connected: false`**: the cable, or another program holds the port (close the viewer, or use `--server`).
-- **"team Brain not found, using the PLACEHOLDER"**: expected until `pc/ibuki/brain.py` exists.
-- **No push**: check `"ntfy": true` in `/api/health`, the topic in the app, and the internet.
+We use ntfy. Install the ntfy app on the iPhone, tap +, and subscribe to the topic in the repo's `.env` file (the line `IBUKI_NTFY_TOPIC=...`). To get the notifications on the Apple Watch too, turn on mirroring for ntfy in the iPhone's Watch app.
 
----
+To check it, start the server and run:
+
+```
+curl -X POST http://localhost:8000/api/test-notification
+```
+
+The phone should show 「テスト通知です（IBUKI）」.
+
+Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
+
+### For the Brain
+
+Put a class called `Brain` in `pc/ibuki/brain.py` and the server picks it up automatically. You can also point to another class with `--brain module:Class`.
+
+```python
+class Brain:
+    def feed(self, line: str) -> list[dict]:
+        ...  # called for every board line; return [] most of the time
+```
+
+About 5 to 10 times a second, return a status:
+
+```
+{"t": 123456, "state": "OK", "bpm": 34, "disp_mm": [0.12, 0.15], "dt_ms": 60,
+ "motion": 12.5, "present": true, "chest_cm": 48.75}
+```
+
+`state` is one of EMPTY, OK, STILL, CHECK or ALERT. `bpm` is None when you don't know it. `disp_mm` holds only the new samples since the last status.
+
+When something is wrong, return an event like `{"type": "alert", "reason": "no_breath", "since_s": 10}`. The server then turns the LED red and sends the notification, and the LED goes off again when the state leaves ALERT. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
+
+A few things about the data. D lines come every 60 ms (16.6 per second, not 20). After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, start the phase tracking over. When the board is shaking, treat breathing as unknown and never as "no breathing". The full data format is in [firmware/README.md](../firmware/README.md).
+
+### For the dashboard
+
+The server sends three kinds of messages on `ws://<laptop>:8000/ws`. Brain statuses look like the example above, and the placeholder ones also have `"source": "placeholder"` and `"shaking"`. While the board is shaking, `disp_mm` is empty. Alert events look like `{"type": "alert", ...}`. And `{"type": "board", "connected": true}` (or `false`) comes when you connect and whenever the USB board drops out or comes back.
+
+Use `dt_ms` to place the samples: sample `i` of `n` belongs at `t - (n - 1 - i) * dt_ms`. Send `{"type": "button"}` to cancel an alert, the same as pressing the board's button.
+
+If you build the dashboard (`npm run build` in `web/`), the server also serves it at http://<laptop-ip>:8000, so phones on the same Wi-Fi can open it.
+
+### Recordings we need
+
+Record 60 seconds of each:
+
+```
+../env/bin/python pc/record.py <name> --seconds 60
+```
+
+Add `--server` if the server is running.
+
+- `empty`: nobody within 1.2 m of the board
+- `breathing_20cm`: chest 20 cm from the board, sitting still and breathing normally
+- `breathing_30cm` and `breathing_50cm`: the same at 30 and 50 cm
+- `hold`: breathe for 20 s, hold your breath for 20 s, then breathe for 20 s
+- `moving`: shift around and move your arms
+- `shake`: breathe quietly, then tap or bump the table a few times
+- `leave`: breathe for 20 s, then walk away
+
+The files go into `recordings/` and git ignores them. To share one, copy it to `recordings/<name>.sample.csv`.
+
+### If something doesn't work
+
+`board_connected` is false: check the cable. If it's plugged in, another program probably has the port, so close the viewer or start it with `--server`.
+
+The log says "team Brain not found, using the PLACEHOLDER": that's normal until `pc/ibuki/brain.py` exists.
+
+No notification: check that `/api/health` shows `"ntfy": true`, that the app is subscribed to the right topic, and that the laptop is online.
 
 ## 日本語
 
-IBUKI の PC 側です。サーバーが USB でレーダーボードを読み、すべての行を Brain に渡し、結果を WebSocket で Web ダッシュボードに送ります。スマートフォン・ウェアラブルへの通知（ntfy）とボードの赤 LED も担当します。すべてローカルで動作します。医療機器ではありません。
+IBUKI のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB でレーダーのボードを読み、すべての行を Brain に渡して、その結果を WebSocket でダッシュボードに送ります。警告のときはボードの赤 LED をつけて、スマホに通知も送ります。
 
-| ファイル | 内容 |
-|---|---|
-| [ibuki/server.py](ibuki/server.py) | サーバー：ボード → Brain → ダッシュボード（`ws://localhost:8000/ws`）、LED、ntfy |
-| [ibuki/serial_reader.py](ibuki/serial_reader.py) | 行の解析、欠落行のカウント、ボード接続（抜き差し後に自動再接続）、録画の再生 |
-| [ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) | 本物の Brain ができるまでの仮の Brain：呼吸の波形・動き・在室。**呼吸数なし、アラートなし。** |
-| [ibuki/shake.py](ibuki/shake.py) | ボード自体の揺れを検出（静止した反射がすべて同時に動く） |
-| [record.py](record.py) | ボードの生データを `recordings/rec_<名前>_<時刻>.csv` に保存 |
-| [tests/](tests/) | テスト 19 件（サーバーのエンドツーエンドテストを含む） |
+### 動かし方
 
-### 実行（リポジトリのルート、venv は 1 つ上のフォルダ）
+リポジトリのフォルダで：
 
 ```
-../env/bin/python pc/ibuki/server.py                      # 実機のボード
-../env/bin/python pc/ibuki/server.py --replay recordings/<ファイル>.csv --loop   # ボードなし
+../env/bin/python pc/ibuki/server.py
 ```
 
-確認：http://localhost:8000/api/health を開き、`board_connected` が `true` になっていること。
+http://localhost:8000/api/health を開いて、`board_connected` が `true` になっていれば大丈夫です。ボードが手元にないときは、録画を再生できます：
 
-サーバーの実行中は USB ポートをサーバーが使います。他のツールには `--server` を付けてください：
+```
+../env/bin/python pc/ibuki/server.py --replay recordings/<ファイル>.csv --loop
+```
+
+シリアルポートは 1 つのプログラムしか開けません。サーバーを動かしているあいだは、ライブ表示と録画に `--server` を付けて、サーバー経由で読みます：
 
 ```
 ../env/bin/python firmware/tools/live_view.py --server
 ../env/bin/python pc/record.py breathing_50cm --seconds 60 --server
 ```
 
-### スマートフォン・Apple Watch への通知（ntfy）
+### 中身
 
-1. iPhone に App Store から **ntfy** をインストール。
-2. **+** を押し、リポジトリの `.env` にあるトピック（`IBUKI_NTFY_TOPIC=...`）を入力し、サーバーは `ntfy.sh` のまま購読。通知を許可。
-3. Apple Watch：iPhone の Watch アプリ → 通知 で ntfy のミラーリングをオン。
-4. テスト（サーバー実行中）：`curl -X POST http://localhost:8000/api/test-notification`。スマートフォンに「テスト通知です（IBUKI）」が届きます。
+[ibuki/serial_reader.py](ibuki/serial_reader.py) はボードの行を読み取り、抜けた行を数えます。USB が抜けても自分でつなぎ直します。
 
-トピックはパスワードと同じで、知っている人は誰でも読み書きできます。`.env` は git の対象外です。絶対にコミットしないでください。インターネットがないと通知は失敗しますが、LED とダッシュボードの警告は動き続けます。
+[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) は、本物の Brain ができるまでの仮の処理です。呼吸の波形、動き、人がいるかどうかは出しますが、呼吸数は出さず、警告も出しません。
 
-### Brain 担当の方へ：インターフェース
+[ibuki/shake.py](ibuki/shake.py) はボード自体が動いたことに気づく処理です。ふだん壁や家具は動かないので、それらの反射が一斉に動いたら、動いたのはボードだと判断します。
 
-`pc/ibuki/brain.py` にクラス `Brain` を置くと、サーバーが自動で使います（または `--brain モジュール:クラス` で指定）。
+[record.py](record.py) はボードの生データを `recordings/rec_<名前>_<時刻>.csv` に保存します。
 
-```python
-class Brain:
-    def feed(self, line: str) -> list[dict]:
-        ...  # ボードの各行（C・D・S・B・ゴミ）ごとに呼ばれる。ほとんどの場合 [] を返す。
-```
-
-- **状態**（1 秒に 5〜10 回）：
-  `{"t": ボードのms, "state": "EMPTY|OK|STILL|CHECK|ALERT", "bpm": 数値 または None, "disp_mm": [新しいサンプル], "dt_ms": 60, "motion": 数値, "present": bool, "chest_cm": 数値}`
-- **イベント**：`{"type": "alert", "reason": "no_breath", "since_s": 10}` → サーバーが LED を赤にして通知を送ります。`ALERT` から抜けると LED は消えます。
-- `B,1`（ボードのボタン、またはダッシュボードの取り消し）は普通の行として届きます。
-- `feed()` 内で例外が起きてもログに残してスキップし、サーバーは止まりません。
-
-ボードのデータについて：D 行は約 60 ms ごと（16.6 Hz、20 Hz ではありません）。`S,...,radar restart: ...` の行、または 0.5 秒を超える `t_ms` の飛びのあとは位相の追跡をやり直してください。ボードの揺れ（`ibuki/shake.py`）は呼吸「不明」として扱い、「呼吸なし」とは判定しないでください。データの仕様は [firmware/README.md](../firmware/README.md) にあります。
-
-### ダッシュボード向け：`ws://<PC>:8000/ws` のメッセージ
-
-| メッセージ | 意味 |
-|---|---|
-| 状態（上記のフィールド） | 仮の Brain の状態には `"source": "placeholder"` と `"shaking": true/false` も付きます。揺れている間 `disp_mm` は空です。 |
-| `{"type": "alert", ...}` | Brain からのアラート |
-| `{"type": "board", "connected": true/false}` | 接続時と、USB のボードが外れた・戻ったとき |
-
-サンプルの時刻は `dt_ms` で決めてください：`n` 個中 `i` 番目は `t - (n - 1 - i) * dt_ms`。ダッシュボードから `{"type": "button"}` を送ると、ボードのボタンと同じく取り消しになります。`web/dist` があれば（`npm run build`）、同じ Wi-Fi のスマートフォンから http://<PCのIP>:8000 でダッシュボードを開けます。
-
-### 録画の予定（各 60 秒、各約 230 KB）
-
-```
-../env/bin/python pc/record.py <名前> --seconds 60       # サーバー実行中は --server を付ける
-```
-
-| 名前 | 内容 |
-|---|---|
-| `empty` | ボードから 1.2 m 以内に誰もいない |
-| `breathing_20cm` | 胸をボードから 20 cm、静止して普通に呼吸（近距離のテスト） |
-| `breathing_30cm`、`breathing_50cm` | 30 cm、50 cm で同様に |
-| `hold` | 呼吸 20 秒、息止め 20 秒、呼吸 20 秒 |
-| `moving` | 体を動かす、腕を動かす |
-| `shake` | 静かに呼吸し、途中で机やボードを数回たたく・揺らす |
-| `leave` | 20 秒呼吸してから立ち去る |
-
-ファイルは `recordings/` に保存され、git の対象外です。共有するときは `recordings/<名前>.sample.csv` にコピーしてください。
-
-### テスト
+[tests/](tests/) にはテストが 19 個あり、実際にサーバーを起動するものも含まれます：
 
 ```
 ../env/bin/python -m unittest discover -s pc/tests -t pc
 ```
 
-### トラブルシューティング
+### 通知
 
-- **`board_connected: false`**：ケーブルを確認。または他のプログラムがポートを使っています（ビューアを閉じるか `--server` を使う）。
-- **「team Brain not found, using the PLACEHOLDER」**：`pc/ibuki/brain.py` ができるまでは正常です。
-- **通知が来ない**：`/api/health` の `"ntfy": true`、アプリのトピック、インターネット接続を確認。
+ntfy を使っています。iPhone に ntfy アプリを入れて、+ を押し、リポジトリの `.env` にあるトピック（`IBUKI_NTFY_TOPIC=...` の行）を購読してください。Apple Watch にも届くようにするには、iPhone の Watch アプリで ntfy の通知のミラーリングをオンにします。
+
+確かめるときは、サーバーを起動して：
+
+```
+curl -X POST http://localhost:8000/api/test-notification
+```
+
+スマホに「テスト通知です（IBUKI）」が届けば OK です。
+
+トピックはパスワードのようなものです。知っている人なら誰でも読めて送れます。`.env` は git の対象外なので、うっかりコミットされることはありません。インターネットがないと通知は届きませんが、LED とダッシュボードの警告はそのまま動きます。
+
+### Brain の担当の人へ
+
+`pc/ibuki/brain.py` に `Brain` というクラスを置くと、サーバーが自動で使います。別のクラスを使うときは `--brain モジュール:クラス` で指定できます。
+
+```python
+class Brain:
+    def feed(self, line: str) -> list[dict]:
+        ...  # ボードの行ごとに呼ばれる。ほとんどは [] を返す
+```
+
+1 秒に 5〜10 回くらい、状態を返してください：
+
+```
+{"t": 123456, "state": "OK", "bpm": 34, "disp_mm": [0.12, 0.15], "dt_ms": 60,
+ "motion": 12.5, "present": true, "chest_cm": 48.75}
+```
+
+`state` は EMPTY、OK、STILL、CHECK、ALERT のどれかです。呼吸数がわからないときは `bpm` を None にします。`disp_mm` には前回の状態から増えたサンプルだけを入れます。
+
+何かおかしいときは `{"type": "alert", "reason": "no_breath", "since_s": 10}` のようなイベントを返してください。サーバーが LED を赤にして通知を送り、状態が ALERT でなくなると LED を消します。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
+
+データについて少し。D 行は 60 ms ごと（1 秒に 16.6 本、20 本ではありません）に来ます。`radar restart` と書かれた `S` 行が来たときや、`t_ms` が 0.5 秒以上飛んだときは、位相の追跡をやり直してください。ボードが揺れているあいだは呼吸を「不明」として扱い、「呼吸なし」とは判断しないでください。データの形は [firmware/README.md](../firmware/README.md) に全部書いてあります。
+
+### ダッシュボードの担当の人へ
+
+サーバーは `ws://<PC>:8000/ws` に 3 種類のメッセージを送ります。Brain の状態は上の例と同じ形で、仮の Brain のものには `"source": "placeholder"` と `"shaking"` も付きます。ボードが揺れているあいだ `disp_mm` は空です。警告のイベントは `{"type": "alert", ...}` です。`{"type": "board", "connected": true}`（または `false`）は、接続したときと、USB のボードが外れたり戻ったりしたときに届きます。
+
+サンプルの時刻は `dt_ms` で決めてください。`n` 個のうち `i` 番目は `t - (n - 1 - i) * dt_ms` です。`{"type": "button"}` を送ると、ボードのボタンを押したのと同じく警告を取り消せます。
+
+ダッシュボードをビルドしておけば（`web/` で `npm run build`）、サーバーが http://<PCのIP>:8000 でも表示するので、同じ Wi-Fi のスマホから開けます。
+
+### 必要な録画
+
+それぞれ 60 秒ずつ録ります：
+
+```
+../env/bin/python pc/record.py <名前> --seconds 60
+```
+
+サーバーを動かしているときは `--server` を付けてください。
+
+- `empty`：ボードから 1.2 m 以内に誰もいない
+- `breathing_20cm`：胸をボードから 20 cm にして、じっと座って普通に呼吸する
+- `breathing_30cm`、`breathing_50cm`：同じことを 30 cm と 50 cm で
+- `hold`：20 秒呼吸して、20 秒息を止めて、また 20 秒呼吸する
+- `moving`：体を動かしたり、腕を動かしたりする
+- `shake`：静かに呼吸して、途中で机を何回かたたく・揺らす
+- `leave`：20 秒呼吸してから、その場を離れる
+
+ファイルは `recordings/` に保存され、git には入りません。共有したいときは `recordings/<名前>.sample.csv` にコピーしてください。
+
+### うまく動かないとき
+
+`board_connected` が false：ケーブルを確認してください。つながっているなら、ほかのプログラムがポートを使っているはずです。ライブ表示を閉じるか、`--server` を付けて起動してください。
+
+ログに「team Brain not found, using the PLACEHOLDER」と出る：`pc/ibuki/brain.py` ができるまでは正常です。
+
+通知が来ない：`/api/health` で `"ntfy": true` になっているか、アプリが正しいトピックを購読しているか、PC がインターネットにつながっているかを確認してください。
