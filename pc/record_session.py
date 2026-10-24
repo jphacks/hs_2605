@@ -28,22 +28,25 @@ PACED = [(2 + 6 * k, "in") for k in range(5)] + [(5 + 6 * k, "out") for k in ran
         [(32, "Now breathe normally")]
 
 # name, what to do, spoken cues (seconds after the start, text)
+AT_50 = "Chest 50 cm from the board (a bit less than an arm's length)."
 SESSION = [
-    ("empty", "Nobody within 1.2 m of the board. Press Enter, then step away (you get 8 s).",
-     [(-8, "Step away now")]),
-    ("breathing_20cm", "Chest 20 cm from the board. Stay still. Breathe with the voice, then normally.",
-     PACED),
-    ("breathing_30cm", "Chest 30 cm from the board. Stay still. Breathe with the voice, then normally.",
-     PACED),
-    ("breathing_50cm", "Chest 50 cm from the board. Stay still. Breathe with the voice, then normally.",
-     PACED),
-    ("hold", "Chest 50 cm from the board. Breathe, then hold your breath when you hear it.",
+    ("empty", "Nobody within 1.2 m of the board. Press Enter, then step away (you get 8 s). "
+              "Stay away until you hear 'Done'.",
+     [(-8, "Step away now, and stay away until I say done")]),
+    ("breathing_20cm", "Chest 20 cm from the board (about one hand span). Stay still. "
+                       "Breathe with the voice, then normally.", PACED),
+    ("breathing_30cm", "Chest 30 cm from the board (about one school ruler). Stay still. "
+                       "Breathe with the voice, then normally.", PACED),
+    ("breathing_50cm", AT_50 + " Stay still. Breathe with the voice, then normally.", PACED),
+    ("hold", AT_50 + " Breathe normally, hold your breath when you hear it, breathe again when told.",
      [(20, "Hold your breath now"), (40, "Breathe again")]),
-    ("moving", "50 cm from the board. Shift around and move your arms the whole time.", []),
-    ("shake", "50 cm from the board, breathe quietly. Tap or bump the table when you hear it.",
+    ("moving", AT_50 + " Shift around and move your arms the whole minute.", []),
+    ("shake", AT_50 + " Sit still and breathe quietly. Tap or bump the table when you hear it, "
+                      "stop when you hear 'Stop'.",
      [(20, "Tap the table now"), (25, "Stop"), (40, "Tap the table again"), (45, "Stop")]),
-    ("leave", "50 cm from the board, breathe quietly. Walk away when you hear it.",
-     [(20, "Walk away now")]),
+    ("leave", AT_50 + " Breathe quietly. Walk away when you hear it, and stay away until you "
+                      "hear 'Done'.",
+     [(20, "Walk away now, and stay away until I say done")]),
 ]
 
 
