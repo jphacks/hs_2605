@@ -33,6 +33,27 @@ class ShakeTest(unittest.TestCase):
         t, f = flags_for(make_lines(seconds=30, target_bin=9, move=(12, 16, (8, 9, 10, 11))))
         self.assertEqual(f.sum(), 0)
 
+    def test_person_walking_in_an_open_room_is_not_a_shake(self):
+        # Weak room (no strong still objects) and a person walking toward the board across
+        # many bins: their echo turns together like a shake, but there is no strong still
+        # reference to compare with, so the detector must not claim a shake.
+        rng = np.random.default_rng(3)
+        lines = ["C,15.0,37.5,24,10"]
+        static = rng.normal(0, 4, 24) + 1j * rng.normal(0, 4, 24)
+        for i in range(500):
+            z = static + rng.normal(0, 1, 24) + 1j * rng.normal(0, 1, 24)
+            if i >= 200:  # walks from 100 cm toward the board at 0.5 m/s
+                d_cm = 100 - (i - 200) * 0.06 * 50
+                if d_cm > 30:
+                    b = int(round((d_cm - 15) / 3.75))
+                    for k in (b - 1, b, b + 1):
+                        if 0 <= k < 24:
+                            z[k] += 600 * np.exp(1j * 4 * np.pi * d_cm * 10 / 5.0)
+            iq = np.round(z * 10)
+            lines.append(f"D,{i},{i * 60}," + ",".join(f"{int(a)},{int(b)}" for a, b in zip(iq.real, iq.imag)))
+        t, f = flags_for(lines)
+        self.assertEqual(f.sum(), 0)
+
     def test_board_shake_is_flagged_fast_and_clears(self):
         t, f = flags_for(make_lines(seconds=30, target_bin=9, shake=(15, 17, 0.5)))
         during = (t >= 15.1) & (t < 17)

@@ -227,6 +227,8 @@ class Hub:
         if kind in ("alert", "info"):
             # alert (no_breath, left_bed): LED red + urgent push.
             # info (woke_up, fast_breathing): normal push only.
+            # The dashboard only accepts events with a numeric since_s, so always send one.
+            o = {**o, "since_s": o.get("since_s", 0)}
             log(f"{kind.upper()} event: {o}")
             if kind == "alert":
                 self.set_led(True)
