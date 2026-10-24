@@ -4,6 +4,7 @@ Usage (repo root, venv active):
   python firmware/tools/live_view.py                 # board on /dev/cu.usbmodem*
   python firmware/tools/live_view.py --file lines.txt  # replay saved lines at real speed
   python firmware/tools/live_view.py --file lines.txt --snapshot view.png  # test, no window
+  python firmware/tools/live_view.py --server        # while pc/ibuki/server.py owns the port
 
 Window:
   top     - how much each range bin changes over the last 3 s (where the movement is)
@@ -76,6 +77,25 @@ def read_serial(stream, port, save_path=None):
                     out.write(text.rstrip("\r") + "\n")
             if out and lines:
                 out.flush()
+
+
+def read_server(stream, url, save_path=None):
+    """Raw board lines from the IBUKI server (/ws/raw), so the server can own the port."""
+    from websockets.sync.client import connect
+
+    out = open(save_path, "a", encoding="ascii", errors="replace") if save_path else None
+    while True:
+        try:
+            with connect(url, open_timeout=3) as ws:
+                stream.status = "connected to server"
+                for text in ws:
+                    stream.feed(text)
+                    if out:
+                        out.write(text + "\n")
+                        out.flush()
+        except Exception:
+            stream.status = "server not reachable, retrying"
+            time.sleep(1.0)
 
 
 def replay_file(stream, path, realtime=True):
@@ -164,6 +184,8 @@ def main():
     ap.add_argument("--snapshot", help="replay --file fast and save one image, no window")
     ap.add_argument("--mirror", help="also save the window to this PNG about once a second")
     ap.add_argument("--save", help="append the raw board lines to this file")
+    ap.add_argument("--server", nargs="?", const="ws://localhost:8000/ws/raw",
+                    help="read through the running IBUKI server instead of the port")
     a = ap.parse_args()
 
     stream = Stream()
@@ -182,6 +204,9 @@ def main():
 
     if a.file:
         src = threading.Thread(target=replay_file, args=(stream, a.file), daemon=True)
+    elif a.server:
+        print(f"reading through the server {a.server}  (Ctrl+C to stop)")
+        src = threading.Thread(target=read_server, args=(stream, a.server, a.save), daemon=True)
     else:
         port = a.port or (sorted(glob.glob("/dev/cu.usbmodem*")) or [None])[0]
         if not port:
