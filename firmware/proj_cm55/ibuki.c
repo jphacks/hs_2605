@@ -33,7 +33,7 @@ static bool btn_stable_pressed;
 static bool btn_last_raw;
 static uint32_t btn_change_ms;
 
-/* ---------------------------------------------------------------- time */
+/* time */
 static volatile uint32_t ms_ticks;
 
 void SysTick_Handler(void)
@@ -46,7 +46,7 @@ uint32_t ibuki_millis(void)
     return ms_ticks;
 }
 
-/* ---------------------------------------------------------------- text output */
+/* text output */
 static char* put_u32(char* p, uint32_t v)
 {
     char tmp[10];
@@ -149,7 +149,7 @@ static void send_data(void)
     send_line(p);
 }
 
-/* ---------------------------------------------------------------- LED and button */
+/* LED and button */
 static void led_red(bool on)
 {
     Cy_GPIO_Write(CYBSP_LED_RGB_RED_PORT, CYBSP_LED_RGB_RED_PIN,
@@ -220,7 +220,7 @@ static void poll_button(uint32_t now)
     }
 }
 
-/* ---------------------------------------------------------------- public */
+/* public */
 void ibuki_init(void)
 {
     SysTick_Config(SystemCoreClock / 1000U);
