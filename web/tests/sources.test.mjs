@@ -84,6 +84,23 @@ test('stale detection also applies to an open connection that never sends a stat
   stop();
 }));
 
+test('source metadata labels simulated transport without becoming status or refreshing freshness', () => sandbox(({ sockets, tick }) => {
+  const sources = [], statuses = [], states = [];
+  const stop = createWebSocketSource({ onSource: s => sources.push(s), onConnection: s => states.push(s) }).subscribe(s => statuses.push(s));
+  sockets[0].open();
+  const source = { type: 'source', name: 'IBUKI SIMULATED Brain', simulated: true, timestamp_unit: 'ms', sample_interval_ms: 60 };
+  sockets[0].message(source);
+  assert.deepEqual(sources, [source]);
+  assert.equal(statuses.length, 0);
+  sockets[0].message({ ...source, simulated: 'true' });
+  sockets[0].message({ ...source, timestamp_unit: 'seconds' });
+  sockets[0].message({ ...source, sample_interval_ms: 0 });
+  assert.equal(sources.length, 1);
+  tick(3000); assert.equal(states.at(-1), 'stale');
+  sockets[0].message(status); assert.equal(statuses.length, 1);
+  stop();
+}));
+
 test('reconnects with backoff; cleans sockets/timers and ignores late callbacks', () => sandbox(({ sockets, tasks, tick }) => {
   const messages = [];
   const source = createWebSocketSource();

@@ -2,11 +2,14 @@ import type { BrainStatus, StatusSource } from './status';
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'stale';
 export interface AlertEvent { type: 'alert'; reason: string; since_s: number; t?: number }
+// Optional gateway envelope; leaves BrainStatus and alert fields unchanged.
+export interface SourceInfo { type: 'source'; name: string; simulated: boolean; timestamp_unit: 'ms'; sample_interval_ms: number | null }
 export interface LiveOptions {
   url?: string;
   staleAfterMs?: number;
   onConnection?: (state: ConnectionState) => void;
   onAlert?: (event: AlertEvent) => void;
+  onSource?: (source: SourceInfo) => void;
 }
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -20,6 +23,11 @@ export function isBrainStatus(v: unknown): v is BrainStatus {
 function isAlert(v: unknown): v is AlertEvent {
   return record(v) && v.type === 'alert' && typeof v.reason === 'string' && v.reason.length <= 256 &&
     finite(v.since_s) && v.since_s >= 0 && (v.t === undefined || finite(v.t) && v.t >= 0);
+}
+function isSource(v: unknown): v is SourceInfo {
+  return record(v) && v.type === 'source' && typeof v.name === 'string' && v.name.length > 0 && v.name.length <= 128 &&
+    typeof v.simulated === 'boolean' && v.timestamp_unit === 'ms' &&
+    (v.sample_interval_ms === null || finite(v.sample_interval_ms) && v.sample_interval_ms > 0);
 }
 
 // A subscription owns its socket and timers; teardown is safe under React StrictMode.
@@ -66,6 +74,8 @@ export function createWebSocketSource(options: LiveOptions = {}): StatusSource {
           listener(value);
         } else if (isAlert(value)) {
           options.onAlert?.(value); // Events never masquerade as waveform/status updates.
+        } else if (isSource(value)) {
+          options.onSource?.(value); // Source declarations don't refresh status freshness.
         }
       };
       active.onclose = () => { if (isCurrent()) { socket = undefined; reconnect(); } };
