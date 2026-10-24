@@ -42,6 +42,19 @@ class PlaceholderBrainTest(unittest.TestCase):
         self.assertFalse(st[-1]["present"])
         self.assertEqual(st[-1]["state"], "EMPTY")
 
+    def test_board_shake_means_unknown_then_recovers(self):
+        st = run(make_lines(seconds=30, target_bin=9, shake=(15, 17, 0.5)))
+        during = [s for s in st if 15200 <= s["t"] < 17000]
+        self.assertTrue(during and all(s["shaking"] for s in during))
+        self.assertTrue(all(s["disp_mm"] == [] for s in during))  # never a fake flat line
+        self.assertTrue(all(s["present"] for s in during))  # presence held, not dropped
+        after = [s for s in st if s["t"] >= 22000]
+        self.assertTrue(after and not any(s["shaking"] for s in after))
+        self.assertEqual(after[-1]["chest_cm"], 48.75)
+        self.assertTrue(after[-1]["disp_mm"])
+        before = [s for s in st if 5000 <= s["t"] < 15000]
+        self.assertFalse(any(s["shaking"] for s in before))
+
     def test_ignores_junk_and_status_lines(self):
         brain = PlaceholderBrain()
         for junk in ["", "garbage", "S,10,hello", "B,1", "D,1,2"]:
