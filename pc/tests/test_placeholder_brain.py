@@ -55,6 +55,21 @@ class PlaceholderBrainTest(unittest.TestCase):
         before = [s for s in st if 5000 <= s["t"] < 15000]
         self.assertFalse(any(s["shaking"] for s in before))
 
+    def test_recovers_after_radar_restart(self):
+        lines = make_lines(seconds=30, target_bin=9)
+        # firmware behaviour after a restart: an S line, then t_ms jumps ~1.5 s, seq continues
+        cut = next(i for i, ln in enumerate(lines) if ln.startswith("D,") and int(ln.split(",")[2]) >= 15000)
+        after = []
+        for ln in lines[cut:]:
+            p = ln.split(",")
+            p[2] = str(int(p[2]) + 1500)
+            after.append(",".join(p))
+        st = run(lines[:cut] + ["S,15000,radar restart: fifo overflow 0x00000000"] + after)
+        right_after = [s for s in st if 16500 <= s["t"] < 18500]
+        self.assertTrue(all(s["disp_mm"] == [] for s in right_after))  # re-learning, no wave yet
+        self.assertEqual(st[-1]["chest_cm"], 48.75)  # found the target again
+        self.assertTrue(st[-1]["disp_mm"])
+
     def test_ignores_junk_and_status_lines(self):
         brain = PlaceholderBrain()
         for junk in ["", "garbage", "S,10,hello", "B,1", "D,1,2"]:

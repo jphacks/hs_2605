@@ -15,7 +15,7 @@ import math
 
 import numpy as np
 
-from .serial_reader import Config, Data, parse_line
+from .serial_reader import Config, Data, Status, parse_line
 from .shake import ShakeDetector
 
 LAMBDA_MM = 5.0  # 60 GHz wavelength, ~4.96 mm
@@ -47,6 +47,8 @@ class PlaceholderBrain:
         self.present = False
         self.shake = ShakeDetector()
         self.was_shaking = False
+        self.max_gap_s = 0.5  # a t_ms jump bigger than this breaks phase continuity
+        self.last_t = None    # board time of the previous D line (also during shakes)
 
     # ------------------------------------------------------------------ helpers
     def _use(self, n: int) -> np.ndarray:
@@ -69,14 +71,19 @@ class PlaceholderBrain:
         if isinstance(m, Config):
             self.cfg = m
             return []
+        if isinstance(m, Status) and "radar restart" in m.text:
+            self._relearn()  # the radar FIFO was cleared: phase continuity is broken
+            self.shake.reset()
+            return []
         if not isinstance(m, Data):
             return []
 
         t = m.t_ms / 1000.0
         z = m.z(self.cfg)
-        if self.hist and t < self.hist[-1][0]:  # board restarted
-            self._relearn()
+        if self.last_t is not None and (t < self.last_t or t - self.last_t > self.max_gap_s):
+            self._relearn()  # board rebooted, radar restarted, or lines lost: start fresh
             self.shake.reset()
+        self.last_t = t
         use = self._use(len(z))
         motion = 0.0
         if self.hist and len(self.hist[-1][1]) == len(z):
