@@ -145,6 +145,7 @@ __attribute__ ((section(".cy_socmem_data"), used)) dev_bgt60trxx_t radar = {0};
 
 /* IBUKI: time of the last full radar frame, for the watchdog. */
 static uint32_t last_frame_ms = 0U;
+#define RADAR_WATCHDOG_MS   (1000U)
 
 /*******************************************************************************
 * Function Name: radar_restart
@@ -496,6 +497,7 @@ cy_rslt_t radar_init(void)
     {
         ibuki_status_code("radar start frame error", (uint32_t)status);
     }
+    last_frame_ms = ibuki_millis(); /* IBUKI: watchdog starts now */
 
     return CY_RSLT_SUCCESS;
 
@@ -648,5 +650,10 @@ static void cm55_ml_deepcraft_task(void)
         radar_data_process();
         /* C line every 5 s, L lines from the PC, B line on the user button. */
         ibuki_poll();
+        /* IBUKI watchdog: a frame normally arrives every 30 ms. */
+        if ((ibuki_millis() - last_frame_ms) > RADAR_WATCHDOG_MS)
+        {
+            radar_restart("radar restart: no frames for 1 s");
+        }
     }
 }
