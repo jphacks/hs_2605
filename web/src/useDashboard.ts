@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { BrainStatus, StatusSource } from './data/status';
-export interface WavePoint { time: number; displacement: number }
-export function useDashboard(source: StatusSource) {
+import { appendWaveform } from './data/waveform';
+import type { WavePoint } from './data/waveform';
+export function useDashboard(source: StatusSource, intervalMs: number | null = null) {
   const [data, setData] = useState<{ status: BrainStatus | null; points: WavePoint[] }>({ status: null, points: [] });
   useEffect(() => source.subscribe(status => {
-    setData(previous => ({ status, points: [...previous.points, ...status.disp_mm.map((displacement, i) => ({
-      time: (status.t - (status.disp_mm.length - 1 - i) * 50) / 1000, displacement,
-    }))].filter(point => point.time >= status.t / 1000 - 30).slice(-600) }));
-  }), [source]);
+    setData(previous => ({ status, points: appendWaveform(previous.points, previous.status, status, intervalMs) }));
+  }), [source, intervalMs]);
   return data;
 }
