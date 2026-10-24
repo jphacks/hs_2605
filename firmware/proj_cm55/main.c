@@ -401,11 +401,19 @@ cy_rslt_t radar_init(void)
     irq_cfg.intrPriority = XENSIV_BGT60TRXX_IRQ_PRIORITY;
 
     result = xensiv_bgt60trxx_mtb_init(&radar.bgt60_obj, radar_configs.register_list, radar_configs.number_of_regs);
-    CY_ASSERT(result == CY_RSLT_SUCCESS);
+    if (result != CY_RSLT_SUCCESS)
+    {
+        ibuki_status_code("radar init failed", (uint32_t)result);
+        return result;
+    }
 
-    /*Initialization uses preset 0*/
+    /* IBUKI: preset P1 (see load_presets) */
     result = xensiv_bgt60trxx_mtb_interrupt_init(&radar.bgt60_obj, radar_configs.num_samples_per_frame);
-    CY_ASSERT(result == CY_RSLT_SUCCESS);
+    if (result != CY_RSLT_SUCCESS)
+    {
+        ibuki_status_code("radar interrupt init failed", (uint32_t)result);
+        return result;
+    }
 
     Cy_SysInt_Init(&irq_cfg, xensiv_bgt60trxx_interrupt_handler);
 
@@ -417,21 +425,17 @@ cy_rslt_t radar_init(void)
 
     Cy_SysLib_Delay(1000);
 
-    if (result != CY_RSLT_SUCCESS)
+    int32_t status = xensiv_bgt60trxx_set_fifo_limit(&radar.bgt60_obj.dev, radar_configs.fifo_int_level);
+    if (status != XENSIV_BGT60TRXX_STATUS_OK)
     {
-        printf("ERROR: xensiv_bgt60trxx_mtb_init failed\n");
-        return false;
+        ibuki_status_code("radar fifo limit error", (uint32_t)status);
     }
-  
-    if (result == CY_RSLT_SUCCESS)
-    {
-        xensiv_bgt60trxx_set_fifo_limit(&radar.bgt60_obj.dev, radar_configs.fifo_int_level);
-    }
-    printf("Radar: Initialized device.\r\n");
+    ibuki_status("radar initialized P1");
 
-    if (xensiv_bgt60trxx_soft_reset(&radar.bgt60_obj.dev, XENSIV_BGT60TRXX_RESET_FIFO) != XENSIV_BGT60TRXX_STATUS_OK)
+    status = xensiv_bgt60trxx_soft_reset(&radar.bgt60_obj.dev, XENSIV_BGT60TRXX_RESET_FIFO);
+    if (status != XENSIV_BGT60TRXX_STATUS_OK)
     {
-        printf("Fifo reset error error.\r\n");
+        ibuki_status_code("radar fifo reset error", (uint32_t)status);
     }
 
     /* Reset the local fifo. */
@@ -440,9 +444,10 @@ cy_rslt_t radar_init(void)
     bgt60_ring_level=0;
 
     radar.have_data = false;
-    if (xensiv_bgt60trxx_start_frame(&radar.bgt60_obj.dev, true) != XENSIV_BGT60TRXX_STATUS_OK)
+    status = xensiv_bgt60trxx_start_frame(&radar.bgt60_obj.dev, true);
+    if (status != XENSIV_BGT60TRXX_STATUS_OK)
     {
-        printf("Start frame error.\r\n");
+        ibuki_status_code("radar start frame error", (uint32_t)status);
     }
 
     return CY_RSLT_SUCCESS;
