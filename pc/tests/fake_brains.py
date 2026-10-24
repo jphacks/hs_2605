@@ -1,0 +1,37 @@
+"""Brains for server tests."""
+
+
+class AlertBrain:
+    """Sends OK statuses, then after 30 D lines an alert event and ALERT statuses."""
+
+    name = "alert-test"
+
+    def __init__(self):
+        self.d = 0
+        self.alerted = False
+
+    def feed(self, line):
+        if line.startswith("B,1"):
+            self.d = -10_000  # button cancels: back to OK
+            self.alerted = False
+            return [{"t": 0, "state": "OK", "bpm": None, "disp_mm": [], "motion": 0,
+                     "present": True, "chest_cm": 48.75}]
+        if not line.startswith("D,"):
+            return []
+        self.d += 1
+        out = []
+        if self.d == 30 and not self.alerted:
+            self.alerted = True
+            out.append({"type": "alert", "reason": "no_breath", "since_s": 10})
+        state = "ALERT" if self.alerted else "OK"
+        if self.d % 2 == 0:
+            out.append({"t": self.d * 60, "state": state, "bpm": None, "disp_mm": [0.0, 0.0],
+                        "motion": 1.0, "present": True, "chest_cm": 48.75})
+        return out
+
+
+class CrashBrain:
+    name = "crash-test"
+
+    def feed(self, line):
+        raise RuntimeError("boom")
