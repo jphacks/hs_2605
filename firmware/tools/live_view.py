@@ -59,16 +59,22 @@ class Stream:
             return list(self.buf)
 
 
-def read_serial(stream, port):
+def read_serial(stream, port, save_path=None):
     import serial
 
+    out = open(save_path, "a", encoding="ascii") if save_path else None
     with serial.Serial(port, 115200, timeout=0.2) as ser:
         rest = b""
         while True:
             rest += ser.read(4096)
             *lines, rest = rest.split(b"\n")
             for ln in lines:
-                stream.feed(ln.decode("ascii", "replace"))
+                text = ln.decode("ascii", "replace")
+                stream.feed(text)
+                if out:
+                    out.write(text.rstrip("\r") + "\n")
+            if out and lines:
+                out.flush()
 
 
 def replay_file(stream, path, realtime=True):
@@ -155,6 +161,8 @@ def main():
     ap.add_argument("--file")
     ap.add_argument("--min-cm", type=float, default=25.0, help="ignore bins closer than this")
     ap.add_argument("--snapshot", help="replay --file fast and save one image, no window")
+    ap.add_argument("--mirror", help="also save the window to this PNG about once a second")
+    ap.add_argument("--save", help="append the raw board lines to this file")
     a = ap.parse_args()
 
     stream = Stream()
@@ -178,15 +186,25 @@ def main():
         if not port:
             sys.exit("no /dev/cu.usbmodem* port: check the cable is in the KitProg3 port")
         print(f"reading {port}  (close this window or press Ctrl+C to stop)")
-        src = threading.Thread(target=read_serial, args=(stream, port), daemon=True)
+        src = threading.Thread(target=read_serial, args=(stream, port, a.save), daemon=True)
     src.start()
 
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation
 
     fig, ax = build_figure()
-    anim = FuncAnimation(fig, lambda _: draw(fig, ax, analyse(stream, a.min_cm), stream),
-                         interval=150, cache_frame_data=False)
+    last_mirror = [0.0]
+
+    def update(_):
+        draw(fig, ax, analyse(stream, a.min_cm), stream)
+        if a.mirror and time.time() - last_mirror[0] >= 1.0:
+            last_mirror[0] = time.time()
+            fig.savefig(a.mirror + ".tmp.png", dpi=80)
+            import os
+
+            os.replace(a.mirror + ".tmp.png", a.mirror)  # readers never see a half-written file
+
+    anim = FuncAnimation(fig, update, interval=150, cache_frame_data=False)
     plt.show()
     del anim
 
