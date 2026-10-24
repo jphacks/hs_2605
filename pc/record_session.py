@@ -1,16 +1,18 @@
 """Guided recording session: walks through all the recordings we need, with spoken cues.
 
 Usage (repo root, board plugged in, viewer closed):
-  ../env/bin/python pc/record_session.py
+  ../env/bin/python pc/record_session.py                   # asks for your name
+  ../env/bin/python pc/record_session.py --person ramadhan
   ../env/bin/python pc/record_session.py --server          # if the server is running
   ../env/bin/python pc/record_session.py --only hold,shake # just some of them
 
 Before each recording it tells you what to do and waits for Enter. The Mac says "start",
 then the cues (for example "hold your breath now"), then "done". Each recording is 60 s.
-Files go to recordings/rec_<name>_<time>.csv (git-ignored).
+Each person gets a folder: recordings/<person>/rec_<name>_<time>.csv (git-ignored).
 """
 import argparse
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -18,6 +20,7 @@ import time
 
 PC_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORD = os.path.join(PC_DIR, "record.py")
+RECORDINGS = os.path.join(os.path.dirname(PC_DIR), "recordings")
 
 # From 2 s to 32 s: "in"/"out" every 3 s = exactly 10 breaths/min, so we know the true rate.
 # After that: natural breathing, the realistic part.
@@ -66,7 +69,8 @@ def main():
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--no-say", action="store_true", help="print the cues instead of speaking")
     ap.add_argument("--from-file", help="for tests: record from a saved file")
-    ap.add_argument("--out-dir")
+    ap.add_argument("--person", help="your name; recordings go to recordings/<person>/")
+    ap.add_argument("--out-dir", help="for tests: save here instead")
     ap.add_argument("--yes", action="store_true", help="for tests: don't wait for Enter")
     a = ap.parse_args()
 
@@ -74,8 +78,15 @@ def main():
     plan = [s for s in SESSION if wanted is None or s[0] in wanted]
     if not plan:
         sys.exit(f"nothing to record; names are: {', '.join(s[0] for s in SESSION)}")
+    person = a.person
+    if not person and not a.out_dir:
+        person = "test" if a.yes else input("Your name (for your recordings folder): ")
+    if person:
+        person = re.sub(r"[^a-z0-9_-]+", "_", person.strip().lower()).strip("_") or "anonymous"
+    out_dir = a.out_dir or os.path.join(RECORDINGS, person)
     say_on = not a.no_say
-    print(f"{len(plan)} recordings, {a.seconds:.0f} s each. Ctrl+C stops the session.\n")
+    print(f"{len(plan)} recordings, {a.seconds:.0f} s each, saved in {out_dir}")
+    print("Ctrl+C stops the session.\n")
 
     done = []
     for i, (name, todo, cues) in enumerate(plan, 1):
@@ -92,8 +103,7 @@ def main():
             cmd.append("--server")
         if a.from_file:
             cmd += ["--from-file", a.from_file]
-        if a.out_dir:
-            cmd += ["--out-dir", a.out_dir]
+        cmd += ["--out-dir", out_dir]
 
         speak("Get ready", say_on)
         start_time = time.time() + lead  # record.py counts down before it starts
