@@ -1,0 +1,31 @@
+# Claude Code
+.claude/
+CLAUDE.md
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Secrets (the ntfy topic and other keys)
+.env
+*.env
+
+# ModusToolbox build output and fetched libraries
+build/
+mtb_shared/
+*.elf
+*.hex
+
+# Large raw recordings (commit only small samples, renamed *.sample.csv)
+recordings/*.csv
+!recordings/*.sample.csv
+
+# Web tooling
+node_modules/
