@@ -207,22 +207,6 @@ class Camera:
         self.frame = None
         self.error = None
         self._lock = threading.Lock()
-        self._cap = None
-        if self.source != "fake":
-            # Open on the MAIN thread: macOS only shows its "allow camera" popup from there.
-            # The first time, click Allow in the popup (it may name "Python" or your terminal).
-            try:
-                import cv2
-
-                self._cap = cv2.VideoCapture(int(self.source))
-                if not self._cap.isOpened():
-                    self._cap = None
-                    self.error = ("camera not available. If a popup asked for camera access, click\n"
-                                  "Allow and start the viewer again. Otherwise allow it in System\n"
-                                  "Settings > Privacy & Security > Camera (Python or your terminal).")
-                    print(self.error.replace("\n", " "))
-            except ImportError:
-                self.error = "OpenCV missing: ../env/bin/python -m pip install opencv-python"
         threading.Thread(target=self._run, daemon=True).start()
 
     def latest(self):
@@ -240,11 +224,16 @@ class Camera:
                     self.frame = img
                 k += 1
                 time.sleep(0.1)
-        if self._cap is None:
+        try:
+            import cv2
+        except ImportError:
+            self.error = "OpenCV missing: ../env/bin/python -m pip install opencv-python"
             return
-        import cv2
-
-        cap = self._cap
+        cap = cv2.VideoCapture(int(self.source))
+        if not cap.isOpened():
+            self.error = ("camera not available: allow camera access for your terminal app in\n"
+                          "System Settings > Privacy & Security > Camera, then restart the viewer")
+            return
         while True:
             ok, bgr = cap.read()
             if not ok:
