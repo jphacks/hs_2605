@@ -74,15 +74,36 @@ About 5 to 10 times a second, return a status:
  "motion": 12.5, "present": true, "chest_cm": 48.75}
 ```
 
-`state` is one of EMPTY, OK, STILL, CHECK or ALERT. `bpm` is None when you don't know it. `disp_mm` holds only the new samples since the last status.
+`bpm` is None when you don't know it. `disp_mm` holds only the new samples since the last status. `state` follows this table:
 
-When something is wrong, return an event like `{"type": "alert", "reason": "no_breath", "since_s": 10}`. The server then turns the LED red and sends the notification, and the LED goes off again when the state leaves ALERT. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
+| In bed? | Moving? | Breathing? | state |
+|---|---|---|---|
+| no | | | EMPTY |
+| yes | yes | unknown (movement hides it) | OK (awake) |
+| yes | no | yes | STILL (asleep, breathing) |
+| yes | no | none found yet | CHECK (counting) |
+| yes | no | none for 20 s (10 s for the demo) | ALERT |
 
-A few things about the data. D lines come every 60 ms (16.6 per second, not 20). After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, start the phase tracking over. When the board is shaking, treat breathing as unknown and never as "no breathing". The full data format is in [firmware/README.md](../firmware/README.md).
+Tell "in bed" from "empty" by the echo strength, compared with the empty-room recording. When the board shakes, breathing is unknown: never go to CHECK or ALERT because of a shake.
+
+Events go out as extra dicts in the same list:
+
+| Event | When | What the server does |
+|---|---|---|
+| `{"type": "alert", "reason": "no_breath", "since_s": 20}` | entering ALERT | LED red, urgent push |
+| `{"type": "alert", "reason": "left_bed"}` | the baby was in bed and is gone | LED red, high push |
+| `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | asleep and above the WHO "fast breathing" level for 5 minutes: 60/min under 2 months, 50 at 2 to 12 months, 40 at 1 to 5 years | high push, no LED |
+| `{"type": "info", "reason": "woke_up"}` | moving again after a long still period | silent push, no LED |
+
+The LED goes off when a status says OK or STILL again, or when someone presses the button. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
+
+A few things about the data. D lines come every 60 ms (16.6 per second, not 20). Babies breathe about 30 to 60 times a minute, so filter breathing with about 0.3 to 1.5 Hz (18 to 90 a minute), not the adult 0.15 to 0.6 Hz. Newborns often pause for 5 to 10 s, which is why the alert waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, start the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
 
 ### For the dashboard
 
-The server sends three kinds of messages on `ws://<laptop>:8000/ws`. Brain statuses look like the example above, and the placeholder ones also have `"source": "placeholder"` and `"shaking"`. While the board is shaking, `disp_mm` is empty. Alert events look like `{"type": "alert", ...}`. And `{"type": "board", "connected": true}` (or `false`) comes when you connect and whenever the USB board drops out or comes back.
+The server sends four kinds of messages on `ws://<laptop>:8000/ws`. Brain statuses look like the example above, and the placeholder ones also have `"source": "placeholder"` and `"shaking"`. While the board is shaking, `disp_mm` is empty. Alerts are `{"type": "alert", ...}` and info events are `{"type": "info", ...}`, both described in the Brain section. And `{"type": "board", "connected": true}` (or `false`) comes when you connect and whenever the USB board drops out or comes back.
+
+Suggested labels: EMPTY ベッドにいません, OK 起きています, STILL 眠っています（呼吸あり）, CHECK 呼吸を確認中, ALERT 呼吸が確認できません. When `shaking` is true, show 不明 instead of the breathing state.
 
 Use `dt_ms` to place the samples: sample `i` of `n` belongs at `t - (n - 1 - i) * dt_ms`. Send `{"type": "button"}` to cancel an alert, the same as pressing the board's button.
 
@@ -194,15 +215,36 @@ class Brain:
  "motion": 12.5, "present": true, "chest_cm": 48.75}
 ```
 
-`state` は EMPTY、OK、STILL、CHECK、ALERT のどれかです。呼吸数がわからないときは `bpm` を None にします。`disp_mm` には前回の状態から増えたサンプルだけを入れます。
+呼吸数がわからないときは `bpm` を None にします。`disp_mm` には前回の状態から増えたサンプルだけを入れます。`state` は次の表のとおりです：
 
-何かおかしいときは `{"type": "alert", "reason": "no_breath", "since_s": 10}` のようなイベントを返してください。サーバーが LED を赤にして通知を送り、状態が ALERT でなくなると LED を消します。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
+| ベッドにいる？ | 動いている？ | 呼吸 | state |
+|---|---|---|---|
+| いない | | | EMPTY |
+| いる | 動いている | 不明（動きで見えない） | OK（起きている） |
+| いる | 静止 | あり | STILL（眠っている・呼吸あり） |
+| いる | 静止 | まだ見つからない | CHECK（数えている） |
+| いる | 静止 | 20 秒なし（デモは 10 秒） | ALERT |
 
-データについて少し。D 行は 60 ms ごと（1 秒に 16.6 本、20 本ではありません）に来ます。`radar restart` と書かれた `S` 行が来たときや、`t_ms` が 0.5 秒以上飛んだときは、位相の追跡をやり直してください。ボードが揺れているあいだは呼吸を「不明」として扱い、「呼吸なし」とは判断しないでください。データの形は [firmware/README.md](../firmware/README.md) に全部書いてあります。
+「ベッドにいる」と「空」は、反射の強さを空の部屋の録画と比べて見分けます。ボードが揺れたときは呼吸を「不明」にして、揺れが原因で CHECK や ALERT にしないでください。
+
+イベントは、同じリストに別の dict として入れます：
+
+| イベント | いつ | サーバーの動き |
+|---|---|---|
+| `{"type": "alert", "reason": "no_breath", "since_s": 20}` | ALERT になったとき | LED を赤、緊急の通知 |
+| `{"type": "alert", "reason": "left_bed"}` | ベッドにいた赤ちゃんがいなくなったとき | LED を赤、高い優先度の通知 |
+| `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | 眠っていて、WHO の「速い呼吸」の目安を 5 分超えたとき（2 か月未満 60 回、2〜12 か月 50 回、1〜5 歳 40 回） | 高い優先度の通知、LED なし |
+| `{"type": "info", "reason": "woke_up"}` | 長く静かだったあとに動き出したとき | 音なしの通知、LED なし |
+
+状態が OK か STILL に戻るか、ボタンが押されると LED は消えます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
+
+データについて少し。D 行は 60 ms ごと（1 秒に 16.6 本、20 本ではありません）に来ます。赤ちゃんの呼吸は 1 分に 30〜60 回くらいなので、呼吸のフィルタは大人用の 0.15〜0.6 Hz ではなく、0.3〜1.5 Hz（1 分に 18〜90 回）くらいにしてください。新生児は 5〜10 秒息が止まることがよくあるので、警告は 20 秒待ちます。`radar restart` と書かれた `S` 行が来たときや、`t_ms` が 0.5 秒以上飛んだときは、位相の追跡をやり直してください。データの形は [firmware/README.md](../firmware/README.md) に全部書いてあります。
 
 ### ダッシュボードの担当の人へ
 
-サーバーは `ws://<PC>:8000/ws` に 3 種類のメッセージを送ります。Brain の状態は上の例と同じ形で、仮の Brain のものには `"source": "placeholder"` と `"shaking"` も付きます。ボードが揺れているあいだ `disp_mm` は空です。警告のイベントは `{"type": "alert", ...}` です。`{"type": "board", "connected": true}`（または `false`）は、接続したときと、USB のボードが外れたり戻ったりしたときに届きます。
+サーバーは `ws://<PC>:8000/ws` に 4 種類のメッセージを送ります。Brain の状態は上の例と同じ形で、仮の Brain のものには `"source": "placeholder"` と `"shaking"` も付きます。ボードが揺れているあいだ `disp_mm` は空です。警告は `{"type": "alert", ...}`、お知らせは `{"type": "info", ...}` で、どちらも Brain の章に書いてあります。`{"type": "board", "connected": true}`（または `false`）は、接続したときと、USB のボードが外れたり戻ったりしたときに届きます。
+
+表示の例：EMPTY ベッドにいません、OK 起きています、STILL 眠っています（呼吸あり）、CHECK 呼吸を確認中、ALERT 呼吸が確認できません。`shaking` が true のときは、呼吸の状態の代わりに「不明」と表示してください。
 
 サンプルの時刻は `dt_ms` で決めてください。`n` 個のうち `i` 番目は `t - (n - 1 - i) * dt_ms` です。`{"type": "button"}` を送ると、ボードのボタンを押したのと同じく警告を取り消せます。
 
