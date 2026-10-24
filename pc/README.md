@@ -133,7 +133,7 @@ Add `--server` if the server is running.
 - `shake`: breathe quietly, then tap or bump the table a few times
 - `leave`: breathe for 20 s, then walk away
 
-The files go into `recordings/` and git ignores them. To share one, copy it to `recordings/<name>.sample.csv`.
+The session asks for your name, so each person gets their own folder, `recordings/<your name>/`. More people make the thresholds more reliable, so everyone on the team can record a session. Git ignores the recordings. To share one, copy it to a name ending in `.sample.csv`.
 
 ### If something doesn't work
 
@@ -274,7 +274,7 @@ class Brain:
 - `shake`：静かに呼吸して、途中で机を何回かたたく・揺らす
 - `leave`：20 秒呼吸してから、その場を離れる
 
-ファイルは `recordings/` に保存され、git には入りません。共有したいときは `recordings/<名前>.sample.csv` にコピーしてください。
+ガイド付きの録画は最初に名前を聞くので、一人ひとりのフォルダ `recordings/<名前>/` に保存されます。人数が多いほどしきい値が正確になるので、チーム全員で録ってください。録画は git には入りません。共有したいときは、名前の最後が `.sample.csv` になるようにコピーしてください。
 
 ### うまく動かないとき
 
