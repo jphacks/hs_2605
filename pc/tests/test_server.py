@@ -123,8 +123,8 @@ class ServerTest(unittest.TestCase):
         finally:
             s.stop()
         out = s.output
-        self.assertIn({"type": "info", "reason": "woke_up"}, msgs)
-        self.assertIn({"type": "alert", "reason": "left_bed"}, msgs)
+        self.assertIn({"type": "info", "reason": "woke_up", "since_s": 0}, msgs)
+        self.assertIn({"type": "alert", "reason": "left_bed", "since_s": 0}, msgs)  # dashboard needs since_s
         self.assertIn("ntfy [woke_up, priority 2]: not sent", out)  # low: arrives silently
         self.assertIn("ntfy [left_bed, priority 4]: not sent", out)  # high: time sensitive
         led_on = out.index("would send to board: L,1")
