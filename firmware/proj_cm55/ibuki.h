@@ -12,9 +12,10 @@
 #define IBUKI_RX_ANTENNAS       (3U)
 #define IBUKI_RX_USED           (0U)    /* first RX antenna only, for now */
 
-/* Range gate: FFT bins 4..27 = 15.0 cm .. 101.25 cm, 3.75 cm per bin (4 GHz sweep).
- * Covers a baby 20-60 cm from the board in a crib, and the 80 cm bench test. */
-#define IBUKI_FIRST_BIN         (4U)
+/* Range gate: FFT bins 8..31 = 30.0 cm .. 116.25 cm, 3.75 cm per bin (4 GHz sweep).
+ * Bins under ~28 cm hold the radar's own TX->RX leakage (measured on the board), so they are
+ * not sent. Covers a baby 30-60 cm from the board in a crib. Bin 31 is the last complex bin. */
+#define IBUKI_FIRST_BIN         (8U)
 #define IBUKI_NUM_BINS          (24U)
 #define IBUKI_BIN_STEP_UM       (37500U) /* bin step in micrometres */
 
