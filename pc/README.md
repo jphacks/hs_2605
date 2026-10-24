@@ -128,7 +128,7 @@ Or record them one at a time, 60 seconds each:
 Add `--server` if the server is running.
 
 - `empty`: nobody within 1.2 m of the board
-- `breathing_20cm`: chest 20 cm from the board, sitting still and breathing normally
+- `breathing_20cm`: chest 20 cm from the board, sitting still. Breathe with the voice (10 a minute) for 30 s, then normally
 - `breathing_30cm` and `breathing_50cm`: the same at 30 and 50 cm
 - `hold`: breathe for 20 s, hold your breath for 20 s, then breathe for 20 s
 - `moving`: shift around and move your arms
@@ -271,7 +271,7 @@ class Brain:
 サーバーを動かしているときは `--server` を付けてください。
 
 - `empty`：ボードから 1.2 m 以内に誰もいない
-- `breathing_20cm`：胸をボードから 20 cm にして、じっと座って普通に呼吸する
+- `breathing_20cm`：胸をボードから 20 cm にして、じっと座る。30 秒は声に合わせて呼吸し（1 分に 10 回）、そのあとは普通に呼吸する
 - `breathing_30cm`、`breathing_50cm`：同じことを 30 cm と 50 cm で
 - `hold`：20 秒呼吸して、20 秒息を止めて、また 20 秒呼吸する
 - `moving`：体を動かしたり、腕を動かしたりする
