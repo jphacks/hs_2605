@@ -20,7 +20,9 @@ class Brain:
         self.time_buffer = collections.deque(maxlen=self.buffer_size)
         self.iq_buffers = {} 
         self.last_breath_time = time.time()
-        self.state = "EMPTY"
+        self.last_moving_time = time.time()  # 👈 追加：静止期間の追跡用
+        self.state = "Sleeping, breathing (OK)"  # 👈 変更：初期状態の文字列
+    
 
         # 👈 前回出力からの新サンプル追跡用バッファ
         self.new_disp_samples = []
@@ -100,8 +102,8 @@ class Brain:
         
         # 不在判定の閾値（mm単位の分散に合わせた調整）
         if max_variance < 0.0001:
-            self.state = "EMPTY"
-            return {"t": t_ms, "state": "EMPTY", "bpm": None, "disp_mm": [], "motion": 0, "present": False, "chest_cm": 0}
+            self.state = "Not in bed, ALERT"  # 👈 変更：初期状態の文字列"
+            return {"t": t_ms, "state": self.state, "bpm": None, "disp_mm": [], "motion": 0, "present": False, "chest_cm": 0}
 
         # 距離計算の修正
         chest_cm = self.first_cm + best_bin * (self.step_mm / 10.0)
@@ -118,23 +120,47 @@ class Brain:
         bpm = None
         motion_val = int(max_variance * 1000)
         
-        # サーバーに通知するイベント
+        
+        # -------------------------------------------------------------
+        # 👈 ここから下を完全に置き換え（仕様表の判定ロジック）
+        # -------------------------------------------------------------
+        MOTION_THRESHOLD = 50  # 体動のしきい値（環境に合わせて調整）
         event_dict = None
         
-        if len(peaks) >= 2:
-            self.last_breath_time = time.time()
-            peak_intervals = np.diff(peaks)
-            bpm = round(60.0 / (np.mean(peak_intervals) / self.fs), 1)
-            self.state = "OK"
-        else:
-            elapsed_no_breath = time.time() - self.last_breath_time
-            if elapsed_no_breath > 10.0:
-                if self.state != "ALERT":
-                    self.state = "ALERT"
-                    # 👈 ズレ修正：サーバーに送るALERTイベントを生成
-                    event_dict = {"type": "alert", "reason": "no_breath", "since_s": int(elapsed_no_breath), "t": t_ms}
+        if motion_val > MOTION_THRESHOLD:
+            # 👉 動いている (Moving: yes / 仕様表2行目)
+            elapsed_still = time.time() - self.last_moving_time
+            if elapsed_still > 10.0:  # 長い静止期間の後に動き始めた場合
+                self.state = "Awake / moving (OK), with 'woke up'"
             else:
-                self.state = "STILL"
+                self.state = "Awake / moving (OK)"
+            self.last_breath_time = time.time()
+        else:
+            # 👉 動いていない (Moving: no)
+            self.last_moving_time = time.time()
+            
+            if len(peaks) >= 2:
+                # 👉 呼吸している (Breathing: yes / 仕様表1行目)
+                self.last_breath_time = time.time()
+                peak_intervals = np.diff(peaks)
+                bpm = round(60.0 / (np.mean(peak_intervals) / self.fs), 1)
+                self.state = "Sleeping, breathing (OK)"
+            else:
+                # 👉 呼吸していない (Breathing: no / 仕様表3行目)
+                elapsed_no_breath = time.time() - self.last_breath_time
+                if elapsed_no_breath >= 10.0:  # デモ用の10秒閾値
+                    self.state = "No breathing, ALERT"
+                    event_dict = {"type": "alert", "reason": "no_breath", "state": self.state, "t": t_ms}
+                else:
+                    self.state = "Sleeping, breathing (OK)"  # アラート時間未満はOK状態を維持
+        # -------------------------------------------------------------
+        # 👈 ここまで
+        # -------------------------------------------------------------
+        
+        # サーバーに通知するイベント（Not in bed 用のアラートイベントを追加）
+        if "Not in bed" in self.state:
+            event_dict = {"type": "alert", "reason": "not_in_bed", "state": self.state, "t": t_ms}
+
         
         # 👈 ズレ修正：前回の出力から増えた分だけをdisp_mmに入れてバッファを空にする
         exported_samples = list(self.new_disp_samples)
