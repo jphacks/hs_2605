@@ -144,7 +144,9 @@ npm run dev
 * **ダッシュボード**：呼吸の波と状態をリアルタイムに表示します。[web/](web/)（commit fd42b05、827dfc2）
 
 ## English summary
-IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 16 recordings from 2 people gave no false alerts. It's a hackathon prototype, not a medical device.
+IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 16 recordings from 2 people gave no false alerts. 
+
+Disclaimer: It's a hackathon prototype, not a medical device.
 
 ## チーム
 * Manami Ando
