@@ -23,6 +23,26 @@ import numpy as np
 WINDOW_S = 20.0
 PROFILE_S = 3.0
 LAMBDA_MM = 5.0  # 60 GHz wavelength, ~4.96 mm
+PRESENT_LEVEL = 15.0  # bin activity meaning "something is there"; tune with the empty-room recording
+BREATH_BAND_HZ = (0.1, 1.2)  # adults ~0.2-0.33 Hz, babies ~0.5-1.0 Hz
+NOISE_BAND_HZ = (1.5, 4.0)
+
+
+def signal_quality(t, disp):
+    """(SNR dB of the breathing band vs. a faster noise band, peak in breaths/min) or (None, None)."""
+    if len(t) < 50 or t[-1] - t[0] < 10.0:
+        return None, None
+    fs = (len(t) - 1) / (t[-1] - t[0])
+    x = (disp - disp.mean()) * np.hanning(len(disp))
+    power = np.abs(np.fft.rfft(x)) ** 2
+    f = np.fft.rfftfreq(len(x), 1.0 / fs)
+    band = (f >= BREATH_BAND_HZ[0]) & (f <= BREATH_BAND_HZ[1])
+    noise = (f >= NOISE_BAND_HZ[0]) & (f <= NOISE_BAND_HZ[1])
+    if not band.any() or not noise.any():
+        return None, None
+    snr_db = 10 * np.log10(power[band].mean() / max(power[noise].mean(), 1e-12))
+    peak_per_min = f[band][np.argmax(power[band])] * 60.0
+    return float(snr_db), float(peak_per_min)
 
 
 class Stream:
@@ -136,8 +156,28 @@ def analyse(stream, min_cm):
     phase = np.unwrap(np.angle(zc))
     disp = phase * LAMBDA_MM / (4 * np.pi)
     disp -= np.polyval(np.polyfit(t - t[0], disp, 1), t - t[0])  # remove slow drift
+    snr_db, peak = signal_quality(t, disp)
     return dict(t=t - t[-1], rng=rng, profile=profile, use=use, motion=motion,
-                moving=moving, bin_cm=rng[b], disp=disp)
+                moving=moving, bin_cm=rng[b], disp=disp, present=profile[b] >= PRESENT_LEVEL,
+                activity=float(profile[b]), snr_db=snr_db, peak_per_min=peak,
+                gate=(float(rng[use][0]) if use.any() else float(rng[0]), float(rng[-1])))
+
+
+def quality_text(a):
+    if not a["present"]:
+        return "signal quality: - (nothing in range)"
+    if a["snr_db"] is None:
+        return "signal quality: collecting 10 s ..."
+    q = a["snr_db"]
+    word = "good" if q >= 10 else "ok" if q >= 5 else "weak"
+    return f"signal quality {q:.0f} dB ({word})   breathing-band peak ~{a['peak_per_min']:.0f}/min"
+
+
+def banner(a):
+    if a["present"]:
+        return f"IN RANGE - radar sees something at {a['bin_cm']:.0f} cm", "tab:green"
+    lo, hi = a["gate"]
+    return f"OUT OF RANGE - nothing moving between {lo:.0f} and {hi:.0f} cm", "gray"
 
 
 def build_figure():
@@ -172,7 +212,9 @@ def draw(fig, ax, a, stream):
     ax[2].set_xlim(-WINDOW_S, 0)
     ax[2].set_xlabel("time (s)")
     ax[2].set_ylabel("mm")
-    ax[2].set_title(f"Displacement at {a['bin_cm']:.0f} cm (breathing shows as a slow wave)")
+    ax[2].set_title(f"Displacement at {a['bin_cm']:.0f} cm - {quality_text(a)}")
+    text, col = banner(a)
+    fig.suptitle(text, color=col, fontsize=15, fontweight="bold")
     fig.tight_layout()
 
 
@@ -180,7 +222,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port")
     ap.add_argument("--file")
-    ap.add_argument("--min-cm", type=float, default=25.0, help="ignore bins closer than this")
+    ap.add_argument("--min-cm", type=float, default=28.0, help="ignore bins closer than this (antenna leakage)")
     ap.add_argument("--snapshot", help="replay --file fast and save one image, no window")
     ap.add_argument("--mirror", help="also save the window to this PNG about once a second")
     ap.add_argument("--save", help="append the raw board lines to this file")
