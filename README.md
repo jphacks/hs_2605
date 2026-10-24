@@ -60,7 +60,7 @@ IBUKI は 3 つの部分でできています。
 - たくさんの赤ちゃんのデータで、判定の基準を見直す
 
 ### 注力したこと（こだわり等）
-* **実際のデータで確かめること。** しきい値は勘で決めず、2 人分・16 本の録画を見て決めました。音声に合わせて 1 分間に 10 回呼吸するテストでは、ちょうど 10.0 回と測れました。
+* **実際のデータで確かめること。** しきい値は勘で決めず、3 人分・24 本の録画を見て決めました。音声に合わせて 1 分間に 10 回呼吸するテストでは、ちょうど 10.0 回と測れました。
 * **誤報を出さないこと。** 呼吸、動き、ボードの揺れ、立ち去り、空の部屋のどの録画でも、間違った「呼吸なし」は一度も出ませんでした。
 * **止まらないこと。** レーダーのデータがあふれたり止まったりしても、ボードが自分で復帰します。USB を抜き差ししても、サーバーが自分でつなぎ直します。
 
@@ -71,9 +71,9 @@ IBUKI は 3 つの部分でできています。
 | 項目 | 結果 |
 |---|---|
 | データの送信 | 1 秒に 16.6 回、欠けなし |
-| 呼吸数（1 分に 10 回のペースで呼吸） | 9.0〜10.7 回（2 人、6 本の録画。解析では 10.0 回） |
-| 間違った「呼吸なし」 | 16 本の録画で 0 回 |
-| 息止めの検出 | じっと息を止めた録画で警告が出る |
+| 呼吸数（1 分に 10 回のペースで呼吸） | 9.0〜10.7 回（3 人、9 本中 8 本。残りの 1 本は「わからない」）。解析では 10.0 回 |
+| 間違った「呼吸なし」 | 3 人・24 本の録画で 0 回 |
+| 息止めの検出 | じっと息を止めた録画で警告が出る（呼吸がとても浅い人は、50 cm 離れると呼吸そのものが見えないことがある） |
 | 警告の流れ | 通知、Apple Watch、LED の点滅、ボタンでの解除まで実機で動作 |
 | レーダーが止まったとき | 自動で復帰（テスト 4 段階すべて合格） |
 
@@ -99,7 +99,7 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 |---|---|
 | ベッドにいるか | 反射が 3 秒間にどれだけ変わるか。空の部屋ではほとんど変わらない |
 | 動いているか | 反射の強さの変わり方。呼吸では強さはあまり変わらず、体を動かすと大きく変わる |
-| 息をしているか | 胸の距離の反射から取り出した 0.1〜1.5 Hz の波。ふだんの波の 30% より小さくなったら「呼吸が見えない」 |
+| 息をしているか | 胸の距離の反射から取り出した 0.1〜1.5 Hz の波。ふだんの波（直前 15 秒）の 30% より小さくなったら「呼吸が見えない」 |
 | 呼吸数 | 20 秒間の波の周波数のピーク。波を数えた回数と 25% 以上ずれたら、数字を出さない |
 | ボードの揺れ | 壁や家具の反射がそろって動いたら、呼吸を「わからない」にする |
 
@@ -138,13 +138,13 @@ npm run dev
 #### ハッカソンで開発した独自機能・技術
 * **レーダーのファームウェア**：ボードの上で距離ごとの FFT まで計算し、決めた形式でパソコンへ送ります。[firmware/proj_cm55/ibuki.c](firmware/proj_cm55/ibuki.c)（commit 917dbb7、55fd0f6）
 * **自動で復帰するファームウェア**：データがあふれたら捨てて再起動、1 秒止まったらウォッチドッグが再起動します（commit 8d30423、827023d）。
-* **Brain**：在室、動き、呼吸、呼吸数を判断し、状態と警告を決めます。2 人分の録画で調整しました。[pc/ibuki/brain.py](pc/ibuki/brain.py)（commit 99be1af）
+* **Brain**：在室、動き、呼吸、呼吸数を判断し、状態と警告を決めます。2 人分の録画で調整し、3 人分の録画で確かめました。[pc/ibuki/brain.py](pc/ibuki/brain.py)（commit 99be1af）
 * **ボードの揺れの検出**：ふだん動かない壁や家具の反射がそろって動いたら、ボードが揺れたと判断し、呼吸を「わからない」にします。[pc/ibuki/shake.py](pc/ibuki/shake.py)（commit 9008636）
 * **サーバー**：ボード、Brain、ダッシュボード、通知、LED をつなぎます。[pc/ibuki/server.py](pc/ibuki/server.py)（commit 50cdc95）
 * **ダッシュボード**：呼吸の波と状態をリアルタイムに表示します。[web/](web/)（commit fd42b05、827dfc2）
 
 ## English summary
-IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 16 recordings from 2 people gave no false alerts. 
+IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts. 
 
 Disclaimer: It's a hackathon prototype, not a medical device.
 
