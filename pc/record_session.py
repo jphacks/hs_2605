@@ -19,13 +19,21 @@ import time
 PC_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORD = os.path.join(PC_DIR, "record.py")
 
+# From 2 s to 32 s: "in"/"out" every 3 s = exactly 10 breaths/min, so we know the true rate.
+# After that: natural breathing, the realistic part.
+PACED = [(2 + 6 * k, "in") for k in range(5)] + [(5 + 6 * k, "out") for k in range(5)] + \
+        [(32, "Now breathe normally")]
+
 # name, what to do, spoken cues (seconds after the start, text)
 SESSION = [
     ("empty", "Nobody within 1.2 m of the board. Press Enter, then step away (you get 8 s).",
      [(-8, "Step away now")]),
-    ("breathing_20cm", "Sit with your chest 20 cm from the board. Stay still, breathe normally.", []),
-    ("breathing_30cm", "Chest 30 cm from the board. Stay still, breathe normally.", []),
-    ("breathing_50cm", "Chest 50 cm from the board. Stay still, breathe normally.", []),
+    ("breathing_20cm", "Chest 20 cm from the board. Stay still. Breathe with the voice, then normally.",
+     PACED),
+    ("breathing_30cm", "Chest 30 cm from the board. Stay still. Breathe with the voice, then normally.",
+     PACED),
+    ("breathing_50cm", "Chest 50 cm from the board. Stay still. Breathe with the voice, then normally.",
+     PACED),
     ("hold", "Chest 50 cm from the board. Breathe, then hold your breath when you hear it.",
      [(20, "Hold your breath now"), (40, "Breathe again")]),
     ("moving", "50 cm from the board. Shift around and move your arms the whole time.", []),
