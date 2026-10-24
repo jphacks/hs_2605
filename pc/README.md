@@ -90,7 +90,13 @@ If you build the dashboard (`npm run build` in `web/`), the server also serves i
 
 ### Recordings we need
 
-Record 60 seconds of each:
+The easiest way is the guided session. It goes through the whole list below, waits for Enter before each one, and tells you out loud when to start, hold your breath, tap the table or walk away:
+
+```
+../env/bin/python pc/record_session.py
+```
+
+Or record them one at a time, 60 seconds each:
 
 ```
 ../env/bin/python pc/record.py <name> --seconds 60
@@ -204,7 +210,13 @@ class Brain:
 
 ### 必要な録画
 
-それぞれ 60 秒ずつ録ります：
+いちばん簡単なのはガイド付きの録画です。下のリストを順番に進め、毎回 Enter を待ってから始めます。始める・息を止める・机をたたく・離れるタイミングは、Mac が声で教えてくれます：
+
+```
+../env/bin/python pc/record_session.py
+```
+
+1 つずつ録る場合は、それぞれ 60 秒ずつ：
 
 ```
 ../env/bin/python pc/record.py <名前> --seconds 60
