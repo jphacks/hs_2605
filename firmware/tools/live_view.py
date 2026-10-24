@@ -194,113 +194,15 @@ def banner(a):
     return f"OUT OF RANGE - nothing moving between {lo:.0f} and {hi:.0f} cm", "gray"
 
 
-class Camera:
-    """TESTING AID ONLY: shows what is in front of the board next to the radar plots.
-
-    IBUKI itself is camera-free. Frames are only drawn on screen: never saved, never sent,
-    and hidden from the --mirror PNG. source: camera index ("0") or "fake" for tests.
-    """
-
-    def __init__(self, source="0", width=480):
-        self.source = str(source)
-        self.width = width
-        self.frame = None
-        self.error = None
-        self._lock = threading.Lock()
-        self._cap = None
-        if self.source != "fake":
-            # Open on the MAIN thread: macOS only shows its "allow camera" popup from there.
-            # The first time, click Allow in the popup (it may name "Python" or your terminal).
-            try:
-                import cv2
-
-                self._cap = cv2.VideoCapture(int(self.source))
-                if not self._cap.isOpened():
-                    self._cap = None
-                    self.error = ("camera not available. If a popup asked for camera access, click\n"
-                                  "Allow and start the viewer again. Otherwise allow it in System\n"
-                                  "Settings > Privacy & Security > Camera (Python or your terminal).")
-                    print(self.error.replace("\n", " "))
-            except ImportError:
-                self.error = "OpenCV missing: ../env/bin/python -m pip install opencv-python"
-        threading.Thread(target=self._run, daemon=True).start()
-
-    def latest(self):
-        with self._lock:
-            return self.frame
-
-    def _run(self):
-        if self.source == "fake":  # moving block, for tests without a camera
-            k = 0
-            while True:
-                img = np.full((270, self.width, 3), 60, np.uint8)
-                x = int(self.width / 2 + 150 * np.sin(k / 10))
-                img[100:170, max(0, x - 35):x + 35] = (230, 180, 120)
-                with self._lock:
-                    self.frame = img
-                k += 1
-                time.sleep(0.1)
-        if self._cap is None:
-            return
-        import cv2
-
-        cap = self._cap
-        while True:
-            ok, bgr = cap.read()
-            if not ok:
-                self.error = "camera stopped sending frames"
-                time.sleep(0.5)
-                continue
-            h, w = bgr.shape[:2]
-            small = cv2.resize(bgr, (self.width, int(h * self.width / w)))
-            rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)[:, ::-1]  # mirrored, like a selfie
-            with self._lock:
-                self.frame = np.ascontiguousarray(rgb)
-                self.error = None
-
-
-def build_figure(camera=False):
+def build_figure():
     import matplotlib.pyplot as plt
 
-    if camera:
-        fig = plt.figure(figsize=(15, 8))
-        gs = fig.add_gridspec(3, 2, width_ratios=[1.0, 1.15])
-        cam_ax = fig.add_subplot(gs[:, 0])
-        ax = [fig.add_subplot(gs[i, 1]) for i in range(3)]
-    else:
-        fig, ax = plt.subplots(3, 1, figsize=(9, 8))
-        cam_ax = None
+    fig, ax = plt.subplots(3, 1, figsize=(9, 8))
     fig.canvas.manager.set_window_title("IBUKI radar live view")
-    return fig, ax, cam_ax
+    return fig, ax
 
 
-def draw_camera(cam_ax, camera, a):
-    cam_ax.clear()
-    cam_ax.set_xticks([])
-    cam_ax.set_yticks([])
-    frame = camera.latest()
-    if frame is not None:
-        cam_ax.imshow(frame)
-    else:
-        cam_ax.text(0.5, 0.5, camera.error or "starting camera ...", ha="center", va="center",
-                    transform=cam_ax.transAxes)
-    if a is None:
-        text, col, sub = "waiting for radar data ...", "gray", ""
-    else:
-        text, col = banner(a)
-        sub = "MOVING" if a["moving"] else "STILL"
-    cam_ax.text(0.02, 0.98, f"{text}\n{sub}", transform=cam_ax.transAxes, va="top", ha="left",
-                fontsize=12, fontweight="bold", color="white",
-                bbox=dict(facecolor=col, alpha=0.85, edgecolor="none"))
-    for spine in cam_ax.spines.values():  # colored frame = what the radar thinks right now
-        spine.set_edgecolor(col)
-        spine.set_linewidth(6)
-    cam_ax.set_title("TEST CAMERA (not part of IBUKI, nothing is saved)", fontsize=10, color="gray")
-
-
-def draw(fig, ax, a, stream, cam_ax=None, camera=None):
-    if cam_ax is not None and camera is not None:
-        draw_camera(cam_ax, camera, a)
+def draw(fig, ax, a, stream):
     for x in ax:
         x.clear()
         x.grid(alpha=0.3)
@@ -343,13 +245,10 @@ def main():
     ap.add_argument("--save", help="append the raw board lines to this file")
     ap.add_argument("--server", nargs="?", const="ws://localhost:8000/ws/raw",
                     help="read through the running IBUKI server instead of the port")
-    ap.add_argument("--camera", nargs="?", const="0", default=None,
-                    help="TEST ONLY: show the laptop camera next to the plots (index, or 'fake')")
     a = ap.parse_args()
 
     stream = Stream()
     stream.min_cm = a.min_cm
-    camera = Camera(a.camera) if a.camera is not None else None
     if a.snapshot:
         if not a.file:
             sys.exit("--snapshot needs --file")
@@ -357,10 +256,8 @@ def main():
 
         matplotlib.use("Agg")
         replay_file(stream, a.file, realtime=False)
-        if camera:
-            time.sleep(0.5)  # let the first frame arrive
-        fig, ax, cam_ax = build_figure(camera is not None)
-        draw(fig, ax, analyse(stream, a.min_cm), stream, cam_ax, camera)
+        fig, ax = build_figure()
+        draw(fig, ax, analyse(stream, a.min_cm), stream)
         fig.savefig(a.snapshot, dpi=100)
         print(f"saved {a.snapshot}")
         return
@@ -381,18 +278,16 @@ def main():
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation
 
-    fig, ax, cam_ax = build_figure(camera is not None)
+    fig, ax = build_figure()
     last_mirror = [0.0]
 
     def update(_):
-        draw(fig, ax, analyse(stream, a.min_cm), stream, cam_ax, camera)
+        draw(fig, ax, analyse(stream, a.min_cm), stream)
         if a.mirror and time.time() - last_mirror[0] >= 1.0:
             last_mirror[0] = time.time()
-            if cam_ax is not None:
-                cam_ax.set_visible(False)  # the camera picture is never written to disk
             fig.savefig(a.mirror + ".tmp.png", dpi=80)
-            if cam_ax is not None:
-                cam_ax.set_visible(True)
+            import os
+
             os.replace(a.mirror + ".tmp.png", a.mirror)  # readers never see a half-written file
 
     anim = FuncAnimation(fig, update, interval=150, cache_frame_data=False)
