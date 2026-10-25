@@ -1,15 +1,15 @@
-# IBUKI（いぶき）
+# 息吹～IBUKI～
 
 **カメラも、体につけるセンサーもいらない。電波で、眠る赤ちゃんの呼吸を見守る。**
 
 <!-- デモ動画ができたら、下の行のコメントを外して画像と動画の URL を入れる
-[![IBUKI demo](画像URL)](動画URL)
+[![息吹～IBUKI～ demo](画像URL)](動画URL)
 -->
 
 ベビーベッドのそばに置いた 60 GHz のミリ波レーダーが、赤ちゃんの胸のわずか数ミリの上下をとらえます。呼吸が止まったように見えたら、保護者のスマートフォンと Apple Watch に知らせ、ボードの赤い LED が点滅します。
 
 <p align="center">
-  <img src="docs/images/ibuki_flow.png" width="400" alt="IBUKI のしくみ：レーダーが胸の動きをとらえ、ボードが距離ごとに分け、Brain が判断し、スマートフォンと LED で知らせる">
+  <img src="docs/images/ibuki_flow.png" width="400" alt="息吹～IBUKI～のしくみ：レーダーが胸の動きをとらえ、ボードが距離ごとに分け、Brain が判断し、スマートフォンと LED で知らせる">
 </p>
 
 > ハッカソンで作った試作品です。医療機器ではなく、病気の診断や SIDS（乳幼児突然死症候群）の予防はできません。
@@ -19,10 +19,10 @@
 赤ちゃんが眠っているあいだ、「ちゃんと息をしているかな」と夜中に何度ものぞきに行く親は少なくありません。
 見守りカメラは便利ですが、寝顔がずっと撮られ続けることに抵抗がある家庭もあります。体に貼るセンサーは、赤ちゃんが嫌がったり、寝返りで外れたりします。
 
-触れずに、映さずに、それでいてちゃんと見守れないか。その答えとして IBUKI を作りました。名前は「息吹（いぶき）」、命の息づかいから取っています。
+触れずに、映さずに、それでいてちゃんと見守れないか。その答えとして 息吹～IBUKI～を作りました。名前の「息吹（いぶき）」は、命の息づかいから取っています。
 
 ### 製品説明（具体的な製品の説明）
-IBUKI は 3 つの部分でできています。
+息吹～IBUKI～は 3 つの部分でできています。
 
 1. **レーダーのボード**：Infineon の PSOC Edge E84 AI Kit に、私たちが書いたファームウェアを入れています。跳ね返ってきた電波を距離ごとに分けて、1 秒に約 16 回パソコンへ送ります。
 2. **パソコンの Brain**：赤ちゃんがいるか、動いているか、息をしているかを判断し、呼吸数を計算します。
@@ -52,7 +52,7 @@ IBUKI は 3 つの部分でできています。
 - 「起きた」「ベッドにいない」もわかるので、呼吸以外の見守りにも役立ちます。
 
 ### 今後の展望
-- 赤ちゃんで確かめる（赤ちゃんの呼吸は 1 分に 30〜60 回で、IBUKI が見ている範囲に入ります）
+- 赤ちゃんで確かめる（赤ちゃんの呼吸は 1 分に 30〜60 回で、息吹～IBUKI～が見ている範囲に入ります）
 - 3 本ある受信アンテナを組み合わせて、毛布越しでも、もっとはっきり測れるようにする
 - ボードの AI 用チップで判断を動かし、パソコンなしで使えるようにする
 - 小さなケースに入れて、ベッドの柵に取り付けられるようにする
@@ -82,7 +82,7 @@ IBUKI は 3 つの部分でできています。
 実機で測った胸の動きです。呼吸すると波が見え、息を止めると波が消えます。Brain が見ているのは、この波です。
 
 ### 大人で試した結果が赤ちゃんにも当てはまる理由
-テストは大人（私たち）で行いました。IBUKI は 0.1〜1.5 Hz、つまり 1 分に 6〜90 回の呼吸を読み取れます。
+テストは大人（私たち）で行いました。息吹～IBUKI～は 0.1〜1.5 Hz、つまり 1 分に 6〜90 回の呼吸を読み取れます。
 
 - 赤ちゃんの呼吸は大人より速く、新生児はふつう 1 分に 30〜60 回です。WHO の「速い呼吸」の目安も、2 か月未満は 60 回、2〜12 か月は 50 回、1〜5 歳は 40 回で、どれもこの範囲に入ります。
 - 警告は決まった大きさで判断せず、その子のふだんの呼吸と比べます。なので、小さな呼吸にも合わせられます。
@@ -136,12 +136,12 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **サーバーと通知**：ボード、Brain、ダッシュボード、LED をつなぎ、緊急度つきで通知します。[server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)、[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
 * **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **自動テスト**：パソコン側 38 個、ダッシュボード 39 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+* **自動テスト**：パソコン側 38 個、ダッシュボード 50 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
-IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
+息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
 
-We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside IBUKI's range of 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
+We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside the range 息吹～IBUKI～ reads, 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
 
 Disclaimer: It's a hackathon prototype, not a medical device.
 

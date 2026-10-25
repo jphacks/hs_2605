@@ -131,7 +131,7 @@ class Notifier:
 
     @classmethod
     def title_for(cls, event: dict, urgent: bool) -> str:
-        return cls.TITLES.get(str(event.get("reason")), "【緊急】IBUKI" if urgent else "【お知らせ】IBUKI")
+        return cls.TITLES.get(str(event.get("reason")), "【緊急】息吹～IBUKI～" if urgent else "【お知らせ】息吹～IBUKI～")
 
     @staticmethod
     def message_for(event: dict) -> str:
@@ -340,7 +340,7 @@ def create_app(args) -> FastAPI:
 
     @app.post("/api/test-notification")
     def test_notification():
-        ok, info = notifier.send("【テスト】IBUKI の通知", "通知は正しく届いています。", force=True,
+        ok, info = notifier.send("【テスト】息吹～IBUKI～の通知", "通知は正しく届いています。", force=True,
                                  priority=3, tag="white_check_mark")
         log(f"test notification: {'sent' if ok else 'not sent'} ({info})")
         return {"ok": ok, "info": info}
