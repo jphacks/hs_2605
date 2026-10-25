@@ -24,11 +24,16 @@ export type NotificationAction =
   | { type: 'connection'; value: ConnectionState }
   | { type: 'board'; connected: boolean };
 
+// The phone notification's title and urgency (pc/ibuki/server.py), so both say the same.
 export const notificationMessages: Record<NotificationEvent['reason'], string> = {
-  no_breath: '呼吸に関連する動きを確認できません',
-  left_bed: 'ベッドから離れた可能性があります',
-  woke_up: '体の動きを再検出しました',
-  fast_breathing: '推定呼吸数に関するお知らせ',
+  no_breath: '呼吸が確認できません',
+  left_bed: 'ベッドにいません',
+  woke_up: '起きました',
+  fast_breathing: '呼吸が速い状態が続いています',
+};
+export type NotificationLevel = '緊急' | '注意' | 'お知らせ';
+export const notificationLevels: Record<NotificationEvent['reason'], NotificationLevel> = {
+  no_breath: '緊急', left_bed: '注意', fast_breathing: '注意', woke_up: 'お知らせ',
 };
 
 export function createNotificationState(): NotificationState {
@@ -109,9 +114,8 @@ export function notificationPresentation(state: NotificationState) {
 export function notificationDetails(event: NotificationEvent): string[] {
   const details: string[] = [];
   if (event.since_s > 0 && (event.reason === 'no_breath' || event.reason === 'fast_breathing')) {
-    details.push(`通知時の継続時間：${event.since_s}秒`);
+    details.push(`${event.since_s}秒続いたとき`);
   }
-  if (event.bpm !== undefined) details.push(`通知時の推定呼吸数：${event.bpm}回／分`);
-  if (event.t !== undefined) details.push(`送信側データ時刻：${event.t} ms`);
+  if (event.bpm !== undefined) details.push(`呼吸数 ${event.bpm}回／分`);
   return details;
 }

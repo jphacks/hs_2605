@@ -6,7 +6,8 @@ import ts from 'typescript';
 const code = ts.transpileModule(fs.readFileSync(new URL('../src/data/notifications.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const { createNotificationState, reduceNotifications: reduce, notificationPresentation: view, notificationDetails } =
+const { createNotificationState, reduceNotifications: reduce, notificationPresentation: view, notificationDetails,
+  notificationMessages, notificationLevels } =
   await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 
 const base = { t: 1000, disp_mm: [0.2, 0.3], bpm: 16.2, motion: 1, present: true, state: 'ALERT' };
@@ -42,8 +43,16 @@ test('original fields and missing server timestamps are preserved without fabric
   assert.equal(state.history[0].event.since_s, 0);
   assert.deepEqual(notificationDetails(wokeUp), []);
   assert.deepEqual(notificationDetails(leftBed), []);
-  assert.deepEqual(notificationDetails(noBreath), ['通知時の継続時間：10秒']);
-  assert.deepEqual(notificationDetails(input), ['通知時の継続時間：10秒', '通知時の推定呼吸数：54.2回／分', '送信側データ時刻：1234.5 ms']);
+  assert.deepEqual(notificationDetails(noBreath), ['10秒続いたとき']);
+  // the board's millisecond clock is not something a parent can use, so it is not shown
+  assert.deepEqual(notificationDetails(input), ['10秒続いたとき', '呼吸数 54.2回／分']);
+});
+
+test('titles and urgency labels are the ones the phone gets (pc/ibuki/server.py)', () => {
+  assert.deepEqual(notificationMessages, { no_breath: '呼吸が確認できません', left_bed: 'ベッドにいません',
+    woke_up: '起きました', fast_breathing: '呼吸が速い状態が続いています' });
+  // priority 5 / 4 / 2 on ntfy
+  assert.deepEqual(notificationLevels, { no_breath: '緊急', left_bed: '注意', fast_breathing: '注意', woke_up: 'お知らせ' });
 });
 
 test('status followed immediately by event cannot dismiss the new warning in the same cycle', () => {

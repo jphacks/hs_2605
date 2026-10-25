@@ -35,20 +35,20 @@ To try the five simulated states **without a board or PC server**, open **http:/
 ### What's on the screen
 
 - **Connection status:** a small Japanese status strip shows whether the server, board input or incoming data needs attention. Open **接続の詳細** for the WebSocket URL, input source, Brain mode and other diagnostics. An open WebSocket alone does not prove that a physical radar is connected.
-- **Current state:** the state received from the Brain. The dashboard does not independently decide whether breathing is safe.
-- **Waveform and estimated rate:** a graph of received chest-displacement samples and the Brain's estimated breaths per minute (`BPM`). Unavailable values appear as `—`; the frontend does not invent samples.
-- **Movement and presence:** indicators based on the Brain's messages.
-- **Warnings and history:** current indications are separate from the **20 most recent** notification events.
+- **Current state:** the state received from the Brain, in the same plain words as the main README and the phone (table below), plus センサーが揺れています while the board shakes. The dashboard does not independently decide whether breathing is safe.
+- **Waveform and breathing rate:** a graph of received chest-displacement samples (last 30 s) and the Brain's breaths per minute. Unavailable values appear as `—`; the frontend does not invent samples. When an update has no wave (shaking, learning, nobody there), the graph keeps what it drew and a grey dashed line marks 測定なし, so it never looks like a restart. It clears only when the board's clock starts again (a reboot).
+- **In bed and movement:** います / いません and 動いています / じっとしています, from the Brain's messages.
+- **Notifications:** the **20 most recent** events as a short list, with the phone's titles and urgency (【緊急】【注意】【お知らせ】). An event that is still going on is shown above the list.
 
 The Brain sends five states:
 
-| State | Meaning |
-|---|---|
-| `EMPTY` | The target is not detected in bed. This state alone does not create a `left_bed` alert. |
-| `OK` | Body movement detected; breathing-related small movements cannot be reliably assessed while moving. |
-| `STILL` | The Brain detected breathing-related movement while the target was relatively still. |
-| `CHECK` | Breathing-related movement is not currently detected; the Brain is still checking. |
-| `ALERT` | The no-breathing-motion condition has persisted long enough for the Brain's warning threshold. |
+| State | Shown as | Meaning |
+|---|---|---|
+| `EMPTY` | ベッドにいません | The target is not detected in bed. This state alone does not create a `left_bed` alert. |
+| `OK` | 起きています | Body movement detected; breathing-related small movements cannot be reliably assessed while moving. |
+| `STILL` | 眠っています | The Brain detected breathing-related movement while the target was relatively still. |
+| `CHECK` | 呼吸を確認中 | Breathing-related movement is not currently detected; the Brain is still checking. |
+| `ALERT` | 呼吸が確認できません | The no-breathing-motion condition has persisted long enough for the Brain's warning threshold. |
 
 These are **prototype analysis states, not diagnoses**. In particular, `OK` does not mean breathing has been medically confirmed as normal.
 
@@ -71,14 +71,14 @@ A status looks like this (example values only):
 
 ### Notifications
 
-The PC server handles phone/Apple Watch push notifications and the board's warning LED. The browser **displays received events**; it does not send pushes or issue commands to the board.
+The PC server handles phone (iPhone) push notifications and the board's warning LED. The browser **displays received events**; it does not send pushes or issue commands to the board.
 
-| Event received by the web app | Displayed as |
+| Event received by the web app | Displayed as (the same as the phone) |
 |---|---|
-| `alert/no_breath` | Warning about missing breathing-related movement |
-| `alert/left_bed` | Warning about possible bed departure |
-| `info/woke_up` | Information about renewed movement |
-| `info/fast_breathing` | Information about the estimated breathing rate |
+| `alert/no_breath` | 【緊急】呼吸が確認できません |
+| `alert/left_bed` | 【注意】ベッドにいません |
+| `info/fast_breathing` | 【注意】呼吸が速い状態が続いています |
+| `info/woke_up` | 【お知らせ】起きました |
 
 `CHECK` is a **Brain status**, not one of these four WebSocket events. The current server does **not** send a phone push for `CHECK` alone.
 
@@ -88,10 +88,11 @@ A current warning is shown only after an alert event was received. Subsequent, n
 
 | File | Purpose |
 |---|---|
-| [src/App.tsx](src/App.tsx) | Dashboard layout, LIVE/DEMO presentation and waveform |
+| [src/App.tsx](src/App.tsx) | Dashboard layout and LIVE/DEMO presentation |
+| [src/WaveChart.tsx](src/WaveChart.tsx) | The breathing graph: last 30 s, time axis glides smoothly between updates |
 | [src/ConnectionStatus.tsx](src/ConnectionStatus.tsx) | Compact connection strip and expandable diagnostics |
 | [src/NotificationPanel.tsx](src/NotificationPanel.tsx) | Current warnings and event history |
-| [src/data/](src/data/) | WebSocket, health, source selection, waveform and notification logic |
+| [src/data/](src/data/) | WebSocket, health, source selection, status words, waveform and notification logic |
 | [src/useDashboard.ts](src/useDashboard.ts) | Dashboard data subscription |
 | [tests/](tests/) | Frontend automated tests |
 | [scripts/test_pc_integration.py](scripts/test_pc_integration.py) | Integration check against a temporary copy of the team's actual PC server |
@@ -154,20 +155,20 @@ npm run dev
 ### 画面に表示するもの
 
 - **接続状況：** 画面上部にサーバー接続、センサー入力、データ更新の状態を簡潔に表示します。**接続の詳細**を開くと、WebSocket URL、入力元、Brain の処理モードなどを確認できます。WebSocket がつながっただけでは、実機センサーの接続が確認できたことにはなりません。
-- **現在の状態：** Brain から受信した解析状態です。Web 側で呼吸の安全性を判定しているわけではありません。
-- **波形と推定呼吸数：** 胸の変位データをグラフで表示し、Brain の推定呼吸数（BPM）を示します。利用できない値は `—` と表示し、存在しない波形を作りません。
-- **体動と在床：** Brain から届いた情報を表示します。
-- **警告と履歴：** 現在の警告表示と、**直近 20 件**までの通知履歴は別に管理します。
+- **現在の状態：** Brain から受信した解析状態を、メインの README やスマートフォンの通知と同じ言葉で表示します（下の表）。ボードが揺れているときは「センサーが揺れています」と表示します。Web 側で呼吸の安全性を判定しているわけではありません。
+- **波形と呼吸数：** 胸の変位データ（直近 30 秒）をグラフで表示し、Brain の呼吸数を示します。利用できない値は `—` と表示し、存在しない波形を作りません。波形のない更新（揺れ・学習中・不在）では、描いた波形を消さずに残し、「測定なし」を灰色の点線で示します。再起動したように見えないためです。グラフを消すのは、ボードの時刻が最初に戻ったとき（再起動）だけです。
+- **ベッドと体の動き：** 「います／いません」と「動いています／じっとしています」を、Brain から届いた情報で表示します。
+- **通知：** **直近 20 件**の通知を短い一覧で表示します。タイトルと緊急度（【緊急】【注意】【お知らせ】）はスマートフォンと同じです。続いている通知は一覧の上に表示します。
 
 Brain が送る状態は 5 種類です：
 
-| 状態 | 意味 |
-|---|---|
-| `EMPTY` | ベッド上の対象を検知していません。これだけで離床の警告は作りません。 |
-| `OK` | 体動を検知しています。動いている間は呼吸に関連する細かな動きを正確に確認できません。 |
-| `STILL` | 対象の動きが少なく、Brain が呼吸に関連する動きを検出しています。 |
-| `CHECK` | 呼吸に関連する動きが現在見えておらず、確認を続けています。 |
-| `ALERT` | 呼吸に関連する動きが見えない状態が、Brain の警告条件に達しています。 |
+| 状態 | 表示 | 意味 |
+|---|---|---|
+| `EMPTY` | ベッドにいません | ベッド上の対象を検知していません。これだけで離床の警告は作りません。 |
+| `OK` | 起きています | 体動を検知しています。動いている間は呼吸に関連する細かな動きを正確に確認できません。 |
+| `STILL` | 眠っています | 対象の動きが少なく、Brain が呼吸に関連する動きを検出しています。 |
+| `CHECK` | 呼吸を確認中 | 呼吸に関連する動きが現在見えておらず、確認を続けています。 |
+| `ALERT` | 呼吸が確認できません | 呼吸に関連する動きが見えない状態が、Brain の警告条件に達しています。 |
 
 いずれも**試作品の解析状態であり、医療的な診断ではありません**。特に `OK` は「呼吸が正常だと確認できた」という意味ではありません。
 
@@ -190,14 +191,14 @@ Brain が送る状態は 5 種類です：
 
 ### 警告と通知
 
-スマートフォン・Apple Watch へのプッシュ通知とボードの LED は **PC サーバー側**が担当します。Web は受信したイベントを表示するだけで、通知を送信したりボードへ命令したりしません。
+スマートフォン（iPhone）へのプッシュ通知とボードの LED は **PC サーバー側**が担当します。Web は受信したイベントを表示するだけで、通知を送信したりボードへ命令したりしません。
 
-| Web が受信するイベント | 内容 |
+| Web が受信するイベント | 表示（スマートフォンと同じ） |
 |---|---|
-| `alert/no_breath` | 呼吸に関連する動きが見えない場合の警告 |
-| `alert/left_bed` | ベッドから離れた可能性についての警告 |
-| `info/woke_up` | 体の動きを再び検出したというお知らせ |
-| `info/fast_breathing` | 推定呼吸数についてのお知らせ |
+| `alert/no_breath` | 【緊急】呼吸が確認できません |
+| `alert/left_bed` | 【注意】ベッドにいません |
+| `info/fast_breathing` | 【注意】呼吸が速い状態が続いています |
+| `info/woke_up` | 【お知らせ】起きました |
 
 `CHECK` は **Brain の状態**であり、上記の 4 種類の通知イベントではありません。現在のサーバーは **CHECK だけではスマートフォンへ通知しません**。
 
@@ -207,10 +208,11 @@ Brain が送る状態は 5 種類です：
 
 | ファイル | 内容 |
 |---|---|
-| [src/App.tsx](src/App.tsx) | 画面のレイアウト、LIVE/DEMO、波形表示 |
+| [src/App.tsx](src/App.tsx) | 画面のレイアウト、LIVE/DEMO |
+| [src/WaveChart.tsx](src/WaveChart.tsx) | 呼吸の波形グラフ（直近 30 秒。時間軸は更新の間もなめらかに流れます） |
 | [src/ConnectionStatus.tsx](src/ConnectionStatus.tsx) | コンパクトな接続状況と折りたたみ式の詳細 |
 | [src/NotificationPanel.tsx](src/NotificationPanel.tsx) | 現在の警告と通知履歴 |
-| [src/data/](src/data/) | WebSocket、ヘルス情報、入力元、波形、通知の処理 |
+| [src/data/](src/data/) | WebSocket、ヘルス情報、入力元、状態の表示文、波形、通知の処理 |
 | [src/useDashboard.ts](src/useDashboard.ts) | データ受信と画面更新 |
 | [tests/](tests/) | Web 側の自動テスト |
 | [scripts/test_pc_integration.py](scripts/test_pc_integration.py) | チームの PC サーバーを一時コピーして実行する連携テスト |

@@ -18,7 +18,7 @@ assert.equal(health.source, 'FileReplay');
 assert.equal(health.brain, 'placeholder');
 assert.equal(health.ntfy, false);
 const ws = new URL('/ws', url); ws.protocol = 'ws:';
-let board = null, previous = null, points = [], count = 0;
+let board = null, previous = null, points = [], count = 0, lastMeasured = 0;
 let empty = false, shaking = false, waveform = false;
 const requireShake = process.argv.includes('--require-shake');
 await new Promise((resolve, reject) => {
@@ -39,7 +39,13 @@ await new Promise((resolve, reject) => {
       empty ||= status.disp_mm.length === 0;
       shaking ||= status.shaking === true;
       waveform ||= points.length > 0;
-      if (status.shaking || status.disp_mm.length === 0) assert.equal(points.length, 0);
+      const measured = points.filter(p => p.displacement !== null).length;
+      if (status.shaking || status.disp_mm.length === 0) {
+        // the graph pauses instead of clearing: nothing new is drawn, the moment is marked "no reading"
+        assert.ok(measured <= lastMeasured);
+        assert.deepEqual(points.at(-1), { time: status.t / 1000, displacement: null, idle: 0 });
+      }
+      lastMeasured = measured;
       assert.equal(deriveLiveView(status, 'connected', false, true, health).waveAvailable, false);
       if (count >= 20 && waveform && (!requireShake || empty && shaking)) {
         assert.equal(board, true);
