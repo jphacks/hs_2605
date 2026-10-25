@@ -67,7 +67,7 @@ IBUKI は 3 つの部分でできています。
 * **誤報を出さないこと。** 呼吸、動き、ボードの揺れ、立ち去り、空の部屋のどの録画でも、間違った「呼吸なし」は一度も出ませんでした。
 * **止まらないこと。** レーダーのデータがあふれたり止まったりしても、ボードが自分で復帰します。USB を抜き差ししても、サーバーが自分でつなぎ直します。
 * **迷ったら安全な側に。** 判断に迷ったときは「まだそこにいる」と考えて、呼吸を見続けます。息が止まった赤ちゃんを「いなくなった」と取り違えることが、いちばん危ないからです。
-* **テストで守ること。** 38 個の自動テストで、判定、通知、サーバーの動きを確かめています。判定を変えたときは、すべての録画を流し直して、誤報が増えないことと息止めの警告が残ることを確かめました。
+* **テストで守ること。** パソコン側の 38 個とダッシュボードの 33 個の自動テストで、判定、通知、サーバー、表示の動きを確かめています。判定を変えたときは、すべての録画を流し直して、誤報が増えないことと息止めの警告が残ることを確かめました。
 
 ## 動作確認の結果
 
@@ -131,9 +131,10 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 * WebSocket（パソコンからダッシュボードへの配信）
 
 #### フレームワーク・ライブラリ・モジュール
-* ModusToolbox 3.9、CMSIS-DSP、XENSIV BGT60TRxx ドライバ（ファームウェア）
-* Python：FastAPI、uvicorn、websockets、NumPy、SciPy、pyserial
-* React、TypeScript、Vite、Recharts（ダッシュボード）
+* ファームウェア：ModusToolbox 3.9、Arm GNU Toolchain 14.2、CMSIS-DSP（FFT）、XENSIV BGT60TRxx ドライバ
+* サーバーと Brain：Python、FastAPI、uvicorn、websockets、NumPy、SciPy（フィルタと FFT）、pyserial、python-dotenv、requests（ntfy への送信）
+* ダッシュボード：React、TypeScript、Vite、Recharts
+* テストと道具：unittest、Node.js のテストランナー、matplotlib（ライブビューアと図）、macOS の say（録画のときの音声ガイド）
 
 #### デバイス
 * Infineon PSOC Edge E84 AI Kit（XENSIV BGT60TR13C 60 GHz レーダー）
@@ -153,8 +154,8 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 * **サーバー**：ボード、Brain、ダッシュボード、通知、LED をつなぎます。[pc/ibuki/server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)）
 * **緊急度つきの通知**：【緊急】【注意】【確認中】【お知らせ】の 4 段階です。呼吸が見えなくなった時点で軽く知らせ、続いたら緊急で知らせます（[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
 * **ワンコマンドで起動**：`ibuki.command` をダブルクリックするだけで、準備、ビルド、起動、ブラウザの表示まで行います（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示し、通知と同じできごとも表示します。[web/](web/)（[fd42b05](https://github.com/jphacks/hs_2605/commit/fd42b05)、[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[68faac9](https://github.com/jphacks/hs_2605/commit/68faac9)）
-* **自動テスト**：判定、通知、サーバーの動きを 38 個のテストで確かめています。[pc/tests/](pc/tests/)
+* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示し、通知と同じできごとと、警告の始まりから解除までの履歴も表示します。[web/](web/)（[fd42b05](https://github.com/jphacks/hs_2605/commit/fd42b05)、[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[68faac9](https://github.com/jphacks/hs_2605/commit/68faac9)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
+* **自動テスト**：判定、通知、サーバーの動きを 38 個、ダッシュボードを 33 個のテストで確かめています。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
 IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Notifications come in four urgency levels, from a quiet "woke up" to an urgent "breathing not detected", and one command starts the whole system. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
