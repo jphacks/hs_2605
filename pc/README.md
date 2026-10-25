@@ -102,7 +102,7 @@ Events go out as extra dicts in the same list:
 | `{"type": "alert", "reason": "no_breath", "since_s": 20}` | entering ALERT | LED red, urgent push |
 | `{"type": "alert", "reason": "left_bed"}` | the baby was in bed and is gone | LED red, high push |
 | `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | asleep and above the WHO "fast breathing" level for 5 minutes: 60/min under 2 months, 50 at 2 to 12 months, 40 at 1 to 5 years | high push, no LED |
-| `{"type": "info", "reason": "woke_up"}` | moving again after a long still period | silent push, no LED |
+| `{"type": "info", "reason": "woke_up"}` | moving again after 10 minutes asleep (still), at most every 5 minutes | silent push, no LED |
 
 When a status first says CHECK, the server also sends a nudge (priority 3, no LED, at most every 2 minutes), so the parents can look before the alert. Every notification title starts with its urgency: 【緊急】, 【注意】, 【確認中】 or 【お知らせ】.
 
@@ -254,7 +254,7 @@ class Brain:
 | `{"type": "alert", "reason": "no_breath", "since_s": 20}` | ALERT になったとき | LED を赤、緊急の通知 |
 | `{"type": "alert", "reason": "left_bed"}` | ベッドにいた赤ちゃんがいなくなったとき | LED を赤、高い優先度の通知 |
 | `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | 眠っていて、WHO の「速い呼吸」の目安を 5 分超えたとき（2 か月未満 60 回、2〜12 か月 50 回、1〜5 歳 40 回） | 高い優先度の通知、LED なし |
-| `{"type": "info", "reason": "woke_up"}` | 長く静かだったあとに動き出したとき | 音なしの通知、LED なし |
+| `{"type": "info", "reason": "woke_up"}` | 10 分以上眠って（じっとして）いたあとに動き出したとき。5 分に 1 回まで | 音なしの通知、LED なし |
 
 状態が初めて CHECK になったときも、警告の前に軽い通知（優先度 3、LED なし、2 分に 1 回まで）を送ります。通知のタイトルは、緊急度（【緊急】【注意】【確認中】【お知らせ】）から始まります。
 
