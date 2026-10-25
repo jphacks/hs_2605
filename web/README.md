@@ -30,6 +30,14 @@ Optional build/dev configuration:
 
 Restart Vite or rebuild after setting variables. Prefer the default same-origin proxy: a cross-origin health URL requires server CORS support, which the current team server does not configure. Health failure is handled as unverified provenance; it does not crash the page or replace readings with mocks.
 
+### Connection indicator and diagnostics
+
+The compact Japanese connection strip separates server transport, board input and data freshness. An open WebSocket alone never confirms a physical sensor connection; only the existing board event supplies input connection state. Disconnect/reconnect boundaries take priority over prior metadata, explicit input disconnection over stale data, then stale/unknown/cached-data waiting states. Positive reception requires progressing data, a confirmed input and BoardLink provenance. Missing health information remains unverified; health `board_connected` never replaces a board event.
+
+FileReplay is always identified as recorded input in the strip, including synthetic test recordings. Placeholder processing remains provisional, including during playback. Stale (3 seconds), disconnected, shaking and unavailable waveform behavior is unchanged. These indicators describe data reception, never medical safety. The main state banner and active warning/history panels remain separate and visible.
+
+Expand **接続の詳細** with a mouse, Enter or Space to see WebSocket state/URL, input state, freshness, waveform availability, source, Brain mode, health availability and existing notices. Technical information is hidden by default; credential/query/fragment parts are omitted from the diagnostic URL. No new requests, endpoints or monitoring controls are added.
+
 ## Team messages
 
 ```json
