@@ -54,6 +54,21 @@
 #### 4. 誤報を出さない
 動いているときやボードが揺れたときは、呼吸を「わからない」として扱い、「呼吸が止まった」とは知らせません。静かになったときは、その人の反射が残っているかで、「ベッドにいない」と「息が止まった」を見分けます。
 
+### 既存の製品・研究との違い
+呼吸を見守る製品はすでにありますが、私たちが調べた市販品（2026 年 10 月）は、どれもカメラを使うか、赤ちゃんかベッドに何かを付ける必要がありました。
+
+| 製品・研究 | しくみ | カメラ | 赤ちゃんやベッドに付けるもの |
+|---|---|---|---|
+| [Momcozy BM08](https://momcozy.com/fr/products/momcozy-contact-free-smart-baby-monitor) | ミリ波レーダー ＋ カメラ | あり | なし |
+| [Miku Pro](https://www.gearbrain.com/devices/91AD6D398B4D11EBA444C3949A49A047.html) | カメラ ＋ 無線のセンサー | あり | なし |
+| [Nanit](https://www.mobihealthnews.com/news/nanits-new-infant-outfit-works-smart-camera-monitor-babys-breathing) | カメラで、専用の服の模様の動きを見る | あり | 専用の服やバンド |
+| [Owlet Dream Sock](https://www.expertreviews.co.uk/baby-kids/baby-monitors/owlet-dream-sock-review) | 足のセンサーで心拍と血中酸素を測る | なし | 靴下型のセンサー |
+| [Babysense 7](https://oricom.com.au/products/babysense7-breathing-movement-monitor) | マットレスの下のセンサーで体の動きを測る | なし | マットレスの下にパッド（硬い台が必要） |
+| [電気通信大学の研究](https://www.uec.ac.jp/about/publicity/news_release/2022/pdf/20221114_4935.pdf) | 24 GHz の医療用レーダー（NICU の新生児） | なし | なし（病院向けの研究） |
+| **息吹～IBUKI～** | **60 GHz のレーダーだけ** | **なし** | **なし（ボードをベッドのそばに置くだけ）** |
+
+息吹～IBUKI～ は、カメラも、体やベッドに付けるものも使わずに、家庭で呼吸を見守ります。さらに、「ベッドにいない」と「息が止まった」を見分け、動いているときやボードが揺れたときには警告を出しません。
+
 ### 解決出来ること
 - 夜中に何度ものぞきに行かなくても、別の部屋で様子がわかります。
 - 見守りカメラに抵抗がある家庭でも使えます。
