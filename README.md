@@ -154,7 +154,7 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 * **サーバー**：ボード、Brain、ダッシュボード、通知、LED をつなぎます。[pc/ibuki/server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)）
 * **緊急度つきの通知**：【緊急】【注意】【確認中】【お知らせ】の 4 段階です。呼吸が見えなくなった時点で軽く知らせ、続いたら緊急で知らせます（[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
 * **ワンコマンドで起動**：`ibuki.command` をダブルクリックするだけで、準備、ビルド、起動、ブラウザの表示まで行います（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示し、通知と同じできごとと、警告の始まりから解除までの履歴も表示します。[web/](web/)（[fd42b05](https://github.com/jphacks/hs_2605/commit/fd42b05)、[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[68faac9](https://github.com/jphacks/hs_2605/commit/68faac9)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
+* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示します。通知と同じできごとも、新しい順に 20 件の履歴と、いま出ている警告に分けて表示します。[web/](web/)（[fd42b05](https://github.com/jphacks/hs_2605/commit/fd42b05)、[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[68faac9](https://github.com/jphacks/hs_2605/commit/68faac9)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **自動テスト**：判定、通知、サーバーの動きを 38 個、ダッシュボードを 33 個のテストで確かめています。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
