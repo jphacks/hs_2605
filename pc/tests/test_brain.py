@@ -70,10 +70,28 @@ class BrainTest(unittest.TestCase):
         self.assertEqual([e for e in ev if e["type"] == "alert"], [])
 
     def test_leaving_the_bed_sends_left_bed(self):
-        st, ev = run(make_lines(seconds=40, target_bin=9, move=(17, 20, (7, 8, 9, 10, 11)), leave_at=20))
+        # room=30: where the person sat, the room is much quieter than them (as in our recordings)
+        st, ev = run(make_lines(seconds=40, target_bin=9, move=(17, 20, (7, 8, 9, 10, 11)), leave_at=20,
+                                room=30))
         self.assertEqual(states_between(st, 26, 40), {"EMPTY"})
         self.assertIn({"type": "alert", "reason": "left_bed", "since_s": 0}, ev)
         self.assertNotIn("no_breath", [e["reason"] for e in ev])
+
+    def test_leaving_without_moving_is_still_leaving(self):
+        # sliding out of view quietly: their echo is gone, so "not in bed", not "not breathing"
+        st, ev = run(make_lines(seconds=40, target_bin=9, breaths_per_min=20, amp_mm=1.0, leave_at=20,
+                                room=30))
+        self.assertEqual(states_between(st, 27, 40), {"EMPTY"})
+        self.assertIn({"type": "alert", "reason": "left_bed", "since_s": 0}, ev)
+        self.assertNotIn("no_breath", [e["reason"] for e in ev])
+
+    def test_moving_then_not_breathing_is_no_breath_not_left_bed(self):
+        # the dangerous mix-up: their echo is still there, so the alert must be about breathing
+        st, ev = run(make_lines(seconds=45, target_bin=9, breaths_per_min=20, amp_mm=1.0,
+                                move=(17, 20, (7, 8, 9, 10, 11)), hold=(20, 45), room=30))
+        self.assertNotIn("EMPTY", states_between(st, 20, 45))
+        self.assertNotIn("left_bed", [e["reason"] for e in ev])
+        self.assertIn("no_breath", [e["reason"] for e in ev])
 
     def test_board_shake_never_alerts(self):
         st, ev = run(make_lines(seconds=50, target_bin=9, breaths_per_min=20, amp_mm=1.0,
