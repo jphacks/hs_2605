@@ -25,6 +25,7 @@ mtb_shared/
 
 # Large raw recordings, also in per-person folders (commit only small samples, *.sample.csv)
 recordings/**/*.csv
+recordings/**/*.jsonl
 !recordings/**/*.sample.csv
 
 # Web tooling
