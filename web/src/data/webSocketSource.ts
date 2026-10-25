@@ -1,12 +1,15 @@
 import type { BrainStatus, StatusSource } from './status';
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'stale';
-export interface AlertEvent { type: 'alert'; reason: string; since_s: number; t?: number }
+interface NotificationFields { since_s: number; t?: number; bpm?: number }
+export interface AlertEvent extends NotificationFields { type: 'alert'; reason: 'no_breath' | 'left_bed' }
+export interface InfoEvent extends NotificationFields { type: 'info'; reason: 'woke_up' | 'fast_breathing' }
 export interface LiveOptions {
   url?: string;
   staleAfterMs?: number;
   onConnection?: (state: ConnectionState) => void;
   onAlert?: (event: AlertEvent) => void;
+  onInfo?: (event: InfoEvent) => void;
   onBoard?: (connected: boolean) => void;
 }
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -21,9 +24,16 @@ export function isBrainStatus(v: unknown): v is BrainStatus {
     (v.source === undefined || typeof v.source === 'string') &&
     (v.shaking === undefined || typeof v.shaking === 'boolean');
 }
+function hasNotificationFields(v: Record<string, unknown>): boolean {
+  return finite(v.since_s) && v.since_s >= 0 &&
+    (v.t === undefined || finite(v.t) && v.t >= 0) &&
+    (v.bpm === undefined || finite(v.bpm) && v.bpm >= 0);
+}
 function isAlert(v: unknown): v is AlertEvent {
-  return record(v) && v.type === 'alert' && typeof v.reason === 'string' && v.reason.length <= 256 &&
-    finite(v.since_s) && v.since_s >= 0 && (v.t === undefined || finite(v.t) && v.t >= 0);
+  return record(v) && v.type === 'alert' && (v.reason === 'no_breath' || v.reason === 'left_bed') && hasNotificationFields(v);
+}
+function isInfo(v: unknown): v is InfoEvent {
+  return record(v) && v.type === 'info' && (v.reason === 'woke_up' || v.reason === 'fast_breathing') && hasNotificationFields(v);
 }
 
 // A subscription owns its socket and timers; teardown is safe under React StrictMode.
@@ -74,6 +84,8 @@ export function createWebSocketSource(options: LiveOptions = {}): StatusSource {
           listener(value);
         } else if (isAlert(value)) {
           options.onAlert?.(value); // Events never masquerade as waveform/status updates.
+        } else if (isInfo(value)) {
+          options.onInfo?.(value); // Informational receipt is not an urgent alert or status refresh.
         } else if (record(value) && value.type === 'board' && typeof value.connected === 'boolean') {
           options.onBoard?.(value.connected); // Does not change WebSocket freshness.
         }
