@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { createMockSource } from './data/mockSource';
 import { createWebSocketSource } from './data/webSocketSource';
-import type { AlertEvent, InfoEvent, ConnectionState } from './data/webSocketSource';
+import type { ConnectionState } from './data/webSocketSource';
+import { createNotificationState, reduceNotifications } from './data/notifications';
+import NotificationPanel from './NotificationPanel';
 import { resolveEndpoints, watchHealth } from './data/health';
 import type { ServerHealth } from './data/health';
 import { deriveLiveView } from './data/liveView';
@@ -20,12 +22,6 @@ const states: Record<BreathingState, { label: string; title: string; description
 const connectionLabels: Record<ConnectionState, string> = {
   connecting: '接続中', connected: '接続済み', disconnected: '切断・再接続待ち', stale: 'データ更新停止',
 };
-const eventMessages: Record<AlertEvent['reason'] | InfoEvent['reason'], string> = {
-  no_breath: '呼吸に関連する動きを確認できません',
-  left_bed: 'ベッドから離れた可能性があります',
-  woke_up: '体の動きを再検出しました',
-  fast_breathing: '推定呼吸数に関するお知らせ',
-};
 const configuredInterval = Number(import.meta.env.VITE_LIVE_SAMPLE_INTERVAL_MS);
 const liveIntervalMs = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : null;
 const endpoints = resolveEndpoints(window.location.href, import.meta.env.VITE_LIVE_WS_URL, import.meta.env.VITE_LIVE_HEALTH_URL);
@@ -40,8 +36,7 @@ function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mo
   const demo = mode === 'DEMO';
   const [connection, setConnection] = useState<ConnectionState>('connecting');
   const [liveReady, setLiveReady] = useState(false);
-  const [alert, setAlert] = useState<AlertEvent | null>(null);
-  const [info, setInfo] = useState<InfoEvent | null>(null);
+  const [notifications, dispatchNotification] = useReducer(reduceNotifications, undefined, createNotificationState);
   const [board, setBoard] = useState<boolean | null>(null);
   const [health, setHealth] = useState<ServerHealth | null>(null);
   const [resetKey, setResetKey] = useState(0);
@@ -54,19 +49,22 @@ function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mo
     const live = createWebSocketSource({
       url: endpoints.ws,
       onConnection(next) {
+        dispatchNotification({ type: 'connection', value: next });
         setConnection(next);
         if (next !== 'connected') { setLiveReady(false); lastTime = null; setResetKey(key => key + 1); }
-        if (next === 'connecting') { setAlert(null); setInfo(null); setBoard(null); setHealth(null); inputConnected = null; }
+        if (next === 'connecting') { setBoard(null); setHealth(null); inputConnected = null; }
       },
-      onAlert: setAlert,
-      onInfo: setInfo,
+      onAlert: event => dispatchNotification({ type: 'event', event, receivedAt: Date.now() }),
+      onInfo: event => dispatchNotification({ type: 'event', event, receivedAt: Date.now() }),
       onBoard(connected) {
+        dispatchNotification({ type: 'board', connected });
         if (connected !== inputConnected) { setLiveReady(false); lastTime = null; setResetKey(key => key + 1); }
         inputConnected = connected;
         setBoard(connected);
       },
     });
     return { subscribe: listener => live.subscribe(status => {
+      dispatchNotification({ type: 'status', status });
       // /ws initially sends a cached status. Wait for a progressing timestamp.
       setLiveReady(inputConnected !== false && lastTime !== null && status.t > lastTime);
       lastTime = status.t;
@@ -99,12 +97,7 @@ function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mo
     </section>}
     <section className="intro"><div><p className="eyebrow">赤ちゃんの呼吸の動きを、見えるかたちに。</p><h1>小さな動きに、<br className="mobile-break"/>目を向ける。</h1><p className="muted">呼吸の動きを可視化する、IBUKI ダッシュボード。</p></div><div className="session"><span>{mode} SESSION</span><strong>{time}</strong><small>{demo ? '経過時間 · 模擬データ' : '送信側の時刻 t · ms として解釈'}</small></div></section>
     <section className={`status-banner state-${current?.toLowerCase() ?? 'empty'}`} aria-live="polite" aria-atomic="true"><span className="status-icon">{current === 'ALERT' || current === 'CHECK' ? '!' : '≈'}</span><div><span className="eyebrow">{current ? `${current} · ${demo ? copy!.label : 'サーバー状態'}` : 'WAITING · データ待ち'}</span><h2>{title}</h2><p>{demo ? copy?.description : liveView.notice}</p></div><span className="sim-label">{demo ? '模擬状態' : liveView.placeholder ? '暫定処理' : '受信状態'}</span></section>
-    {!demo && [alert, info].map(event => event && <div key={event.type} className={`received-event received-event--${event.type}`} role="status">
-      <strong>{event.type === 'alert' ? '警告イベント受信' : '情報イベント受信'}</strong>
-      <span>{eventMessages[event.reason]}</span>
-      <span>継続：{event.since_s}秒{event.bpm !== undefined ? ` / 推定呼吸数：${event.bpm}回／分` : ''}</span>
-      <small>ブラウザで受信したイベントです。現在の状態は上の表示をご確認ください。スマートフォンへの通知の到達は確認していません。</small>
-    </div>)}
+    {!demo && <NotificationPanel state={notifications} />}
     <section className="dashboard-grid">
       <article className="panel waveform">
         <div className="panel-heading"><div><p className="eyebrow">BREATHING MOTION</p><h2>呼吸の動き</h2></div><span className="chart-live"><span className="dot"/>{demo ? '模擬データ · 20 Hz' : `${readingLabel} · ${effectiveIntervalMs ? `間隔 ${effectiveIntervalMs} ms` : '時間間隔は推定'}`}</span></div>

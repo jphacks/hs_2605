@@ -51,10 +51,35 @@ Alert events are displayed as records, not substituted for status. Board input c
 ## Freshness, source and cleanup
 
 - WebSocket connecting/connected/disconnected/stale states remain visible. Closed sockets retry with a 1/2/4/8/10-second capped backoff. Only a valid status resets the 3-second stale timer; valid empty-sample statuses still count as activity. The timer is transport freshness, not a medical threshold.
-- The server initially sends cached `hub.latest`; LIVE waits for two statuses with progressing `t` before displaying current values. Stale/disconnected, a board disconnect, and a mode change hide values and reset history. A clock restart or gap clears waveform continuity.
+- The server initially sends cached `hub.latest`; LIVE waits for two statuses with progressing `t` before displaying current values. Stale/disconnected, a board disconnect, and a mode change hide values and reset waveform history. A clock restart or gap clears waveform continuity. Notification history is separate and survives reconnection within the LIVE session.
 - `/api/health` is polled without overlap every three seconds after completion, with a two-second request timeout and abort on cleanup. `source: BoardLink` is labeled board input (accuracy unverified); `FileReplay` is labeled **recording replay, not live measurement**. Failed/invalid health responses clear provenance to unknown. The WebSocket board event is authoritative for input connection; health board state is not substituted for it.
 - Polling means provenance changes may take one polling cycle to appear. The protocol does not attest accuracy or the true origin of replay files. No verified-breathing claim is made from a successful socket/health request.
 - DEMO's 16.2 BPM and movement cutoff are illustrative only. LIVE never applies that movement cutoff and only displays the received motion index.
+
+## Notification history and current warning indications
+
+`src/data/notifications.ts` is a pure, gateway-independent reducer. Both alert and info callbacks record original payload fields plus a local receipt time and unique local ID. Repeated reasons are not deduplicated. The newest 20 received events are listed first in `NotificationPanel`; there is no storage, database, notification acknowledgment, or server command. Existing mode behavior is preserved: switching DEMO/LIVE remounts the session and resets its memory, as does a full reload. A WebSocket reconnect does **not** reset it.
+
+Current warnings are separate from history, at most one latest indication per received alert reason. Info events never activate a warning. An old warning can remain indicated even if its receipt has aged out of the 20-item history. This avoids silently removing a current indication because unrelated info arrived.
+
+The inspected Brain/server emits statuses and alert/info events, with no explicit resolution event. A processing cycle can send a status followed immediately by an event. Only subsequent, strictly progressing statuses can change a received warning's indication; rendering the preceding status again cannot dismiss it. The optional event `t`, when present, is also an ordering barrier. The reducer never edits the status, BPM, wave samples or WebSocket stale timer.
+
+- `no_breath`: a received warning stays indicated with present-target CHECK/ALERT states. A later present-target OK/STILL status moves it out of the current area, leaving its history. The label is `現在の解析状態では継続していません`, not confirmed breathing, safety, or medical recovery. EMPTY alone leaves this previous breathing-motion condition unknown.
+- `left_bed`: only a received event creates this warning; EMPTY alone creates nothing. It stays indicated with EMPTY/absent statuses and leaves the current area when a later status reports present and non-EMPTY. Inconsistent fields leave it unknown.
+- Disconnect, stale status stream, board false, shaking, or provisional placeholder processing leave outstanding indications **unknown**, not resolved. Reconnect requires two progressing statuses before evaluating them. A timestamp reset also requires new progress. Previously non-indicated warnings are not reactivated merely by disconnection.
+- The UI displays local receipt time as `受信時刻`. Optional server `t` stays an explicitly labeled source-data time in milliseconds; it is never fabricated or treated as Unix wall time. Positive `since_s` is shown for no_breath/fast_breathing only; instantaneous zero-second durations are omitted from the display while preserved in payload data.
+
+Protocol limits: there are no unique event IDs, replay/backlog, definitive resolution messages, or clock-epoch markers. Repeated deliveries are therefore retained as separate receipts, and missed events while disconnected cannot be reconstructed. Consecutive increasing timestamps are a conservative freshness proxy, not proof of live sensor data or accuracy. Connection/clock-reset boundaries discard old-clock ordering barriers and require new progress before reevaluation. Browser event receipt does not confirm smartphone push delivery.
+
+`tests/notifications.test.mjs` covers the lifecycle through pure functions. The existing source suite also wires the reducer into fake WebSocket callbacks to test reconnect, cache, cleanup and event/wave isolation together.
+
+### Latest-main integration checks (PRs #29, #30 and #31)
+
+Task 2 was restored onto main `2082248776330292c8ca4513ea776adf9717efe0` with all seven original files preserved. PR #29's launcher and server-served build remain compatible. PR #30 sends the CHECK nudge through the server's internal push path only: CHECK remains a status, not a new WebSocket notification reason. The client rejects invented `alert/check` or `info/check` events. PR #31 changes the Brain's departure detection to echo-based presence, without changing the four notification formats. This UI uses received events and presence/status, never movement thresholds, to present departure warnings.
+
+LIVE waveform investigation: the existing port-8000 server reported `/api/health` source `FileReplay`, Brain `Brain`, and ntfy disabled. Its running launcher was `.venv/ibuki-test-data/serve_test.py`, configured with `--replay .venv/ibuki-test-data/fake_board_for_generation.csv`; the waveform therefore came from synthetic recorded test data, not a physical radar. Separately, Playwright screenshots used explicitly mocked `/ws` messages and FileReplay health metadata. LIVE does not subscribe to the frontend demo source and never falls back to it; replay is visibly labeled. No P0 source/connection-state defect was found in this investigation.
+
+Post-integration verification: 33 frontend tests passed; build and `git diff --check` passed. Actual Edge/Playwright scenarios A–E and desktop 1440×900 / mobile 390×844 / 320×700 layout checks passed, with no console/page errors or horizontal overflow. A latest-team-server replay check also passed, using synthetic fixture data, not sensor readings. Existing P2 observations (small muted text, narrow-screen warning position, history scroll affordance) are unchanged and were not fixed in this integration.
 
 ## Tests and browser verification without merging pc/
 
