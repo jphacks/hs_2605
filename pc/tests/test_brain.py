@@ -49,6 +49,13 @@ class BrainTest(unittest.TestCase):
         self.assertIn("ALERT", states_between(st, 35, 45))
         self.assertIn("STILL", states_between(st, 52, 60))  # breathing again
 
+    def test_light_breathing_after_deep_breaths_is_still_breathing(self):
+        # paced deep breaths, then light ones (Manami's were only 16-30% as deep)
+        st, ev = run(make_lines(seconds=75, target_bin=9, breaths_per_min=10, amp_mm=2.0,
+                                lighter=(30, 0.7)))
+        self.assertEqual([e for e in ev if e["type"] == "alert"], [])
+        self.assertEqual(states_between(st, 60, 75), {"STILL"})
+
     def test_moving_is_awake_and_never_alerts(self):
         st, ev = run(make_lines(seconds=40, target_bin=9, move=(10, 40, (7, 8, 9, 10, 11))))
         self.assertIn("OK", states_between(st, 15, 40))
