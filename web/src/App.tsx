@@ -14,14 +14,8 @@ import { deriveLiveView } from './data/liveView';
 import type { BreathingState, StatusSource } from './data/status';
 import { useDashboard } from './useDashboard';
 import { WINDOW_S } from './data/waveform';
+import { describeStatus, stateWords } from './data/statusView';
 
-const states: Record<BreathingState, { label: string; title: string; description: string }> = {
-  EMPTY: { label: '不在', title: '対象を検知していません', description: '対象がいないシーンをシミュレーションしています。' },
-  OK: { label: '動きあり', title: '呼吸の動きを表示中', description: 'ゆるやかな胸の動きを、サンプル波形で表現しています。' },
-  STILL: { label: '静止', title: '静かな動きを表示中', description: '呼吸の動きがあり、体動が少ないシーンです。' },
-  CHECK: { label: '確認', title: '保護者による確認が必要', description: '動きが小さくなったシーンです。実際の状態判定ではありません。' },
-  ALERT: { label: 'アラート', title: 'アラートの表示デモ', description: '保護者へのお知らせ画面を再現しています。外部通知は送信しません。' },
-};
 const configuredInterval = Number(import.meta.env.VITE_LIVE_SAMPLE_INTERVAL_MS);
 const liveIntervalMs = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : null;
 const endpoints = resolveEndpoints(window.location.href, import.meta.env.VITE_LIVE_WS_URL, import.meta.env.VITE_LIVE_HEALTH_URL);
@@ -89,11 +83,10 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   const end = Math.max(WINDOW_S, (status?.t ?? 0) / 1000);
   const effectiveIntervalMs = status?.dt_ms ?? (demo ? 50 : liveIntervalMs);
   const current = status?.state;
-  const copy = current ? states[current] : null;
+  const statusView = describeStatus({ state: current ?? null, shaking: status?.shaking ?? false,
+    placeholder: !demo && liveView.placeholder, waiting: demo ? 'デモを準備しています' : liveView.notice });
   const readingLabel = demo ? '模擬値' : liveView.placeholder ? '暫定値 · placeholder' : liveView.replay ? '録画データ' : '受信値';
   const time = status ? `${Math.floor(status.t / 60000).toString().padStart(2, '0')}:${Math.floor(status.t / 1000 % 60).toString().padStart(2, '0')}` : '--:--';
-  const title = !status ? demo ? 'デモを準備しています' : '有効なステータスを待っています'
-    : demo ? copy!.title : liveView.placeholder ? '暫定処理 · 呼吸判定ではありません' : status.shaking ? '揺れのため波形を利用できません' : `Brain の受信状態：${current}`;
 
   return <main>
     <header>
@@ -106,14 +99,17 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
     {!demo && health?.siren && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
       {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
     <section className="intro"><div><p className="eyebrow">赤ちゃんの呼吸の動きを、見えるかたちに。</p><h1>小さな動きに、<br className="mobile-break"/>目を向ける。</h1><p className="muted">呼吸の動きを可視化する、息吹～IBUKI～ダッシュボード。</p></div><div className="session"><span>{mode} SESSION</span><strong>{time}</strong><small>{demo ? '経過時間 · 模擬データ' : '送信側の時刻 t · ms として解釈'}</small></div></section>
-    <section className={`status-banner state-${current?.toLowerCase() ?? 'empty'}`} aria-live="polite" aria-atomic="true"><span className="status-icon">{current === 'ALERT' || current === 'CHECK' ? '!' : '≈'}</span><div><span className="eyebrow">{current ? `${current} · ${demo ? copy!.label : 'サーバー状態'}` : 'WAITING · データ待ち'}</span><h2>{title}</h2><p>{demo ? copy?.description : liveView.notice}</p></div><span className="sim-label">{demo ? '模擬状態' : liveView.placeholder ? '暫定処理' : '受信状態'}</span></section>
+    <section className={`status-banner tone-${statusView.tone}`} aria-live="polite" aria-atomic="true">
+      <span className="status-icon">{{ alert: '!', check: '!', shake: '〜', empty: '○', wait: '…', ok: '≈', still: '≈' }[statusView.tone]}</span>
+      <div><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
+    </section>
     {!demo && <NotificationPanel state={notifications} />}
     <section className="dashboard-grid">
       <article className="panel waveform">
         <div className="panel-heading"><div><p className="eyebrow">BREATHING MOTION</p><h2>呼吸の動き</h2></div><span className="chart-live"><span className="dot"/>{demo ? '模擬データ · 20 Hz' : `${readingLabel} · ${effectiveIntervalMs ? `間隔 ${effectiveIntervalMs} ms` : '時間間隔は推定'}`}</span></div>
         <p className="chart-description">胸の変位（mm） · 直近30秒{!demo && !effectiveIntervalMs ? ' · バッチ時刻から補間（初回は次の受信を待機）' : ''}</p>
         {!demo && !liveView.waveAvailable && <p className="muted" role="status">{liveView.notice}</p>}
-        <div className="chart" role="img" aria-label={`${readingLabel}の波形。${demo ? copy?.label ?? '準備中' : liveView.notice}`}>
+        <div className="chart" role="img" aria-label={`胸の動きの波形。${statusView.title}`}>
           <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 0 }} accessibilityLayer>
             <CartesianGrid stroke="#e6ede9" strokeDasharray="3 6" vertical={false}/>
             <XAxis type="number" dataKey="time" domain={[end - WINDOW_S, end]} ticks={[end - 30, end - 20, end - 10, end]} tickFormatter={v => Math.round(v - end) === 0 ? '今' : `${Math.round(v - end)}秒`} tickLine={false} axisLine={false} tick={{ fill: '#7b8983', fontSize: 12 }}/>
@@ -130,7 +126,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <article className="panel metric-row"><div><p className="eyebrow">PRESENCE · {readingLabel}</p><h2>在室</h2></div><strong className="presence">{!status ? '—' : status.present ? '検知あり' : '検知なし'}</strong></article>
       </aside>
     </section>
-    {demo && <section className="panel controls"><div><p className="eyebrow">INTERACTIVE DEMO</p><h2>シーンを切り替える</h2><p className="muted">表示したい模擬状態を選択してください。</p></div><div className="state-buttons" role="group" aria-label="模擬状態の選択">{(Object.keys(states) as BreathingState[]).map(state => <button key={state} aria-pressed={selected === state} onClick={() => { mock?.setState(state); setSelected(state); }} className={selected === state ? 'selected' : ''}><span>{state}</span><small>{states[state].label}</small></button>)}</div></section>}
+    {demo && <section className="panel controls"><div><p className="eyebrow">INTERACTIVE DEMO</p><h2>シーンを切り替える</h2><p className="muted">表示したい模擬状態を選択してください。</p></div><div className="state-buttons" role="group" aria-label="模擬状態の選択">{(Object.keys(stateWords) as BreathingState[]).map(state => <button key={state} aria-pressed={selected === state} onClick={() => { mock?.setState(state); setSelected(state); }} className={selected === state ? 'selected' : ''}><span>{state}</span><small>{stateWords[state].title}</small></button>)}</div></section>}
     <footer><p><strong>{demo ? 'すべてシミュレーションです。' : liveView.sourceLabel}</strong> {demo ? '実際のセンサーには接続していません。' : '接続や受信は、呼吸判定の精度を保証するものではありません。'}</p><p>本プロトタイプは医療機器ではなく、診断・安全の保証・SIDS（乳幼児突然死症候群）の予防を目的としません。</p><div><span>息吹～IBUKI～ — JPHACKS 2026</span><span>WEB PROTOTYPE / 03</span></div></footer>
   </main>;
 }
