@@ -314,6 +314,7 @@ class Brain:
         was_settled = self.present_since is not None and t - self.present_since >= LEFT_BED_AFTER_PRESENT_S
         self.present = False
         self.person_echo = None
+        self.norms = {}  # the next person breathes differently: learn their normal afresh
         self.reset_tracking()
         if was_settled and not self.left_bed_sent:
             self.events.append({"type": "alert", "reason": "left_bed", "since_s": 0})

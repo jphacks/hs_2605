@@ -24,6 +24,16 @@ def states_between(statuses, t0, t1):
     return {s["state"] for s in statuses if t0 * 1000 <= s["t"] < t1 * 1000}
 
 
+def later(lines, dt_ms):
+    """The D lines of another make_lines() run, continuing dt_ms later (same room: same seed)."""
+    out = []
+    for ln in lines:
+        if ln.startswith("D,"):
+            kind, seq, t, rest = ln.split(",", 3)
+            out.append(f"D,{int(seq) + 100000},{int(t) + dt_ms},{rest}")
+    return out
+
+
 class BrainTest(unittest.TestCase):
     def test_empty_room(self):
         st, ev = run(make_lines(seconds=20, target_bin=None))
@@ -120,6 +130,19 @@ class BrainTest(unittest.TestCase):
             st, ev = run(make_lines(seconds=60, target_bin=9, breaths_per_min=20, amp_mm=1.0,
                                     hold=(25, 60), move=(0, 60, bins), room=30))
             self.assertIn("no_breath", [e["reason"] for e in ev], bins)
+
+    def test_leaving_forgets_their_normal_breathing(self):
+        # the next person is compared with their own breathing. Mixing our recordings, Manami
+        # lying down after lemonwasp (deep breaths) got the no-breathing alarm before any hold
+        b = Brain(no_breath_s=10)
+        first = make_lines(seconds=30, target_bin=9, breaths_per_min=12, amp_mm=2.0, leave_at=22, room=30)
+        st, ev = run(first, b)
+        self.assertIn("left_bed", [e["reason"] for e in ev])
+        self.assertEqual(b.norms, {})
+        second = make_lines(seconds=45, target_bin=9, breaths_per_min=16, amp_mm=0.4, room=30)
+        st, ev = run(later(second, 30000), b)
+        self.assertEqual([e for e in ev if e["type"] == "alert"], [])
+        self.assertEqual(states_between(st, 60, 75), {"STILL"})
 
     def test_board_shake_never_alerts(self):
         st, ev = run(make_lines(seconds=50, target_bin=9, breaths_per_min=20, amp_mm=1.0,
