@@ -91,7 +91,7 @@
 | 呼吸数（1 分に 10 回のペースで呼吸） | 9.0〜10.7 回（解析では 10.0 回） |
 | 間違った「呼吸なし」 | 3 人・24 本の録画で 0 回 |
 | 息止めの検出 | じっと息を止めた録画で警告が出る |
-| 警告の流れ | 通知、Apple Watch、LED の点滅、ボタンでの解除まで動作 |
+| 警告の流れ | iPhone への通知、LED の点滅、ボタンでの解除まで動作 |
 | レーダーが止まったとき | 自動で復帰（テスト 4 段階すべて合格） |
 
 <p align="center">
@@ -114,7 +114,7 @@
 flowchart LR
   R["レーダーのボード<br>PSOC Edge E84 AI Kit"] -- "USB<br>1 秒に約 16 回" --> S["ノート PC<br>サーバー + Brain"]
   S -- "WebSocket" --> W["ダッシュボード"]
-  S -- "ntfy" --> N["スマートフォン<br>Apple Watch"]
+  S -- "ntfy" --> N["スマートフォン<br>（iPhone）"]
   S -- "警告のとき LED を点滅" --> R
 ```
 
@@ -132,7 +132,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 ## 開発技術
 ### 活用した技術
 #### API・データ
-* ntfy（スマートフォンと Apple Watch への通知）
+* ntfy（スマートフォン（iPhone）への通知）
 * WebSocket（パソコンからダッシュボードへの配信）
 
 #### フレームワーク・ライブラリ・モジュール
@@ -143,7 +143,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 
 #### デバイス
 * Infineon PSOC Edge E84 AI Kit（XENSIV BGT60TR13C 60 GHz レーダー）
-* MacBook、iPhone、Apple Watch
+* MacBook、iPhone
 
 ### 独自技術
 #### ハッカソンで開発した独自機能・技術
@@ -158,7 +158,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **自動テスト**：パソコン側 39 個、ダッシュボード 51 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
-息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
+息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
 
 We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside the range 息吹～IBUKI～ reads, 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
 
