@@ -14,15 +14,19 @@ How it works, per D line (~16.6/s):
             2-6% of their usual echo in our recordings; with someone still there it never fell
             below 59%. So a quiet room with their echo still there is "in bed, maybe not
             breathing", even right after moving
-  movement  how much the echo STRENGTHS change, relative to the person's echo. Breathing moves
-            the chest a few mm and mostly turns the echo's phase; moving the body changes the
-            strengths a lot.
-  chest     the person's 3 strongest echo slots (re-picked every 3 s). Weak slots are left out:
-            their phase is mostly noise
+  movement  how much the echo STRENGTHS change within 22 cm of the chest (the person's body),
+            relative to the person's echo. Breathing moves the chest a few mm and mostly turns
+            the echo's phase; moving the body changes the strengths a lot. A hand by the board
+            or someone walking past further away is not the sleeper moving.
+  chest     the person's 3 strongest echo slots (re-picked every 3 s), from 28 cm (closer is the
+            board's own leakage, or a hand by the board) and only where the echo changes
+            smoothly like a breathing chest, not jumping like someone moving. Weak slots are
+            left out: their phase is mostly noise
   breathing each slot's phase -> mm, band-passed 0.1-1.5 Hz (adults and babies). Each slot is
             compared with its own normal breathing size, and the middle of the 3 ratios counts.
             A clean breath-hold drops to 12-15% at the strongest slots. Natural breathing after
-            deep breaths can be much smaller (Manami: 16-30%), so "normal" is only the last 15 s
+            deep breaths can be much smaller (Manami: 16-30%), so "normal" is only the last 15 s.
+            It is forgotten when the person leaves: the next one is compared with their own
   rate      FFT peak over 20 s, checked against counted breaths; None if they disagree
   shake     the board itself moved (shake.py): breathing unknown, never an alarm
 
