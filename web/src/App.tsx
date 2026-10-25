@@ -7,6 +7,7 @@ import { createWebSocketSource } from './data/webSocketSource';
 import type { ConnectionState } from './data/webSocketSource';
 import { createNotificationState, reduceNotifications } from './data/notifications';
 import NotificationPanel from './NotificationPanel';
+import ConnectionStatus from './ConnectionStatus';
 import { resolveEndpoints, watchHealth } from './data/health';
 import type { ServerHealth } from './data/health';
 import { deriveLiveView } from './data/liveView';
@@ -19,9 +20,6 @@ const states: Record<BreathingState, { label: string; title: string; description
   STILL: { label: '静止', title: '静かな動きを表示中', description: '呼吸の動きがあり、体動が少ないシーンです。' },
   CHECK: { label: '確認', title: '保護者による確認が必要', description: '動きが小さくなったシーンです。実際の状態判定ではありません。' },
   ALERT: { label: 'アラート', title: 'アラートの表示デモ', description: '保護者へのお知らせ画面を再現しています。外部通知は送信しません。' },
-};
-const connectionLabels: Record<ConnectionState, string> = {
-  connecting: '接続中', connected: '接続済み', disconnected: '切断・再接続待ち', stale: 'データ更新停止',
 };
 const configuredInterval = Number(import.meta.env.VITE_LIVE_SAMPLE_INTERVAL_MS);
 const liveIntervalMs = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : null;
@@ -89,14 +87,11 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   return <main>
     <header>
       <a className="brand" href="#"><span className="brand-symbol">≈</span><span>IBUKI<small>息吹 / MOTION MONITOR</small></span></a>
-      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE · WebSocket 受信'}</span></div>
+      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE モード'}</span></div>
     </header>
-    {!demo && <section className={`connection-panel connection-${connection}`} aria-live="polite">
-      <strong>WebSocket：{connectionLabels[connection]}</strong><span>{endpoints.ws}</span>
-      <small>入力接続：{board === null ? '未確認' : board ? '接続' : '切断'} · {liveView.sourceLabel} · 処理：{data.status?.source ?? health?.brain ?? '未確認'}</small>
-      <small>{liveView.notice}{health === null ? ' / ヘルス情報を取得できていません。入力元は未確認です。' : ''}</small>
-      <small>{connection === 'stale' ? '有効なデータが3秒以上届いていません。現在値と波形を非表示にしています。' : connection === 'disconnected' ? '自動的に再接続します。現在値は表示しません。' : liveReady ? 'Brain から受信した値を表示中。センサーの接続状態・データの出所は送信側で確認してください。' : '有効なステータスの受信前です。測定値は表示しません。'}</small>
-    </section>}
+    {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
+      placeholder={liveView.placeholder} shaking={data.status?.shaking ?? false} waveAvailable={liveView.waveAvailable}
+      url={endpoints.ws} notice={liveView.notice} />}
     <section className="intro"><div><p className="eyebrow">赤ちゃんの呼吸の動きを、見えるかたちに。</p><h1>小さな動きに、<br className="mobile-break"/>目を向ける。</h1><p className="muted">呼吸の動きを可視化する、IBUKI ダッシュボード。</p></div><div className="session"><span>{mode} SESSION</span><strong>{time}</strong><small>{demo ? '経過時間 · 模擬データ' : '送信側の時刻 t · ms として解釈'}</small></div></section>
     <section className={`status-banner state-${current?.toLowerCase() ?? 'empty'}`} aria-live="polite" aria-atomic="true"><span className="status-icon">{current === 'ALERT' || current === 'CHECK' ? '!' : '≈'}</span><div><span className="eyebrow">{current ? `${current} · ${demo ? copy!.label : 'サーバー状態'}` : 'WAITING · データ待ち'}</span><h2>{title}</h2><p>{demo ? copy?.description : liveView.notice}</p></div><span className="sim-label">{demo ? '模擬状態' : liveView.placeholder ? '暫定処理' : '受信状態'}</span></section>
     {!demo && <NotificationPanel state={notifications} />}
