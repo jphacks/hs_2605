@@ -1,4 +1,4 @@
-# IBUKI Web — DEMO / team-server LIVE
+# IBUKI Web — LIVE by default
 
 React + TypeScript + Vite + Recharts. Uses the existing `pc/ibuki/server.py` at `/ws` and `/api/health`; no separate Python gateway. To run the server and the built dashboard together, use `./ibuki.command` in the repo root (http://localhost:8000). The integration tools below run an unchanged, fetched Git snapshot in an owned temporary directory, without merging or modifying `pc/` or `firmware/`.
 
@@ -14,7 +14,11 @@ npm install
 npm run dev
 ```
 
-Open Vite's printed URL, normally http://127.0.0.1:5173. Default DEMO runs independently with all five scene controls and simulation labels. Select LIVE to subscribe to the team server. Mode changes close sockets, abort health requests, cancel timers, and clear prior readings/events/history.
+Open Vite's printed URL, normally **http://localhost:5173/**: ordinary development URLs start in LIVE automatically. There are no public DEMO/LIVE toggle buttons. A missing server or sensor leaves the existing waiting/disconnected UI, unavailable BPM and no fabricated waveform. LIVE never falls back to mock data, and FileReplay stays visibly labeled as recorded input.
+
+Developer-only simulation is available at **http://localhost:5173/?demo=1** while Vite runs in development mode. All five scene buttons and clear simulation labels remain. This view creates no IBUKI WebSocket connection, health requests, notifications or device commands. Vite's own development/HMR connection is unrelated to the application data source.
+
+**Production ignores `?demo=1` and always starts LIVE**, including `npm run preview` and the Python server's built dashboard. The access rule is `import.meta.env.DEV && new URLSearchParams(window.location.search).get('demo') === '1'`. There is no storage or saved preference. Navigate/reload without the parameter to return to LIVE; navigation/reload resets page memory. Existing source cleanup closes sockets, aborts health requests and cancels timers.
 
 Vite proxies `/ws` and `/api` to the laptop's `127.0.0.1:8000`. Production uses the page's host and port: the team server serves `web/dist` after `npm run build`. Phones opening `http://<laptop>:8000/` connect to that laptop, not their own localhost. For Vite on another device, start it with `npm run dev -- --host 0.0.0.0`.
 
@@ -58,7 +62,7 @@ Alert events are displayed as records, not substituted for status. Board input c
 
 ## Notification history and current warning indications
 
-`src/data/notifications.ts` is a pure, gateway-independent reducer. Both alert and info callbacks record original payload fields plus a local receipt time and unique local ID. Repeated reasons are not deduplicated. The newest 20 received events are listed first in `NotificationPanel`; there is no storage, database, notification acknowledgment, or server command. Existing mode behavior is preserved: switching DEMO/LIVE remounts the session and resets its memory, as does a full reload. A WebSocket reconnect does **not** reset it.
+`src/data/notifications.ts` is a pure, gateway-independent reducer. Both alert and info callbacks record original payload fields plus a local receipt time and unique local ID. Repeated reasons are not deduplicated. The newest 20 received events are listed first in `NotificationPanel`; there is no storage, database, notification acknowledgment, or server command. Navigation/reload resets the in-memory session. A WebSocket reconnect does **not** reset it.
 
 Current warnings are separate from history, at most one latest indication per received alert reason. Info events never activate a warning. An old warning can remain indicated even if its receipt has aged out of the 20-item history. This avoids silently removing a current indication because unrelated info arrived.
 
@@ -110,7 +114,7 @@ cd ..
 .\.venv\Scripts\python.exe web/scripts/test_pc_integration.py --serve
 ```
 
-On macOS replace the interpreter with `./.venv/bin/python`. Open **http://127.0.0.1:8000**, select **LIVE**, and confirm `録画再生`, `暫定処理`, `placeholder`, BPM `—`, waveform after learning, and unavailable-wave notices during shaking. The synthetic fixture loops, so transitions repeat. Stop with Ctrl+C. Alternatively leave the snapshot server running and use `npm run dev` for the Vite proxy. Real sensor integration remains separate from synthetic replay verification.
+On macOS replace the interpreter with `./.venv/bin/python`. Open **http://127.0.0.1:8000**; LIVE starts automatically. Confirm `録画再生`, `暫定処理`, `placeholder`, BPM `—`, waveform after learning, and unavailable-wave notices during shaking. The synthetic fixture loops, so transitions repeat. Stop with Ctrl+C. Alternatively leave the snapshot server running and use `npm run dev` for the Vite proxy. Real sensor integration remains separate from synthetic replay verification.
 
 After `pc/` is available in the working tree through the team's normal review process, run the existing server directly (no test snapshot needed), for example:
 
