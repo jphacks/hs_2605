@@ -13,6 +13,7 @@ import type { ServerHealth } from './data/health';
 import { deriveLiveView } from './data/liveView';
 import type { BreathingState, StatusSource } from './data/status';
 import { useDashboard } from './useDashboard';
+import { WINDOW_S } from './data/waveform';
 
 const states: Record<BreathingState, { label: string; title: string; description: string }> = {
   EMPTY: { label: '不在', title: '対象を検知していません', description: '対象がいないシーンをシミュレーションしています。' },
@@ -82,7 +83,10 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   const data = useDashboard(source, demo ? 50 : liveIntervalMs, resetKey);
   const liveView = deriveLiveView(data.status, connection, board, liveReady, health);
   const status = demo ? data.status : liveView.status;
-  const points = demo || liveView.waveAvailable ? data.points : [];
+  // Keep showing the drawn wave while the data is current, even when this update has none: the
+  // graph pauses (grey dashed "no reading") instead of emptying, which looked like a restart.
+  const points = demo || liveView.status ? data.points : [];
+  const end = Math.max(WINDOW_S, (status?.t ?? 0) / 1000);
   const effectiveIntervalMs = status?.dt_ms ?? (demo ? 50 : liveIntervalMs);
   const current = status?.state;
   const copy = current ? states[current] : null;
@@ -112,12 +116,13 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <div className="chart" role="img" aria-label={`${readingLabel}の波形。${demo ? copy?.label ?? '準備中' : liveView.notice}`}>
           <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 0 }} accessibilityLayer>
             <CartesianGrid stroke="#e6ede9" strokeDasharray="3 6" vertical={false}/>
-            <XAxis type="number" dataKey="time" domain={[Math.max(0, (status?.t ?? 0) / 1000 - 30), Math.max(30, (status?.t ?? 0) / 1000)]} tickFormatter={v => `${Math.round(v)}s`} tickLine={false} axisLine={false} minTickGap={40} tick={{ fill: '#7b8983', fontSize: 12 }}/>
-            <YAxis type="number" domain={demo ? [-2, 2] : ['auto', 'auto']} tickLine={false} axisLine={false} width={35} tick={{ fill: '#7b8983', fontSize: 12 }}/>
+            <XAxis type="number" dataKey="time" domain={[end - WINDOW_S, end]} ticks={[end - 30, end - 20, end - 10, end]} tickFormatter={v => Math.round(v - end) === 0 ? '今' : `${Math.round(v - end)}秒`} tickLine={false} axisLine={false} tick={{ fill: '#7b8983', fontSize: 12 }}/>
+            <YAxis type="number" domain={demo ? [-2, 2] : ['auto', 'auto']} tickFormatter={v => `${Number(Number(v).toFixed(2))}`} tickLine={false} axisLine={false} width={46} tick={{ fill: '#7b8983', fontSize: 12 }}/>
+            <Line type="linear" dataKey="idle" stroke="#a9b3ae" strokeWidth={2} strokeDasharray="6 5" dot={false} isAnimationActive={false}/>
             <Line type="linear" dataKey="displacement" stroke={current === 'ALERT' ? '#c25d50' : '#438b77'} strokeWidth={2.5} dot={false} isAnimationActive={false}/>
           </LineChart></ResponsiveContainer>
         </div>
-        <div className="chart-footer"><span><i/>胸の動き · {demo ? 'シミュレーション' : liveView.sourceLabel}</span><span>{demo ? '5回 / 秒 更新' : '受信ごとに更新'}</span></div>
+        <div className="chart-footer"><span><i/>胸の動き{demo ? '（シミュレーション）' : ''}</span><span><i className="idle-key"/>測定なし（揺れ・学習中・不在のとき）</span></div>
       </article>
       <aside className="metrics" aria-label={`${readingLabel}の指標`}>
         <article className="panel bpm"><p className="eyebrow">BREATHING RATE · {readingLabel}</p><h2>推定呼吸数</h2><div className="bpm-value">{(demo ? status?.bpm : liveView.bpm)?.toFixed(1) ?? '—'}<span>回 / 分</span></div><p className="muted">{demo ? 'シミュレーションの値です。年齢別の判定基準ではありません。' : liveView.placeholder ? 'placeholder は呼吸数を判定しません。常に「—」です。' : 'Brain の推定値です。波形利用不可・更新停止・不明の場合は「—」を表示します。'}</p></article>

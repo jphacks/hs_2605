@@ -249,15 +249,34 @@ test('real placeholder status, empty arrays, and optional fields validate', () =
   assert.ok(isBrainStatus({ ...status, disp_mm: [] }));
 });
 
-test('dt_ms has priority; empty/shaking statuses clear history without fabricated samples', () => {
+test('dt_ms has priority; empty/shaking statuses keep the drawn wave and add no fabricated samples', () => {
   const actual = { ...status, dt_ms: 60 };
   const points = appendWaveform([], null, actual, 50);
   assert.equal(points.length, 4);
   assert.ok(Math.abs(points[0].time - (status.t - 180) / 1000) < 1e-8);
-  assert.deepEqual(appendWaveform(points, actual, { ...actual, t: status.t + 120, disp_mm: [] }, null), []);
-  assert.deepEqual(appendWaveform(points, actual, { ...actual, t: status.t + 120, shaking: true }, null), []);
+  // In a demo, a graph that empties itself looks like the whole system restarted: it pauses
+  // instead, with a "no reading" mark (drawn grey and dashed) and no displacement.
+  const noReading = { time: (status.t + 120) / 1000, displacement: null, idle: 0 };
+  assert.deepEqual(appendWaveform(points, actual, { ...actual, t: status.t + 120, disp_mm: [] }, null), [...points, noReading]);
+  assert.deepEqual(appendWaveform(points, actual, { ...actual, t: status.t + 120, shaking: true }, null), [...points, noReading]);
+  assert.equal(appendWaveform(points, actual, { ...actual }, null), points); // repeated status
+  assert.deepEqual(appendWaveform(points, actual, { ...actual, t: status.t - 1000 }, null), []); // the board restarted
   // No interpolation across an unavailable batch when dt_ms is absent.
   assert.deepEqual(appendWaveform([], { ...status, disp_mm: [] }, { ...status, t: status.t + 120 }, null), []);
+});
+
+test('a pause keeps the old wave, marks no reading, then the wave continues and old points age out', () => {
+  const at = (t, disp_mm, extra = {}) => ({ ...status, t, disp_mm, dt_ms: 60, ...extra });
+  let previous = null, points = [];
+  const feed = next => { points = appendWaveform(points, previous, next, null); previous = next; };
+  feed(at(10000, [0.4, 0.5])); feed(at(10120, [0.6, 0.5]));
+  feed(at(10240, [], { shaking: true })); feed(at(10360, []));
+  feed(at(10480, [0.2, 0.1]));
+  assert.deepEqual(points.map(p => p.displacement), [0.4, 0.5, 0.6, 0.5, null, null, 0.2, 0.1]);
+  assert.deepEqual(points.filter(p => p.idle === 0).map(p => p.time), [10.24, 10.36]);
+  assert.ok(points.every(p => p.displacement === null || [0.4, 0.5, 0.6, 0.2, 0.1].includes(p.displacement)));
+  feed(at(45000, [])); // 35 s later, still no reading: the old wave has slid out of the 30 s window
+  assert.deepEqual(points, [{ time: 45, displacement: null, idle: 0 }]);
 });
 
 test('disconnected/stale/cached/shaking readings are unavailable; placeholder never reports BPM', () => {
@@ -346,7 +365,9 @@ test('waveform uses batch timing or configured spacing, handles resets/gaps and 
   const configured = appendWaveform([], null, status, 75);
   assert.ok(Math.abs(configured[1].time - configured[0].time - 0.075) < 1e-8);
   assert.deepEqual(appendWaveform(points, next, status, null), []);
-  assert.deepEqual(appendWaveform(points, next, { ...status, t: 30000 }, null), []);
+  // A long gap invents nothing; the old wave stays until it is older than the 30 s window.
+  assert.deepEqual(appendWaveform(points, next, { ...status, t: 30000 }, null), points);
+  assert.deepEqual(appendWaveform(points, next, { ...status, t: 50000 }, null), []);
   let history = [], previous = null;
   for (let t = 200; t <= 40000; t += 200) {
     const message = { ...status, t };
