@@ -14,6 +14,7 @@ const { appendWaveform } = await load('../src/data/waveform.ts');
 const { createMockSource } = await load('../src/data/mockSource.ts');
 const { deriveLiveView } = await load('../src/data/liveView.ts');
 const { resolveEndpoints, parseHealth, watchHealth } = await load('../src/data/health.ts');
+const { createNotificationState, reduceNotifications, notificationPresentation } = await load('../src/data/notifications.ts');
 const status = { t: 12345, disp_mm: [0.81, 0.95, 1.02, 1.07], bpm: 16.2, motion: 120, present: true, state: 'OK' };
 
 function sandbox(run) {
@@ -109,6 +110,9 @@ test('malformed and unsupported notification payloads are ignored in both catego
   const stop = createWebSocketSource({ onAlert: e => alerts.push(e), onInfo: e => infos.push(e) }).subscribe(s => statuses.push(s));
   sockets[0].open();
   const invalid = [null, [], {}, { type: 'info' },
+    // PR30's CHECK nudge is push-only, not a new WebSocket event category.
+    { type: 'info', reason: 'check', since_s: 0 },
+    { type: 'alert', reason: 'check', since_s: 0 },
     { type: 'alert', reason: 'woke_up', since_s: 0 },
     { type: 'info', reason: 'no_breath', since_s: 10 },
     { type: 'info', reason: 'unsupported', since_s: 0 },
@@ -176,6 +180,42 @@ test('late notifications from closed or unsubscribed sockets are ignored during 
   for (const event of notificationEvents) currentCallback({ data: JSON.stringify(event) });
   assert.equal(alerts.length, 2); assert.equal(infos.length, 2);
   assert.equal(tasks.size, 0); assert.equal(sockets[1].closed, true);
+}));
+
+test('wire lifecycle keeps session history across reconnect and never feeds events into wave/status', () => sandbox(({ sockets, tasks, tick }) => {
+  let notifications = createNotificationState(), current = null, points = [], statusCount = 0;
+  const dispatch = action => { notifications = reduceNotifications(notifications, action); };
+  const receive = event => dispatch({ type: 'event', event, receivedAt: 1234567890 });
+  const source = createWebSocketSource({ onConnection: value => dispatch({ type: 'connection', value }),
+    onBoard: connected => dispatch({ type: 'board', connected }), onAlert: receive, onInfo: receive });
+  const stop = source.subscribe(next => {
+    dispatch({ type: 'status', status: next });
+    points = appendWaveform(points, current, next, 50); current = next; statusCount++;
+  });
+  sockets[0].open(); sockets[0].message({ type: 'board', connected: true });
+  sockets[0].message(status); sockets[0].message({ ...status, t: status.t + 200 });
+  const wave = structuredClone({ current, points, statusCount });
+  for (const event of notificationEvents) sockets[0].message(event);
+  assert.deepEqual({ current, points, statusCount }, wave);
+  assert.equal(notifications.history.length, 4);
+  assert.equal(notificationPresentation(notifications).current.length, 2);
+  tick(3000); assert.equal(notifications.connection, 'stale');
+  assert.ok(notificationPresentation(notifications).current.every(warning => warning.indication === 'unknown'));
+  sockets[0].close(); tick(1000); sockets[1].open();
+  sockets[1].message({ type: 'board', connected: true });
+  sockets[1].message({ ...status, t: status.t + 200, state: 'STILL' });
+  assert.equal(notifications.ready, false);
+  assert.equal(notificationPresentation(notifications).current.length, 2);
+  sockets[1].message({ ...status, t: status.t + 400, state: 'STILL' });
+  assert.equal(notificationPresentation(notifications).current.length, 0);
+  assert.equal(notifications.history.length, 4);
+  const late = sockets[1].onmessage;
+  stop(); late({ data: JSON.stringify(notificationEvents[0]) });
+  assert.equal(notifications.history.length, 4); assert.equal(tasks.size, 0);
+  // StrictMode effect cleanup/re-subscribe retains the reducer's session state.
+  const stopAgain = source.subscribe(() => {});
+  assert.equal(notifications.history.length, 4); stopAgain();
+  assert.equal(tasks.size, 0);
 }));
 
 test('stale detection also applies to an open connection that never sends a status', () => sandbox(({ sockets, tick }) => {
