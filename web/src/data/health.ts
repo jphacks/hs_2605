@@ -1,9 +1,9 @@
-export interface ServerHealth { source: string | null; brain: string; board_connected: boolean }
+export interface ServerHealth { source: string | null; brain: string; board_connected: boolean; siren?: boolean }
 export function parseHealth(value: unknown): ServerHealth | null {
   if (typeof value !== 'object' || value === null) return null;
   const v = value as Record<string, unknown>;
   return (typeof v.source === 'string' || v.source === null) && typeof v.brain === 'string' && typeof v.board_connected === 'boolean'
-    ? { source: v.source, brain: v.brain, board_connected: v.board_connected } : null;
+    ? { source: v.source, brain: v.brain, board_connected: v.board_connected, ...(typeof v.siren === 'boolean' ? { siren: v.siren } : {}) } : null;
 }
 export function resolveEndpoints(pageUrl: string, wsOverride?: string, healthOverride?: string) {
   const ws = new URL(wsOverride || '/ws', pageUrl);

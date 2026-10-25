@@ -39,6 +39,13 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   const [health, setHealth] = useState<ServerHealth | null>(null);
   const [resetKey, setResetKey] = useState(0);
   useEffect(() => { if (!demo) return watchHealth(endpoints.health, setHealth); }, [demo]);
+  // The server's siren keeps sounding until someone acknowledges it; this is the dashboard's way.
+  const [stoppingSiren, setStoppingSiren] = useState(false);
+  useEffect(() => { if (!health?.siren) setStoppingSiren(false); }, [health?.siren]);
+  const stopSiren = () => {
+    setStoppingSiren(true);
+    fetch(new URL('/api/button', endpoints.health).href, { method: 'POST' }).catch(() => setStoppingSiren(false));
+  };
   const [mock] = useState(() => demo ? createMockSource() : null);
   const [source] = useState<StatusSource>(() => createModeSource<StatusSource>(mode, {
     demo: () => mock!,
@@ -92,6 +99,8 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
     {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
       placeholder={liveView.placeholder} shaking={data.status?.shaking ?? false} waveAvailable={liveView.waveAvailable}
       url={endpoints.ws} notice={liveView.notice} />}
+    {!demo && health?.siren && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
+      {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
     <section className="intro"><div><p className="eyebrow">赤ちゃんの呼吸の動きを、見えるかたちに。</p><h1>小さな動きに、<br className="mobile-break"/>目を向ける。</h1><p className="muted">呼吸の動きを可視化する、息吹～IBUKI～ダッシュボード。</p></div><div className="session"><span>{mode} SESSION</span><strong>{time}</strong><small>{demo ? '経過時間 · 模擬データ' : '送信側の時刻 t · ms として解釈'}</small></div></section>
     <section className={`status-banner state-${current?.toLowerCase() ?? 'empty'}`} aria-live="polite" aria-atomic="true"><span className="status-icon">{current === 'ALERT' || current === 'CHECK' ? '!' : '≈'}</span><div><span className="eyebrow">{current ? `${current} · ${demo ? copy!.label : 'サーバー状態'}` : 'WAITING · データ待ち'}</span><h2>{title}</h2><p>{demo ? copy?.description : liveView.notice}</p></div><span className="sim-label">{demo ? '模擬状態' : liveView.placeholder ? '暫定処理' : '受信状態'}</span></section>
     {!demo && <NotificationPanel state={notifications} />}

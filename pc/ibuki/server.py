@@ -20,8 +20,8 @@ Messages on /ws:
   Board state    {"type": "board", "connected": true|false}
 A client may send {"type": "button"} to act like the board's user button (B,1).
 The LED goes off when a status says OK or STILL again, or when the button is pressed.
-For no_breath the laptop also plays a siren until someone acknowledges it (the board button or
-Enter in this window); IBUKI_SIREN=0 turns it off.
+For no_breath the laptop also plays a siren until someone acknowledges it (the dashboard's stop
+button = POST /api/button, the board's SW1, or Enter in this window); IBUKI_SIREN=0 turns it off.
 
 Notifications: put IBUKI_NTFY_TOPIC=<topic> in <repo>/.env (git-ignored, never commit it) or set
 it in the shell. If ntfy fails (no internet), the LED and dashboard alert keep working.
@@ -177,8 +177,8 @@ class Notifier:
 
 class Siren:
     """Loud two-tone alarm from the laptop for the no-breathing alert. Like a baby monitor, it
-    keeps sounding until a person acknowledges it: the board button or Enter in the server
-    window. Breathing coming back alone does not stop it."""
+    keeps sounding until a person acknowledges it: the dashboard's stop button, the board's SW1,
+    or Enter in the server window. Breathing coming back alone does not stop it."""
 
     def __init__(self, enabled: bool):
         self.enabled = enabled and sys.platform == "darwin" and shutil.which("afplay") is not None
@@ -190,7 +190,7 @@ class Siren:
         if self.on:
             return
         self.on = True
-        log("SIREN on (stop it with the board button or Enter here)")
+        log("SIREN on (stop it with the dashboard's stop button, the board's SW1, or Enter here)")
         if self.enabled:
             threading.Thread(target=self._loop, daemon=True).start()
 
@@ -369,6 +369,7 @@ class Hub:
             "last_board_status": self.last_board_status,
             "brain_errors": self.brain_errors,
             "led_on": self.led_on,
+            "siren": self.siren.on,
             "ntfy": self.notifier.enabled,
         }
 
@@ -410,6 +411,12 @@ def create_app(args) -> FastAPI:
     @app.get("/api/status")
     def status():
         return hub.latest or {}
+
+    @app.post("/api/button")
+    def button():
+        """The dashboard's stop button: the same as the board's SW1 (stops the siren)."""
+        hub.press_button()
+        return {"ok": True}
 
     @app.post("/api/test-notification")
     def test_notification():

@@ -120,6 +120,19 @@ class ServerTest(unittest.TestCase):
         self.assertFalse(alive["led_on"])
         self.assertFalse(test_push["ok"])
 
+    def test_dashboard_stop_button_stops_the_siren(self):
+        s = ServerRun(self.recording, "tests.fake_brains:AlertBrain")
+        try:
+            s.messages(2.0)  # the no_breath alert starts the siren
+            before = requests.get(s.base + "/api/health").json()["siren"]
+            requests.post(s.base + "/api/button")
+            time.sleep(0.5)
+            after = requests.get(s.base + "/api/health").json()["siren"]
+        finally:
+            s.stop()
+        self.assertTrue(before)
+        self.assertFalse(after)
+
     def test_woke_up_is_info_left_bed_is_alert(self):
         env = {"IBUKI_NTFY_TOPIC": "ibuki-test", "IBUKI_NTFY_URL": "http://127.0.0.1:9"}
         s = ServerRun(self.recording, "tests.fake_brains:StoryBrain", env)
