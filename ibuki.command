@@ -3,7 +3,7 @@
 #   ./ibuki.command                                  the live board
 #   ./ibuki.command --replay recordings/<file>.csv   a recording instead (any server.py option works)
 # The first start installs the Python packages and builds the dashboard, so it takes a minute.
-# The dashboard opens at http://localhost:8000 (choose LIVE). Ctrl+C or closing the window stops it.
+# The dashboard opens at http://localhost:8000 in LIVE. Ctrl+C or closing the window stops it.
 set -e
 cd "$(dirname "$0")"
 
