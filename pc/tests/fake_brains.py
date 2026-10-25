@@ -2,7 +2,7 @@
 
 
 class AlertBrain:
-    """Sends OK statuses, then after 30 D lines an alert event and ALERT statuses."""
+    """Sends OK statuses, CHECK from 20 D lines, then after 30 an alert event and ALERT statuses."""
 
     name = "alert-test"
 
@@ -23,7 +23,7 @@ class AlertBrain:
         if self.d == 30 and not self.alerted:
             self.alerted = True
             out.append({"type": "alert", "reason": "no_breath", "since_s": 10})
-        state = "ALERT" if self.alerted else "OK"
+        state = "ALERT" if self.alerted else "CHECK" if self.d >= 20 else "OK"
         if self.d % 2 == 0:
             out.append({"t": self.d * 60, "state": state, "bpm": None, "disp_mm": [0.0, 0.0],
                         "motion": 1.0, "present": True, "chest_cm": 48.75})

@@ -34,7 +34,7 @@ IBUKI は 3 つの部分でできています。
 |---|---|
 | 眠っています | じっとしていて、呼吸が見えている |
 | 起きています | 動いている（動いている間は呼吸を測らない） |
-| 呼吸を確認中 | じっとしているのに、呼吸が見えない |
+| 呼吸を確認中 | じっとしているのに、呼吸が見えない（軽い通知） |
 | 呼吸が確認できません | その状態が続いた（通知と LED の点滅） |
 | ベッドにいません | 赤ちゃんがいなくなった（通知と LED の点滅） |
 
@@ -115,6 +115,7 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 - 初めてのときは Python のパッケージ（[requirements.txt](requirements.txt)）を入れ、ダッシュボードをビルドするので、1 分ほどかかります。Python 3 と Node.js が必要です。
 - スマートフォンと Apple Watch に通知を送るときは、[.env.example](.env.example) を `.env` にコピーし、ntfy のトピックを書きます。
 - ボードの代わりに録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
+- 通知の見本（5 種類）をスマートフォンに送るときは `../env/bin/python pc/notify_demo.py` です。
 
 くわしい手順は、ファームウェアが [firmware/README.md](firmware/README.md)、サーバーと通知の設定が [pc/README.md](pc/README.md)、ダッシュボードが [web/README.md](web/README.md) にあります。
 

@@ -56,6 +56,13 @@ class BrainTest(unittest.TestCase):
         self.assertEqual([e for e in ev if e["type"] == "alert"], [])
         self.assertEqual(states_between(st, 60, 75), {"STILL"})
 
+    def test_moving_after_a_short_rest_is_not_waking_up(self):
+        # woke_up is for waking from sleep (10 min still), so a short rest must not send it
+        st, ev = run(make_lines(seconds=55, target_bin=9, breaths_per_min=20, amp_mm=1.0,
+                                move=(40, 55, (7, 8, 9, 10, 11))))
+        self.assertIn("OK", states_between(st, 42, 55))
+        self.assertEqual([e for e in ev if e.get("reason") == "woke_up"], [])
+
     def test_moving_is_awake_and_never_alerts(self):
         st, ev = run(make_lines(seconds=40, target_bin=9, move=(10, 40, (7, 8, 9, 10, 11))))
         self.assertIn("OK", states_between(st, 15, 40))

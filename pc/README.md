@@ -55,7 +55,14 @@ To check it, start the server and run:
 curl -X POST http://localhost:8000/api/test-notification
 ```
 
-The phone should show 「テスト通知です（IBUKI）」.
+The phone should show 「【テスト】IBUKI の通知」.
+
+To show the team what every notification looks like, send all five, lowest to highest urgency (no server needed):
+
+```
+../env/bin/python pc/notify_demo.py
+../env/bin/python pc/notify_demo.py no_breath    # only this one
+```
 
 Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
 
@@ -95,7 +102,9 @@ Events go out as extra dicts in the same list:
 | `{"type": "alert", "reason": "no_breath", "since_s": 20}` | entering ALERT | LED red, urgent push |
 | `{"type": "alert", "reason": "left_bed"}` | the baby was in bed and is gone | LED red, high push |
 | `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | asleep and above the WHO "fast breathing" level for 5 minutes: 60/min under 2 months, 50 at 2 to 12 months, 40 at 1 to 5 years | high push, no LED |
-| `{"type": "info", "reason": "woke_up"}` | moving again after a long still period | silent push, no LED |
+| `{"type": "info", "reason": "woke_up"}` | moving again after 10 minutes asleep (still), at most every 5 minutes | silent push, no LED |
+
+When a status first says CHECK, the server also sends a nudge (priority 3, no LED, at most every 2 minutes), so the parents can look before the alert. Every notification title starts with its urgency: 【緊急】, 【注意】, 【確認中】 or 【お知らせ】.
 
 The LED goes off when a status says OK or STILL again, or when someone presses the button. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
 
@@ -198,7 +207,14 @@ ntfy を使っています。iPhone に ntfy アプリを入れて、+ を押し
 curl -X POST http://localhost:8000/api/test-notification
 ```
 
-スマホに「テスト通知です（IBUKI）」が届けば OK です。
+スマホに「【テスト】IBUKI の通知」が届けば OK です。
+
+チームにすべての通知の見た目を見せるときは、緊急度の低い順に 5 つ送ります（サーバーは不要です）：
+
+```
+../env/bin/python pc/notify_demo.py
+../env/bin/python pc/notify_demo.py no_breath    # これだけ送る
+```
 
 トピックはパスワードのようなものです。知っている人なら誰でも読めて送れます。`.env` は git の対象外なので、うっかりコミットされることはありません。インターネットがないと通知は届きませんが、LED とダッシュボードの警告はそのまま動きます。
 
@@ -238,7 +254,9 @@ class Brain:
 | `{"type": "alert", "reason": "no_breath", "since_s": 20}` | ALERT になったとき | LED を赤、緊急の通知 |
 | `{"type": "alert", "reason": "left_bed"}` | ベッドにいた赤ちゃんがいなくなったとき | LED を赤、高い優先度の通知 |
 | `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | 眠っていて、WHO の「速い呼吸」の目安を 5 分超えたとき（2 か月未満 60 回、2〜12 か月 50 回、1〜5 歳 40 回） | 高い優先度の通知、LED なし |
-| `{"type": "info", "reason": "woke_up"}` | 長く静かだったあとに動き出したとき | 音なしの通知、LED なし |
+| `{"type": "info", "reason": "woke_up"}` | 10 分以上眠って（じっとして）いたあとに動き出したとき。5 分に 1 回まで | 音なしの通知、LED なし |
+
+状態が初めて CHECK になったときも、警告の前に軽い通知（優先度 3、LED なし、2 分に 1 回まで）を送ります。通知のタイトルは、緊急度（【緊急】【注意】【確認中】【お知らせ】）から始まります。
 
 状態が OK か STILL に戻るか、ボタンが押されると LED は消えます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
 
