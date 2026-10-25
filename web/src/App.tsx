@@ -90,8 +90,12 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
     : !status || current === 'EMPTY' ? 'ベッドに人がいるときに表示します'
     : liveView.placeholder ? '暫定の処理では呼吸数を計算しません'
     : bpm !== null ? '直近20秒の呼吸から計算しています'
+    : current === 'CHECK' || current === 'ALERT' ? '呼吸が検知できていません'
     : current === 'OK' ? '動いている間は計算しません'
     : '呼吸が安定すると表示されます（20秒ほど）';
+  // Why the graph has no new wave, when the status above doesn't already say it (nobody there, shaking).
+  const chartNote = demo || !liveView.status || liveView.waveAvailable || current === 'EMPTY' || status?.shaking ? null
+    : '呼吸の波を準備しています（座った直後や揺れのあとは数秒かかります）';
 
   return <main>
     <header>
@@ -111,7 +115,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
       <article className="panel waveform">
         <div className="panel-heading"><div><p className="eyebrow">BREATHING MOTION</p><h2>呼吸の動き</h2></div><span className="chart-live"><span className="dot"/>{sourceTag}</span></div>
         <p className="chart-description">胸の動き（mm） · 直近30秒</p>
-        {!demo && !liveView.waveAvailable && <p className="muted" role="status">{liveView.notice}</p>}
+        {chartNote && <p className="muted" role="status">{chartNote}</p>}
         <div className="chart" role="img" aria-label={`胸の動きの波形。${statusView.title}`}>
           <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 0 }} accessibilityLayer>
             <CartesianGrid stroke="#e6ede9" strokeDasharray="3 6" vertical={false}/>
@@ -124,7 +128,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <div className="chart-footer"><span><i/>胸の動き{demo ? '（シミュレーション）' : ''}</span><span><i className="idle-key"/>測定なし（揺れ・学習中・不在のとき）</span></div>
       </article>
       <aside className="metrics" aria-label="いまの様子">
-        <article className="panel bpm"><p className="eyebrow">BREATHING RATE</p><h2>呼吸数</h2><div className="bpm-value">{bpm?.toFixed(1) ?? '—'}<span>回 / 分</span></div><p className="muted">{rateNote}</p></article>
+        <article className="panel bpm"><p className="eyebrow">BREATHING RATE</p><h2>呼吸数</h2><div className={`bpm-value${bpm == null ? ' bpm-value--none' : ''}`}>{bpm?.toFixed(1) ?? '—'}<span>回 / 分</span></div><p className="muted">{rateNote}</p></article>
         <article className="panel metric-row"><div><p className="eyebrow">IN BED</p><h2>ベッド</h2></div><strong className="presence">{!status ? '—' : status.present ? 'います' : 'いません'}</strong></article>
         <article className="panel metric-row"><div><p className="eyebrow">MOVEMENT</p><h2>体の動き</h2></div><strong className="presence">{!status || !status.present ? '—' : current === 'OK' ? '動いています' : 'じっとしています'}</strong></article>
       </aside>

@@ -43,3 +43,4 @@ h1.brand{margin:0}.brand small{font-size:11px;letter-spacing:.5px;font-weight:50
 .notification-history{display:flex;flex-direction:column;gap:6px}.notice{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;padding:9px 14px;border-radius:10px;border:1px solid #e0e7e0;background:#f8faf7;font-size:13px}
 .notice time{font-size:12px;color:#596e60;font-variant-numeric:tabular-nums}.notice-level{font-weight:700}.notice small{font-size:11px;color:#6d7d74}
 .notice--urgent{background:#f8e9e3;border-color:#e7c6bc}.notice--urgent .notice-level,.notice--urgent strong{color:#a23b2e}.notice--caution{background:#faf0dc;border-color:#ead9b1}.notice--caution .notice-level{color:#8a6a1f}.notice--info .notice-level{color:#3d7a66}
+.bpm-value--none{color:#c3ccc7}.current-warning--caution{background:#faf0dc;border-color:#ead9b1;color:#6c5b36}
