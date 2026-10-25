@@ -50,6 +50,8 @@ ABSENT_S = 3.0          # seconds below PRESENT_OFF before EMPTY
 GONE_RATIO = 0.20       # echo at their 3 strongest slots vs its 30 s average: left 0.02-0.06, there 0.59+
 ECHO_MEMORY_S = 30.0    # the person's echo is averaged over ~30 s, so walking away barely moves it
 LEAK_CM = 28.0          # under this, the board's own TX->RX leakage, not a person
+JUMP_MAX = 1.0          # line-to-line echo change / its change over 10 s: breathing chests 0.15-0.87
+                        # (99%), someone moving 1.12-1.48, empty-room noise ~1.34
 MOVE_ON = 1.6           # relative strength change; breathing 0.7-1.0, moving ~2.6
 MOVE_OFF = 1.25
 MIN_LEVEL = 100.0      # a real person's echo level is 125-440; room noise motion ~12
@@ -120,8 +122,11 @@ class Brain:
         self.chest_picked_t = -math.inf
         self.shake.reset()
 
+    def _cm(self, n):
+        return self.cfg.first_cm + np.arange(n) * self.cfg.step_mm / 10.0
+
     def _use(self, n):
-        return (self.cfg.first_cm + np.arange(n) * self.cfg.step_mm / 10.0) >= self.min_cm
+        return self._cm(n) >= self.min_cm
 
     def _window(self, seconds):
         t_now = self.hist[-1][0]
@@ -137,8 +142,14 @@ class Brain:
         T, Z = self._window(10.0)
         if len(T) < 5 * self.fs:
             return
-        use = self._use(Z.shape[1])
-        activity = np.where(use, np.abs(Z - Z.mean(axis=0)).mean(axis=0), -1.0)
+        # not under LEAK_CM: a hand or a laptop right next to the board changes those echoes far
+        # more than a chest 50 cm away (in the presentation the "chest" ended up at 22.5 cm)
+        use = self._use(Z.shape[1]) & (self._cm(Z.shape[1]) >= LEAK_CM)
+        change = np.abs(Z - Z.mean(axis=0)).mean(axis=0)
+        # and not where the echo jumps from one line to the next: someone walking past or a hand
+        # moving changes it far more than a breathing chest, but not smoothly
+        jumpy = np.abs(np.diff(Z, axis=0)).mean(axis=0) > JUMP_MAX * change
+        activity = np.where(use & ~jumpy, change, -1.0)
         order = [int(k) for k in np.argsort(activity)[::-1][:3] if activity[k] >= PRESENT_OFF]
         if not order:
             return

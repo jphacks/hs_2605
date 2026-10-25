@@ -105,6 +105,14 @@ class BrainTest(unittest.TestCase):
         self.assertNotIn("left_bed", [e["reason"] for e in ev])
         self.assertIn("no_breath", [e["reason"] for e in ev])
 
+    def test_a_hand_next_to_the_board_is_not_the_chest(self):
+        # in the presentation the "chest" ended up at 22.5 cm: a hand moving by the board
+        st, ev = run(make_lines(seconds=40, target_bin=12, breaths_per_min=20, amp_mm=1.0,
+                                target_amp=300, move=(0, 40, (1, 2)), room=30))
+        chests = {s["chest_cm"] for s in st if s["t"] > 10000 and s["chest_cm"] is not None}
+        self.assertTrue(chests, "no chest found")
+        self.assertGreaterEqual(min(chests), 28.0, chests)
+
     def test_board_shake_never_alerts(self):
         st, ev = run(make_lines(seconds=50, target_bin=9, breaths_per_min=20, amp_mm=1.0,
                                 shake=(25, 32, 0.5)))
