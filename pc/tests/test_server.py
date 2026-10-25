@@ -133,6 +133,25 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(before)
         self.assertFalse(after)
 
+    def test_led_keeps_blinking_until_the_alarm_is_acknowledged(self):
+        # breathing came back while the siren still sounded: the LED went off after a second and
+        # never got to blink. Like the siren, it now stays until someone presses the button
+        s = ServerRun(self.recording, "tests.fake_brains:RecoverBrain")
+        try:
+            msgs = s.messages(2.0)  # the alert, then breathing again
+            during = requests.get(s.base + "/api/health").json()
+            requests.post(s.base + "/api/button")
+            time.sleep(0.5)
+            after = requests.get(s.base + "/api/health").json()
+        finally:
+            s.stop()
+        self.assertEqual([m["state"] for m in msgs if "state" in m][-1], "STILL")
+        self.assertTrue(during["siren"])
+        self.assertTrue(during["led_on"])
+        self.assertFalse(after["siren"])
+        self.assertFalse(after["led_on"])
+        self.assertLess(s.output.index("button from dashboard"), s.output.index("would send to board: L,0"))
+
     def test_woke_up_is_info_left_bed_is_alert(self):
         env = {"IBUKI_NTFY_TOPIC": "ibuki-test", "IBUKI_NTFY_URL": "http://127.0.0.1:9"}
         s = ServerRun(self.recording, "tests.fake_brains:StoryBrain", env)
