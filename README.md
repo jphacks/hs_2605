@@ -3,13 +3,13 @@
 **カメラも、ウェアラブル端末もいらない。非接触センサーで、お休み中の赤ちゃんの呼吸を見守る。**
 
 <!-- デモ動画ができたら、下の行のコメントを外して画像と動画の URL を入れる
-[![IBUKI demo](画像URL)](動画URL)
+[![息吹～IBUKI～ demo](画像URL)](動画URL)
 -->
 
 ベビーベッドのそばに置いた 60 GHz のミリ波レーダーが、赤ちゃんの胸のわずか数ミリの上下運動をとらえます。呼吸が止まったように見えたら、保護者のスマートフォンに知らせ、ボードの赤い LED が点滅します。
 
 <p align="center">
-  <img src="docs/images/ibuki_flow.png" width="400" alt="IBUKI のしくみ：レーダーが胸の動きをとらえ、ボードが距離ごとに分け、Brain が判断し、スマートフォンと LED で知らせる">
+  <img src="docs/images/ibuki_flow.png" width="400" alt="息吹～IBUKI～のしくみ：レーダーが胸の動きをとらえ、ボードが距離ごとに分け、Brain が判断し、スマートフォンと LED で知らせる">
 </p>
 
 > ハッカソンで作った試作品です。医療機器ではなく、病気の診断や SIDS（乳幼児突然死症候群）の予防はできません。
@@ -141,12 +141,12 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **サーバーと通知**：ボード、Brain、ダッシュボード、LED をつなぎ、緊急度つきで通知します。[server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)、[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
 * **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **自動テスト**：パソコン側 38 個、ダッシュボード 39 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+* **自動テスト**：パソコン側 38 個、ダッシュボード 50 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
-IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
+息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
 
-We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside IBUKI's range of 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
+We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside the range 息吹～IBUKI～ reads, 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
 
 Disclaimer: It's a hackathon prototype, not a medical device.
 

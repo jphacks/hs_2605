@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1740" viewBox="0 0 760 1740" role="img" aria-label="IBUKI のしくみ">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1740" viewBox="0 0 760 1740" role="img" aria-label="息吹～IBUKI～のしくみ">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#f4f8fb"/>
@@ -32,7 +32,7 @@
   <rect x="0" y="0" width="760" height="1740" rx="28" fill="url(#bg)"/>
 
   <!-- header -->
-  <text x="380" y="72" text-anchor="middle" class="title">IBUKI のしくみ</text>
+  <text x="380" y="72" text-anchor="middle" class="title">息吹～IBUKI～のしくみ</text>
   <text x="380" y="112" text-anchor="middle" class="sub">映さない・触れない、赤ちゃんの呼吸の見守り</text>
 
   <!-- ① radar -->

@@ -152,7 +152,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(Notifier.title_for({"reason": "no_breath"}, True), "【緊急】呼吸が確認できません")
         self.assertEqual(Notifier.title_for({"reason": "left_bed"}, True), "【注意】ベッドにいません")
         self.assertEqual(Notifier.title_for({"reason": "woke_up"}, False), "【お知らせ】起きました")
-        self.assertEqual(Notifier.title_for({"reason": "something_new"}, True), "【緊急】IBUKI")
+        self.assertEqual(Notifier.title_for({"reason": "something_new"}, True), "【緊急】息吹～IBUKI～")
 
     def test_urgency_levels(self):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

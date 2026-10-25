@@ -86,13 +86,13 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
 
   return <main>
     <header>
-      <a className="brand" href="#"><span className="brand-symbol">≈</span><span>IBUKI<small>息吹 / MOTION MONITOR</small></span></a>
+      <a className="brand" href="#"><span className="brand-symbol">≈</span><span>息吹～IBUKI～<small>MOTION MONITOR</small></span></a>
       <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE モード'}</span></div>
     </header>
     {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
       placeholder={liveView.placeholder} shaking={data.status?.shaking ?? false} waveAvailable={liveView.waveAvailable}
       url={endpoints.ws} notice={liveView.notice} />}
-    <section className="intro"><div><p className="eyebrow">赤ちゃんの呼吸の動きを、見えるかたちに。</p><h1>小さな動きに、<br className="mobile-break"/>目を向ける。</h1><p className="muted">呼吸の動きを可視化する、IBUKI ダッシュボード。</p></div><div className="session"><span>{mode} SESSION</span><strong>{time}</strong><small>{demo ? '経過時間 · 模擬データ' : '送信側の時刻 t · ms として解釈'}</small></div></section>
+    <section className="intro"><div><p className="eyebrow">赤ちゃんの呼吸の動きを、見えるかたちに。</p><h1>小さな動きに、<br className="mobile-break"/>目を向ける。</h1><p className="muted">呼吸の動きを可視化する、息吹～IBUKI～ダッシュボード。</p></div><div className="session"><span>{mode} SESSION</span><strong>{time}</strong><small>{demo ? '経過時間 · 模擬データ' : '送信側の時刻 t · ms として解釈'}</small></div></section>
     <section className={`status-banner state-${current?.toLowerCase() ?? 'empty'}`} aria-live="polite" aria-atomic="true"><span className="status-icon">{current === 'ALERT' || current === 'CHECK' ? '!' : '≈'}</span><div><span className="eyebrow">{current ? `${current} · ${demo ? copy!.label : 'サーバー状態'}` : 'WAITING · データ待ち'}</span><h2>{title}</h2><p>{demo ? copy?.description : liveView.notice}</p></div><span className="sim-label">{demo ? '模擬状態' : liveView.placeholder ? '暫定処理' : '受信状態'}</span></section>
     {!demo && <NotificationPanel state={notifications} />}
     <section className="dashboard-grid">
@@ -117,6 +117,6 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
       </aside>
     </section>
     {demo && <section className="panel controls"><div><p className="eyebrow">INTERACTIVE DEMO</p><h2>シーンを切り替える</h2><p className="muted">表示したい模擬状態を選択してください。</p></div><div className="state-buttons" role="group" aria-label="模擬状態の選択">{(Object.keys(states) as BreathingState[]).map(state => <button key={state} aria-pressed={selected === state} onClick={() => { mock?.setState(state); setSelected(state); }} className={selected === state ? 'selected' : ''}><span>{state}</span><small>{states[state].label}</small></button>)}</div></section>}
-    <footer><p><strong>{demo ? 'すべてシミュレーションです。' : liveView.sourceLabel}</strong> {demo ? '実際のセンサーには接続していません。' : '接続や受信は、呼吸判定の精度を保証するものではありません。'}</p><p>本プロトタイプは医療機器ではなく、診断・安全の保証・SIDS（乳幼児突然死症候群）の予防を目的としません。</p><div><span>IBUKI — JPHACKS 2026</span><span>WEB PROTOTYPE / 03</span></div></footer>
+    <footer><p><strong>{demo ? 'すべてシミュレーションです。' : liveView.sourceLabel}</strong> {demo ? '実際のセンサーには接続していません。' : '接続や受信は、呼吸判定の精度を保証するものではありません。'}</p><p>本プロトタイプは医療機器ではなく、診断・安全の保証・SIDS（乳幼児突然死症候群）の予防を目的としません。</p><div><span>息吹～IBUKI～ — JPHACKS 2026</span><span>WEB PROTOTYPE / 03</span></div></footer>
   </main>;
 }
