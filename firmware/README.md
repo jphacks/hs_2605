@@ -1,4 +1,4 @@
-# IBUKI firmware
+# 息吹～IBUKI～ firmware
 
 [English](#english) | [日本語](#日本語)
 

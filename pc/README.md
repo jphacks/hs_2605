@@ -1,10 +1,10 @@
-# IBUKI on the PC
+# 息吹～IBUKI～ on the PC
 
 [English](#english) | [日本語](#日本語)
 
 ## English
 
-This is the laptop side of IBUKI. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
+This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
 
 ### Running it
 
@@ -55,7 +55,7 @@ To check it, start the server and run:
 curl -X POST http://localhost:8000/api/test-notification
 ```
 
-The phone should show 「【テスト】IBUKI の通知」.
+The phone should show 「【テスト】息吹～IBUKI～の通知」.
 
 To show the team what every notification looks like, send all four, lowest to highest urgency (no server needed):
 
@@ -156,7 +156,7 @@ No notification: check that `/api/health` shows `"ntfy": true`, that the app is 
 
 ## 日本語
 
-IBUKI のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB でレーダーのボードを読み、すべての行を Brain に渡して、その結果を WebSocket でダッシュボードに送ります。警告のときはボードの赤 LED をつけて、スマホに通知も送ります。
+息吹～IBUKI～のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB でレーダーのボードを読み、すべての行を Brain に渡して、その結果を WebSocket でダッシュボードに送ります。警告のときはボードの赤 LED をつけて、スマホに通知も送ります。
 
 ### 動かし方
 
@@ -207,7 +207,7 @@ ntfy を使っています。iPhone に ntfy アプリを入れて、+ を押し
 curl -X POST http://localhost:8000/api/test-notification
 ```
 
-スマホに「【テスト】IBUKI の通知」が届けば OK です。
+スマホに「【テスト】息吹～IBUKI～の通知」が届けば OK です。
 
 チームにすべての通知の見た目を見せるときは、緊急度の低い順に 4 つ送ります（サーバーは不要です）：
 
