@@ -17,13 +17,13 @@ How it works, per D line (~16.6/s):
             their phase is mostly noise
   breathing each slot's phase -> mm, band-passed 0.1-1.5 Hz (adults and babies). Each slot is
             compared with its own normal breathing size, and the middle of the 3 ratios counts.
-            A clean breath-hold drops to 12-15% at the strongest slots; natural shallow
-            breathing stays above ~40% even right after deep breaths
+            A clean breath-hold drops to 12-15% at the strongest slots. Natural breathing after
+            deep breaths can be much smaller (Manami: 16-30%), so "normal" is only the last 15 s
   rate      FFT peak over 20 s, checked against counted breaths; None if they disagree
   shake     the board itself moved (shake.py): breathing unknown, never an alarm
 
-Thresholds were set from Ramadhan's 8 recordings on 2026-10-24 (seated, 20-70 cm). Not a
-medical device.
+Thresholds were set from Ramadhan's 8 recordings on 2026-10-24 (seated, 20-70 cm) and checked
+on the 24 recordings of 3 people (ramadhan, lemonwasp, manami). Not a medical device.
 """
 from __future__ import annotations
 
@@ -49,6 +49,8 @@ MOVE_OFF = 1.25
 MIN_LEVEL = 100.0      # a real person's echo level is 125-440; room noise motion ~12
 NO_BREATH_RATIO = 0.30  # wave size vs this person's normal; clean holds drop to 0.12-0.25
 BREATH_OK_RATIO = 0.40  # back to "breathing" (hysteresis); also when normal size is learned
+NORM_S = 15.0           # "normal" = the middle of the last 15 s of clear breathing, so deep breaths
+                        # are forgotten soon (30 s gave Manami a false alert after paced breathing)
 RATE_RATIO = 0.35       # show a breathing rate only above this
 CHECK_AFTER_S = 0.0     # show CHECK as soon as no breathing is seen
 WINDOW_LAG_S = 3.0      # the 6 s size window notices a hold ~3 s late: count from there
@@ -165,7 +167,7 @@ class Brain:
             sizes = (float(np.std(y[recent])), float(np.std(np.abs(self._bandpass(zc)[recent]))))
             slot_ratios = []
             for name, size in zip(("phase", "echo"), sizes):
-                norm = self.norms.setdefault((k, name), collections.deque(maxlen=int(30 * self.fs / 2)))
+                norm = self.norms.setdefault((k, name), collections.deque(maxlen=int(NORM_S * self.fs / 2)))
                 if len(norm) >= 30:
                     slot_ratios.append(size / max(float(np.median(norm)), 1e-6))
                 if learn:
