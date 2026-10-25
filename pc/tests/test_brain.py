@@ -113,6 +113,14 @@ class BrainTest(unittest.TestCase):
         self.assertTrue(chests, "no chest found")
         self.assertGreaterEqual(min(chests), 28.0, chests)
 
+    def test_others_moving_away_from_the_bed_do_not_hide_a_breath_hold(self):
+        # a hand by the board (19-23 cm) and someone walking past (90-94 cm) while the sleeper
+        # (49 cm) stops breathing: their movement is not the sleeper's
+        for bins in ((1, 2), (20, 21)):
+            st, ev = run(make_lines(seconds=60, target_bin=9, breaths_per_min=20, amp_mm=1.0,
+                                    hold=(25, 60), move=(0, 60, bins), room=30))
+            self.assertIn("no_breath", [e["reason"] for e in ev], bins)
+
     def test_board_shake_never_alerts(self):
         st, ev = run(make_lines(seconds=50, target_bin=9, breaths_per_min=20, amp_mm=1.0,
                                 shake=(25, 32, 0.5)))

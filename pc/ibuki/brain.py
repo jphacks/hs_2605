@@ -54,6 +54,8 @@ JUMP_MAX = 1.0          # line-to-line echo change / its change over 10 s: breat
                         # (99%), someone moving 1.12-1.48, empty-room noise ~1.34
 MOVE_ON = 1.6           # relative strength change; breathing 0.7-1.0, moving ~2.6
 MOVE_OFF = 1.25
+MOVE_SPAN_SLOTS = 6     # movement counts within 6 slots (22 cm) of the chest: the person's body.
+                        # 3 slots missed a person settling in, so "normal" was learned too big
 MIN_LEVEL = 100.0      # a real person's echo level is 125-440; room noise motion ~12
 NO_BREATH_RATIO = 0.30  # wave size vs this person's normal; clean holds drop to 0.12-0.25
 BREATH_OK_RATIO = 0.40  # back to "breathing" (hysteresis); also when normal size is learned
@@ -251,11 +253,13 @@ class Brain:
                                 else self.person_echo + k * (self.echo_now - self.person_echo))
         self._presence(t, activity)
 
-        # movement: echo-strength change relative to the person's echo
+        # movement: echo-strength change relative to the person's echo, only near their chest:
+        # a hand by the board or someone walking past must not make the sleeper look awake
+        near = use if self.chest is None else use & (np.abs(np.arange(len(z)) - self.chest) <= MOVE_SPAN_SLOTS)
         if prev is not None and activity > 0:
-            mag_change = float(np.abs(np.abs(z[use]) - np.abs(prev[use])).sum())
+            mag_change = float(np.abs(np.abs(z[near]) - np.abs(prev[near])).sum())
             self.motion_acc.append(mag_change)
-        self.act_hist.append(activity)
+        self.act_hist.append(float(np.max(np.where(near, act, 0.0))))
         # the person's echo level over the last 5 s; never below MIN_LEVEL, so the room's own
         # noise can't look like movement when a person lies perfectly still
         level = max(max(self.act_hist), MIN_LEVEL)
