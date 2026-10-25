@@ -186,6 +186,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **Brain**：在室、動き、呼吸、呼吸数を判断します。立ち去りと息止めは、その人の反射が残っているかで見分けます。[brain.py](pc/ibuki/brain.py)（[99be1af](https://github.com/jphacks/hs_2605/commit/99be1af)、[53a9a22](https://github.com/jphacks/hs_2605/commit/53a9a22)）
 * **ボードの揺れの検出**：壁や家具の反射がそろって動いたら、ボードの揺れと判断します。[shake.py](pc/ibuki/shake.py)（[9008636](https://github.com/jphacks/hs_2605/commit/9008636)）
 * **サーバーと通知**：ボード、Brain、ダッシュボード、LED をつなぎ、緊急度つきで通知します。[server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)、[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
+* **アラーム音**：呼吸が確認できないとき、パソコンからアラーム音を鳴らします。保護者が止めるまで鳴り続けます（ダッシュボードの停止ボタン、ボードの SW1、サーバー画面の Enter）。[server.py](pc/ibuki/server.py)（[baa0667](https://github.com/jphacks/hs_2605/commit/baa0667)、[705b907](https://github.com/jphacks/hs_2605/commit/705b907)）
 * **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
 * **自動テスト**：パソコン側 44 個、ダッシュボード 56 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
