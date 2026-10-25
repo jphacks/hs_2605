@@ -139,12 +139,19 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 
 ### 独自技術
 #### ハッカソンで開発した独自機能・技術
-* **レーダーのファームウェア**：ボードの上で距離ごとの FFT まで計算し、決めた形式でパソコンへ送ります。[firmware/proj_cm55/ibuki.c](firmware/proj_cm55/ibuki.c)（commit 917dbb7、55fd0f6）
-* **自動で復帰するファームウェア**：データがあふれたら捨てて再起動、1 秒止まったらウォッチドッグが再起動します（commit 8d30423、827023d）。
-* **Brain**：在室、動き、呼吸、呼吸数を判断し、状態と警告を決めます。2 人分の録画で調整し、3 人分の録画で確かめました。[pc/ibuki/brain.py](pc/ibuki/brain.py)（commit 99be1af）
-* **ボードの揺れの検出**：ふだん動かない壁や家具の反射がそろって動いたら、ボードが揺れたと判断し、呼吸を「わからない」にします。[pc/ibuki/shake.py](pc/ibuki/shake.py)（commit 9008636）
-* **サーバー**：ボード、Brain、ダッシュボード、通知、LED をつなぎます。[pc/ibuki/server.py](pc/ibuki/server.py)（commit 50cdc95）
-* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示します。[web/](web/)（commit fd42b05、827dfc2）
+すべてハッカソンの期間中（2026 年 10 月 24〜25 日）に作りました。ファームウェアだけは、Infineon のサンプル「DEEPCRAFT deploy radar」（ジェスチャー認識）を土台にしています（[b2015f2](https://github.com/jphacks/hs_2605/commit/b2015f2)）。そこからジェスチャー認識を外し、呼吸を測るための処理を書き足しました。
+
+* **レーダーのファームウェア**：ボードの上で距離ごとの FFT まで計算し、決めた形式でパソコンへ送ります。[firmware/proj_cm55/ibuki.c](firmware/proj_cm55/ibuki.c)（[917dbb7](https://github.com/jphacks/hs_2605/commit/917dbb7)、[55fd0f6](https://github.com/jphacks/hs_2605/commit/55fd0f6)）
+* **自動で復帰するファームウェア**：データがあふれたら捨てて再起動、1 秒止まったらウォッチドッグが再起動します（[8d30423](https://github.com/jphacks/hs_2605/commit/8d30423)、[827023d](https://github.com/jphacks/hs_2605/commit/827023d)）
+* **Brain**：在室、動き、呼吸、呼吸数を判断し、状態と警告を決めます。2 人分の録画で調整し、3 人分の録画で確かめました。[pc/ibuki/brain.py](pc/ibuki/brain.py)（[99be1af](https://github.com/jphacks/hs_2605/commit/99be1af)）
+  * 呼吸がとても浅い人でも誤報を出さないよう、「ふだんの呼吸」を直前 15 秒で覚え直します（[0065a65](https://github.com/jphacks/hs_2605/commit/0065a65)）
+  * 静かになったら、その人の反射が残っているかで「いなくなった」と「息が止まった」を見分けます（[53a9a22](https://github.com/jphacks/hs_2605/commit/53a9a22)）
+* **ボードの揺れの検出**：ふだん動かない壁や家具の反射がそろって動いたら、ボードが揺れたと判断し、呼吸を「わからない」にします。[pc/ibuki/shake.py](pc/ibuki/shake.py)（[9008636](https://github.com/jphacks/hs_2605/commit/9008636)）
+* **サーバー**：ボード、Brain、ダッシュボード、通知、LED をつなぎます。[pc/ibuki/server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)）
+* **緊急度つきの通知**：【緊急】【注意】【確認中】【お知らせ】の 4 段階です。呼吸が見えなくなった時点で軽く知らせ、続いたら緊急で知らせます（[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
+* **ワンコマンドで起動**：`ibuki.command` をダブルクリックするだけで、準備、ビルド、起動、ブラウザの表示まで行います（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
+* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示し、通知と同じできごとも表示します。[web/](web/)（[fd42b05](https://github.com/jphacks/hs_2605/commit/fd42b05)、[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[68faac9](https://github.com/jphacks/hs_2605/commit/68faac9)）
+* **自動テスト**：判定、通知、サーバーの動きを 38 個のテストで確かめています。[pc/tests/](pc/tests/)
 
 ## English summary
 IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts. 
