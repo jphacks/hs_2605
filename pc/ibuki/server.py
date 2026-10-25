@@ -20,6 +20,8 @@ Messages on /ws:
   Board state    {"type": "board", "connected": true|false}
 A client may send {"type": "button"} to act like the board's user button (B,1).
 The LED goes off when a status says OK or STILL again, or when the button is pressed.
+For no_breath the laptop also plays a siren until someone acknowledges it (board button, the
+dashboard's cancel, or Enter in this window); IBUKI_SIREN=0 turns it off.
 
 Notifications: put IBUKI_NTFY_TOPIC=<topic> in <repo>/.env (git-ignored, never commit it) or set
 it in the shell. If ntfy fails (no internet), the LED and dashboard alert keep working.
@@ -32,9 +34,14 @@ import importlib
 import importlib.util
 import json
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
+import threading
 import time
 import traceback
+import wave
 from contextlib import asynccontextmanager
 
 PC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -168,12 +175,71 @@ class Notifier:
             return False, f"failed: {type(e).__name__}"
 
 
+class Siren:
+    """Loud two-tone alarm from the laptop for the no-breathing alert. Like a baby monitor, it
+    keeps sounding until a person acknowledges it: the board button, the dashboard's cancel, or
+    Enter in the server window. Breathing coming back alone does not stop it."""
+
+    def __init__(self, enabled: bool):
+        self.enabled = enabled and sys.platform == "darwin" and shutil.which("afplay") is not None
+        self.on = False
+        self._proc = None
+        self._wav = None
+
+    def start(self):
+        if self.on:
+            return
+        self.on = True
+        log("SIREN on (stop it with the board button, the dashboard's cancel, or Enter here)")
+        if self.enabled:
+            threading.Thread(target=self._loop, daemon=True).start()
+
+    def stop(self):
+        if not self.on:
+            return
+        self.on = False
+        log("SIREN off")
+        proc = self._proc
+        if proc and proc.poll() is None:
+            proc.terminate()
+
+    def _loop(self):
+        self._wav = self._wav or self._make_wav()
+        while self.on:
+            self._proc = subprocess.Popen(["afplay", self._wav],
+                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._proc.wait()
+
+    @staticmethod
+    def _make_wav() -> str:
+        rate = 22050
+        t = np.arange(int(rate * 0.25)) / rate
+        fade = np.minimum(1.0, np.minimum(t, t[::-1]) / 0.005)  # no clicks between the tones
+        tones = [np.sin(2 * np.pi * f * t) * fade for f in (960, 720, 960, 720)]
+        pcm = (np.concatenate(tones) * 0.8 * 32767).astype("<i2")
+        path = os.path.join(tempfile.gettempdir(), "ibuki_siren.wav")
+        with wave.open(path, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(pcm.tobytes())
+        return path
+
+
+def enter_acknowledges(hub):
+    """Enter in the server's window works like the board button (stops the siren)."""
+    for _ in sys.stdin:
+        log("Enter pressed: same as the board button")
+        hub.on_line("B,1")
+
+
 class Hub:
     """Owns the Brain. Board lines arrive from a thread and are handled on the asyncio loop."""
 
-    def __init__(self, brain, notifier: Notifier):
+    def __init__(self, brain, notifier: Notifier, siren: Siren | None = None):
         self.brain = brain
         self.notifier = notifier
+        self.siren = siren or Siren(enabled=False)
         self.clients: set[WebSocket] = set()
         self.raw_clients: set[WebSocket] = set()
         self.latest: dict | None = None
@@ -224,6 +290,7 @@ class Hub:
         elif isinstance(m, Button):
             log("button pressed (B,1)")
             self.set_led(False)  # a parent saw it: acknowledge
+            self.siren.stop()
         elif isinstance(m, Status):
             self.last_board_status = m.text
             log(f"board: {m.text}")
@@ -247,6 +314,8 @@ class Hub:
             log(f"{kind.upper()} event: {o}")
             if kind == "alert":
                 self.set_led(True)
+            if kind == "alert" and o.get("reason") == "no_breath":
+                self.siren.start()
             asyncio.get_running_loop().run_in_executor(None, self._notify, o, kind == "alert")
         elif "state" in o:
             self.latest = o
@@ -307,7 +376,7 @@ class Hub:
 def create_app(args) -> FastAPI:
     notifier = Notifier(os.environ.get("IBUKI_NTFY_TOPIC"),
                         os.environ.get("IBUKI_NTFY_URL", "https://ntfy.sh"))
-    hub = Hub(load_brain(args.brain), notifier)
+    hub = Hub(load_brain(args.brain), notifier, Siren(os.environ.get("IBUKI_SIREN", "1") != "0"))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -321,9 +390,13 @@ def create_app(args) -> FastAPI:
             hub.source = BoardLink(args.port, hub.on_line, hub.on_state)
             log(f"source: board {args.port or '/dev/cu.usbmodem* (auto)'}")
         log(f"ntfy: {'on' if notifier.enabled else 'off (set IBUKI_NTFY_TOPIC to enable)'}")
+        log(f"siren: {'on' if hub.siren.enabled else 'off'} (IBUKI_SIREN=0 turns it off)")
         task = asyncio.create_task(hub.run())
         hub.source.start()
+        if sys.stdin and sys.stdin.isatty():
+            threading.Thread(target=enter_acknowledges, args=(hub,), daemon=True).start()
         yield
+        hub.siren.stop()
         hub.source.stop()
         task.cancel()
 

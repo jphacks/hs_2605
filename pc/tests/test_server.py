@@ -28,6 +28,7 @@ class ServerRun:
         self.port = free_port()
         # never send real pushes from tests: drop the user's topic unless the test sets its own
         env = {k: v for k, v in os.environ.items() if k != "IBUKI_NTFY_TOPIC"}
+        env["IBUKI_SIREN"] = "0"  # tests log the siren but never play it
         env.update(env_extra or {})
         self.proc = subprocess.Popen(
             [sys.executable, SERVER, "--replay", recording, "--speed", str(speed), "--brain", brain,
@@ -112,6 +113,9 @@ class ServerTest(unittest.TestCase):
         self.assertIn("would send to board: L,0", s.output)
         self.assertIn("ntfy [no_breath, priority 5]: not sent (failed", s.output)
         self.assertNotIn("ntfy [check", s.output)  # CHECK alone never pushes
+        # the siren sounds for no breathing until someone presses the button
+        self.assertLess(s.output.index("SIREN on"), s.output.index("SIREN off"))
+        self.assertLess(s.output.index("button from dashboard"), s.output.index("SIREN off"))
         self.assertTrue(alive["ntfy"])
         self.assertFalse(alive["led_on"])
         self.assertFalse(test_push["ok"])
@@ -132,6 +136,7 @@ class ServerTest(unittest.TestCase):
         self.assertLess(out.index("INFO event"), led_on)  # woke up: no LED
         self.assertLess(out.index("'reason': 'left_bed'"), led_on)  # left bed: LED on
         self.assertGreater(out.index("would send to board: L,0"), led_on)  # back in bed: off
+        self.assertNotIn("SIREN on", out)  # the siren is only for no breathing
 
     def test_message_texts(self):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
