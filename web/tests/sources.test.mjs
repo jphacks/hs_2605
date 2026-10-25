@@ -78,6 +78,106 @@ test('routes statuses and alert events separately; invalid traffic cannot refres
   stop();
 }));
 
+// Actual Brain events; server.handle_output supplies since_s=0 when absent.
+const notificationEvents = [
+  { type: 'alert', reason: 'no_breath', since_s: 10 },
+  { type: 'alert', reason: 'left_bed', since_s: 0 },
+  { type: 'info', reason: 'woke_up', since_s: 0 },
+  { type: 'info', reason: 'fast_breathing', since_s: 30, bpm: 54.2 },
+];
+
+test('all four server notifications route by category and preserve optional BPM and t', () => sandbox(({ sockets }) => {
+  const alerts = [], infos = [], statuses = [];
+  const stop = createWebSocketSource({ onAlert: e => alerts.push(e), onInfo: e => infos.push(e) }).subscribe(s => statuses.push(s));
+  sockets[0].open();
+  for (const event of notificationEvents) sockets[0].message(event);
+  assert.deepEqual(alerts, notificationEvents.slice(0, 2));
+  assert.deepEqual(infos, notificationEvents.slice(2));
+  const extended = notificationEvents.map(event => ({ ...event, t: 12345.5, bpm: 0 }));
+  for (const event of extended) sockets[0].message(event);
+  assert.deepEqual(alerts.slice(2), extended.slice(0, 2));
+  assert.deepEqual(infos.slice(2), extended.slice(2));
+  // BPM is optional even for fast_breathing; the server's category still applies.
+  sockets[0].message({ type: 'info', reason: 'fast_breathing', since_s: 0 });
+  assert.equal(infos.at(-1).bpm, undefined);
+  assert.equal(statuses.length, 0);
+  stop();
+}));
+
+test('malformed and unsupported notification payloads are ignored in both categories', () => sandbox(({ sockets }) => {
+  const alerts = [], infos = [], statuses = [];
+  const stop = createWebSocketSource({ onAlert: e => alerts.push(e), onInfo: e => infos.push(e) }).subscribe(s => statuses.push(s));
+  sockets[0].open();
+  const invalid = [null, [], {}, { type: 'info' },
+    { type: 'alert', reason: 'woke_up', since_s: 0 },
+    { type: 'info', reason: 'no_breath', since_s: 10 },
+    { type: 'info', reason: 'unsupported', since_s: 0 },
+    { type: 'alert', reason: 'unsupported', since_s: 0 },
+    { type: 'notification', reason: 'left_bed', since_s: 0 }];
+  for (const event of notificationEvents) {
+    const missingDuration = { ...event }; delete missingDuration.since_s;
+    invalid.push(missingDuration);
+    for (const since_s of [-1, '10', null, true, Infinity]) invalid.push({ ...event, since_s });
+    for (const bpm of [-1, '54', null, true, Infinity]) invalid.push({ ...event, bpm });
+    for (const t of [-1, '12345', null, true, Infinity]) invalid.push({ ...event, t });
+  }
+  for (const event of invalid) sockets[0].message(event);
+  sockets[0].message('{malformed JSON');
+  sockets[0].message('{"type":"info","reason":"fast_breathing","since_s":0,"bpm":1e999}');
+  assert.deepEqual(alerts, []); assert.deepEqual(infos, []); assert.deepEqual(statuses, []);
+  sockets[0].message(status); assert.equal(statuses.length, 1);
+  stop();
+}));
+
+test('notification receipt never changes status or waveform samples', () => sandbox(({ sockets }) => {
+  let current = null, points = [], statusCount = 0;
+  const alerts = [], infos = [];
+  const stop = createWebSocketSource({ onAlert: e => alerts.push(e), onInfo: e => infos.push(e) }).subscribe(next => {
+    points = appendWaveform(points, current, next, 50); current = next; statusCount++;
+  });
+  sockets[0].open(); sockets[0].message(status);
+  const snapshot = structuredClone({ current, points });
+  for (const event of notificationEvents) sockets[0].message(event);
+  assert.equal(statusCount, 1);
+  assert.deepEqual({ current, points }, snapshot);
+  assert.equal(alerts.length, 2); assert.equal(infos.length, 2);
+  stop();
+}));
+
+test('each notification category/reason leaves the status stale deadline unchanged', () => {
+  for (const event of notificationEvents) sandbox(({ sockets, tick }) => {
+    const connections = [];
+    const stop = createWebSocketSource({ onConnection: state => connections.push(state), onAlert: () => {}, onInfo: () => {} }).subscribe(() => {});
+    sockets[0].open(); sockets[0].message(status);
+    tick(2999); sockets[0].message(event);
+    assert.equal(connections.at(-1), 'connected');
+    tick(1); assert.equal(connections.at(-1), 'stale');
+    sockets[0].message(event); assert.equal(connections.at(-1), 'stale');
+    sockets[0].message({ ...status, t: status.t + 200 });
+    assert.equal(connections.at(-1), 'connected');
+    stop();
+  });
+});
+
+test('late notifications from closed or unsubscribed sockets are ignored during reconnect/cleanup', () => sandbox(({ sockets, tasks, tick }) => {
+  const alerts = [], infos = [];
+  const stop = createWebSocketSource({ onAlert: e => alerts.push(e), onInfo: e => infos.push(e) }).subscribe(() => {});
+  sockets[0].open();
+  const oldCallback = sockets[0].onmessage;
+  sockets[0].close(); tick(1000);
+  assert.equal(sockets.length, 2);
+  sockets[1].open();
+  const currentCallback = sockets[1].onmessage;
+  for (const event of notificationEvents) oldCallback({ data: JSON.stringify(event) });
+  assert.equal(alerts.length + infos.length, 0);
+  for (const event of notificationEvents) sockets[1].message(event);
+  assert.equal(alerts.length, 2); assert.equal(infos.length, 2);
+  stop();
+  for (const event of notificationEvents) currentCallback({ data: JSON.stringify(event) });
+  assert.equal(alerts.length, 2); assert.equal(infos.length, 2);
+  assert.equal(tasks.size, 0); assert.equal(sockets[1].closed, true);
+}));
+
 test('stale detection also applies to an open connection that never sends a status', () => sandbox(({ sockets, tick }) => {
   let connection;
   const stop = createWebSocketSource({ onConnection: s => { connection = s; } }).subscribe(() => {});

@@ -151,4 +151,4 @@ Disclaimer: It's a hackathon prototype, not a medical device.
 ## チーム
 * Manami Ando
 * RamadhanAdam
-* lemonwasp
+* Hong Taegwan
