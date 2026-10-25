@@ -87,7 +87,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   const sourceTag = demo ? '模擬データ' : liveView.placeholder ? '暫定の処理' : liveView.replay ? '録画を再生中' : 'ライブ';
   const bpm = demo ? status?.bpm ?? null : liveView.bpm;
   const rateNote = demo ? 'シミュレーションの値です'
-    : !status || current === 'EMPTY' ? 'ベッドに人がいるときに表示します'
+    : !status || current === 'EMPTY' ? '赤ちゃんがベッドにいるときに表示します'
     : liveView.placeholder ? '暫定の処理では呼吸数を計算しません'
     : bpm !== null ? '直近20秒の呼吸から計算しています'
     : current === 'CHECK' || current === 'ALERT' ? '呼吸が検知できていません'
@@ -95,7 +95,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
     : '呼吸が安定すると表示されます（20秒ほど）';
   // Why the graph has no new wave, when the status above doesn't already say it (nobody there, shaking).
   const chartNote = demo || !liveView.status || liveView.waveAvailable || current === 'EMPTY' || status?.shaking ? null
-    : '呼吸の波を準備しています（座った直後や揺れのあとは数秒かかります）';
+    : '呼吸の波を準備しています（寝かせた直後や揺れのあとは数秒かかります）';
 
   return <main>
     <header>

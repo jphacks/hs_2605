@@ -9,7 +9,7 @@ export const stateWords: Record<BreathingState, StatusView> = {
   OK: { tone: 'ok', title: '起きています', detail: '体が動いています。動いている間は呼吸を正しく測れません' },
   CHECK: { tone: 'check', title: '呼吸を確認中', detail: '呼吸が検知できていません。このまま続くと警告します' },
   ALERT: { tone: 'alert', title: '呼吸が確認できません', detail: 'すぐに赤ちゃんの様子を確認してください' },
-  EMPTY: { tone: 'empty', title: 'ベッドにいません', detail: 'ベッドに人がいません' },
+  EMPTY: { tone: 'empty', title: 'ベッドにいません', detail: '赤ちゃんがベッドにいません' },
 };
 
 export function describeStatus(input: { state: BreathingState | null; shaking: boolean; placeholder: boolean; waiting: string }): StatusView {
