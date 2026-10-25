@@ -127,6 +127,14 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 - 通知を使うときは、[.env.example](.env.example) を `.env` にコピーして、ntfy のトピックを書きます。
 - 録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
 
+**ボードがなくても試せます。** Hack Day に実機で録った録画（各 1 分）を [recordings/samples/](recordings/samples/) に入れています。
+
+| コマンド | 見られること |
+|---|---|
+| `./ibuki.command --replay recordings/samples/breathing.sample.csv` | ふつうの呼吸：「眠っています」と呼吸の波 |
+| `./ibuki.command --replay recordings/samples/hold.sample.csv` | 息止め：「呼吸を確認中」から「呼吸が確認できません」の警告 |
+| `./ibuki.command --replay recordings/samples/leave.sample.csv` | 立ち去り：「ベッドにいません」の通知 |
+
 ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md) にくわしく書いてあります。
 
 ## 開発技術
