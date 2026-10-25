@@ -24,31 +24,27 @@
 ### 製品説明（具体的な製品の説明）
 IBUKI は 3 つの部分でできています。
 
-1. **レーダーのボード**：Infineon の PSOC Edge E84 AI Kit に、私たちが書いたファームウェアを入れています。60 GHz の電波を出し、跳ね返ってきた電波を距離ごとに分けて、1 秒に約 16 回パソコンへ送ります。
-2. **パソコンの Brain**：受け取った信号から、赤ちゃんがいるか、動いているか、息をしているかを判断し、呼吸数を計算します。
-3. **ダッシュボードと通知**：ブラウザに呼吸の波と状態を表示し、異常のときはスマートフォンと Apple Watch に通知します。通知は緊急度の高い順に【緊急】【注意】【確認中】【お知らせ】の 4 段階で、急ぐものほど目立つ形で届きます。
-
-赤ちゃんの状態は、次の 5 つで表します。
+1. **レーダーのボード**：Infineon の PSOC Edge E84 AI Kit に、私たちが書いたファームウェアを入れています。跳ね返ってきた電波を距離ごとに分けて、1 秒に約 16 回パソコンへ送ります。
+2. **パソコンの Brain**：赤ちゃんがいるか、動いているか、息をしているかを判断し、呼吸数を計算します。
+3. **ダッシュボードと通知**：ブラウザに呼吸の波と状態を表示し、スマートフォンと Apple Watch に【緊急】【注意】【確認中】【お知らせ】の 4 段階で知らせます。
 
 | 表示 | 意味 |
 |---|---|
 | 眠っています | じっとしていて、呼吸が見えている |
 | 起きています | 動いている（動いている間は呼吸を測らない） |
 | 呼吸を確認中 | じっとしているのに、呼吸が見えない（軽い通知） |
-| 呼吸が確認できません | その状態が続いた（通知と LED の点滅） |
+| 呼吸が確認できません | その状態が続いた（緊急の通知と LED の点滅） |
 | ベッドにいません | 赤ちゃんがいなくなった（通知と LED の点滅） |
 
 ### 特長
 #### 1. 映さない、触れない
-カメラを使わないので、寝顔の映像は一切残りません。赤ちゃんの体にも何もつけません。電波は布を通るので、毛布越しでも使えるはずです（まだ試していません）。
+カメラを使わないので、寝顔の映像は残りません。赤ちゃんの体にも何もつけません。
 
 #### 2. 胸の動きをミリ単位でとらえる
-跳ね返ってきた電波の位相のずれから、胸の動きをミリ単位で計算します。距離ごとに分けて見ているので、壁や家具の反射とは区別できます。
+跳ね返ってきた電波の位相のずれから、胸の動きをミリ単位で計算します。距離ごとに分けて見るので、壁や家具の反射とは区別できます。
 
 #### 3. 誤報を出さない
-動いているあいだや、ベッドやボードが揺れたときは、呼吸を「わからない」として扱います。「呼吸が止まった」と間違えて知らせることはありません。わからないときに、呼吸数を 0 と表示することもしません。
-
-静かになったときは、その人の反射が残っているかを見ます。いなくなれば反射は消え（録画ではふだんの 2〜6%）、その場で息が止まっていれば反射は残ります（59% 以上）。だから「いなくなった」と「息が止まった」を取り違えません。
+動いているときやボードが揺れたときは、呼吸を「わからない」として扱い、「呼吸が止まった」とは知らせません。静かになったときは、その人の反射が残っているかで、「いなくなった」と「息が止まった」を見分けます。
 
 ### 解決出来ること
 - 夜中に何度ものぞきに行かなくても、別の部屋で様子がわかります。
@@ -56,40 +52,36 @@ IBUKI は 3 つの部分でできています。
 - 「起きた」「ベッドにいない」もわかるので、呼吸以外の見守りにも役立ちます。
 
 ### 今後の展望
-- 今回は大人 3 人で確かめたので、次は赤ちゃんで確かめる（赤ちゃんの呼吸は 1 分に 30〜60 回で、IBUKI が見ている 0.1〜1.5 Hz の範囲に入ります）
+- 赤ちゃんで確かめる（赤ちゃんの呼吸は 1 分に 30〜60 回で、IBUKI が見ている範囲に入ります）
 - 3 本ある受信アンテナを組み合わせて、毛布越しでも、もっとはっきり測れるようにする
-- ボードの AI 用チップで、眠りの状態を見分ける小さなモデルを動かす
-- 小さなケースに入れて、ベッドの柵に簡単に取り付けられるようにする
-- たくさんの赤ちゃんのデータで、判定の基準を見直す
+- ボードの AI 用チップで判断を動かし、パソコンなしで使えるようにする
+- 小さなケースに入れて、ベッドの柵に取り付けられるようにする
 
 ### 注力したこと（こだわり等）
-* **実際のデータで確かめること。** しきい値は勘で決めず、3 人分・24 本の録画を見て決めました。音声に合わせて 1 分間に 10 回呼吸するテストでは、ちょうど 10.0 回と測れました。
-* **誤報を出さないこと。** 呼吸、動き、ボードの揺れ、立ち去り、空の部屋のどの録画でも、間違った「呼吸なし」は一度も出ませんでした。
-* **止まらないこと。** レーダーのデータがあふれたり止まったりしても、ボードが自分で復帰します。USB を抜き差ししても、サーバーが自分でつなぎ直します。
-* **迷ったら安全な側に。** 判断に迷ったときは「まだそこにいる」と考えて、呼吸を見続けます。息が止まった赤ちゃんを「いなくなった」と取り違えることが、いちばん危ないからです。
-* **テストで守ること。** パソコン側の 38 個とダッシュボードの 33 個の自動テストで、判定、通知、サーバー、表示の動きを確かめています。判定を変えたときは、すべての録画を流し直して、誤報が増えないことと息止めの警告が残ることを確かめました。
+* **実際のデータで決める。** しきい値は 3 人・24 本の録画から決めました。1 分に 10 回の呼吸を 10.0 回と測れました。
+* **誤報を出さない。** 24 本の録画で、間違った「呼吸なし」は 0 回です。迷ったときは「まだそこにいる」と考えて、呼吸を見続けます。
+* **止まらない。** レーダーが止まってもボードが自分で復帰し、USB を抜き差ししてもサーバーがつなぎ直します。
+* **すぐ使える。** `ibuki.command` をダブルクリックするだけで、すべてが起動します。
 
 ## 動作確認の結果
-
 すべて実機のボードで確かめました。
 
 | 項目 | 結果 |
 |---|---|
 | データの送信 | 1 秒に 16.6 回、欠けなし |
-| 呼吸数（1 分に 10 回のペースで呼吸） | 9.0〜10.7 回（3 人、9 本中 8 本。残りの 1 本は「わからない」）。解析では 10.0 回 |
+| 呼吸数（1 分に 10 回のペースで呼吸） | 9.0〜10.7 回（解析では 10.0 回） |
 | 間違った「呼吸なし」 | 3 人・24 本の録画で 0 回 |
-| 息止めの検出 | じっと息を止めた録画で警告が出る（呼吸がとても浅い人は、50 cm 離れると呼吸そのものが見えないことがある） |
-| 警告の流れ | 通知、Apple Watch、LED の点滅、ボタンでの解除まで実機で動作 |
+| 息止めの検出 | じっと息を止めた録画で警告が出る |
+| 警告の流れ | 通知、Apple Watch、LED の点滅、ボタンでの解除まで動作 |
 | レーダーが止まったとき | 自動で復帰（テスト 4 段階すべて合格） |
 
 <p align="center">
   <img src="docs/images/breathing_test.png" width="720" alt="実機で測った胸の動き：声に合わせた呼吸では 1 分に 10.0 回の波、息止めでは波がほぼ消える">
 </p>
 
-上の図は、実機のボードで測った胸の動きです。声に合わせて呼吸すると 1 分に 10 回の波がはっきり見え、息を止めると波がほぼ消えます。Brain が見ているのは、この波です。
+実機で測った胸の動きです。呼吸すると波が見え、息を止めると波が消えます。Brain が見ているのは、この波です。
 
 ## しくみ
-
 ```mermaid
 flowchart LR
   R["レーダーのボード<br>PSOC Edge E84 AI Kit"] -- "USB<br>1 秒に約 16 回" --> S["ノート PC<br>サーバー + Brain"]
@@ -98,31 +90,16 @@ flowchart LR
   S -- "警告のとき LED を点滅" --> R
 ```
 
-Brain は機械学習ではなく、録画を見て決めたルールで判断します。1 秒に約 16 回届くデータのたびに、次のことを確かめます。
-
-| 確かめること | 見ているもの |
-|---|---|
-| ベッドにいるか | 反射が 3 秒間にどれだけ変わるか（空の部屋ではほとんど変わらない）。静かになったら、その人の反射が残っているかを見る。消えていれば「いない」、残っていれば「いる（息が止まっているかも）」 |
-| 動いているか | 反射の強さの変わり方。呼吸では強さはあまり変わらず、体を動かすと大きく変わる |
-| 息をしているか | 胸の距離の反射から取り出した 0.1〜1.5 Hz の波。ふだんの波（直前 15 秒）の 30% より小さくなったら「呼吸が見えない」 |
-| 呼吸数 | 20 秒間の波の周波数のピーク。波を数えた回数と 25% 以上ずれたら、数字を出さない |
-| ボードの揺れ | 壁や家具の反射がそろって動いたら、呼吸を「わからない」にする |
+Brain は機械学習ではなく、録画から決めたルールで判断します。くわしくは [pc/README.md](pc/README.md) にあります。
 
 ## 動かし方
-ボードを USB でつなぎ、`ibuki.command` をダブルクリックします。ターミナルからなら次の 1 行です。
+ボードを USB でつなぎ、`ibuki.command` をダブルクリックします（ターミナルなら `./ibuki.command`）。ブラウザでダッシュボードが開くので、LIVE を選びます。
 
-```
-./ibuki.command
-```
+- 初回は Python のパッケージ（[requirements.txt](requirements.txt)）を入れて、ダッシュボードをビルドします。Python 3 と Node.js が必要です。
+- 通知を使うときは、[.env.example](.env.example) を `.env` にコピーして、ntfy のトピックを書きます。
+- 録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
 
-ブラウザでダッシュボード（http://localhost:8000）が開くので、LIVE を選びます。止めるときは Ctrl+C か、ターミナルのウィンドウを閉じます。
-
-- 初めてのときは Python のパッケージ（[requirements.txt](requirements.txt)）を入れ、ダッシュボードをビルドするので、1 分ほどかかります。Python 3 と Node.js が必要です。
-- スマートフォンと Apple Watch に通知を送るときは、[.env.example](.env.example) を `.env` にコピーし、ntfy のトピックを書きます。
-- ボードの代わりに録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
-- 通知の見本（5 種類）をスマートフォンに送るときは `../env/bin/python pc/notify_demo.py` です。
-
-くわしい手順は、ファームウェアが [firmware/README.md](firmware/README.md)、サーバーと通知の設定が [pc/README.md](pc/README.md)、ダッシュボードが [web/README.md](web/README.md) にあります。
+ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md) にくわしく書いてあります。
 
 ## 開発技術
 ### 活用した技術
@@ -131,34 +108,29 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 * WebSocket（パソコンからダッシュボードへの配信）
 
 #### フレームワーク・ライブラリ・モジュール
-* ファームウェア：ModusToolbox 3.9、Arm GNU Toolchain 14.2、CMSIS-DSP（FFT）、XENSIV BGT60TRxx ドライバ
-* サーバーと Brain：Python、FastAPI、uvicorn、websockets、NumPy、SciPy（フィルタと FFT）、pyserial、python-dotenv、requests（ntfy への送信）
+* ファームウェア：ModusToolbox 3.9、Arm GNU Toolchain 14.2、CMSIS-DSP、XENSIV BGT60TRxx ドライバ
+* サーバーと Brain：Python、FastAPI、uvicorn、websockets、NumPy、SciPy、pyserial、python-dotenv、requests
 * ダッシュボード：React、TypeScript、Vite、Recharts
-* テストと道具：unittest、Node.js のテストランナー、matplotlib（ライブビューアと図）、macOS の say（録画のときの音声ガイド）
+* テストと道具：unittest、Node.js のテストランナー、matplotlib、macOS の say
 
 #### デバイス
 * Infineon PSOC Edge E84 AI Kit（XENSIV BGT60TR13C 60 GHz レーダー）
-* MacBook
-* iPhone、Apple Watch
+* MacBook、iPhone、Apple Watch
 
 ### 独自技術
 #### ハッカソンで開発した独自機能・技術
-すべてハッカソンの期間中（2026 年 10 月 24〜25 日）に作りました。ファームウェアだけは、Infineon のサンプル「DEEPCRAFT deploy radar」（ジェスチャー認識）を土台にしています（[b2015f2](https://github.com/jphacks/hs_2605/commit/b2015f2)）。そこからジェスチャー認識を外し、呼吸を測るための処理を書き足しました。
+ハッカソンの期間中（2026 年 10 月 24〜25 日）に作りました。ファームウェアの土台だけは Infineon のサンプル（DEEPCRAFT deploy radar）です（[b2015f2](https://github.com/jphacks/hs_2605/commit/b2015f2)）。
 
-* **レーダーのファームウェア**：ボードの上で距離ごとの FFT まで計算し、決めた形式でパソコンへ送ります。[firmware/proj_cm55/ibuki.c](firmware/proj_cm55/ibuki.c)（[917dbb7](https://github.com/jphacks/hs_2605/commit/917dbb7)、[55fd0f6](https://github.com/jphacks/hs_2605/commit/55fd0f6)）
-* **自動で復帰するファームウェア**：データがあふれたら捨てて再起動、1 秒止まったらウォッチドッグが再起動します（[8d30423](https://github.com/jphacks/hs_2605/commit/8d30423)、[827023d](https://github.com/jphacks/hs_2605/commit/827023d)）
-* **Brain**：在室、動き、呼吸、呼吸数を判断し、状態と警告を決めます。2 人分の録画で調整し、3 人分の録画で確かめました。[pc/ibuki/brain.py](pc/ibuki/brain.py)（[99be1af](https://github.com/jphacks/hs_2605/commit/99be1af)）
-  * 呼吸がとても浅い人でも誤報を出さないよう、「ふだんの呼吸」を直前 15 秒で覚え直します（[0065a65](https://github.com/jphacks/hs_2605/commit/0065a65)）
-  * 静かになったら、その人の反射が残っているかで「いなくなった」と「息が止まった」を見分けます（[53a9a22](https://github.com/jphacks/hs_2605/commit/53a9a22)）
-* **ボードの揺れの検出**：ふだん動かない壁や家具の反射がそろって動いたら、ボードが揺れたと判断し、呼吸を「わからない」にします。[pc/ibuki/shake.py](pc/ibuki/shake.py)（[9008636](https://github.com/jphacks/hs_2605/commit/9008636)）
-* **サーバー**：ボード、Brain、ダッシュボード、通知、LED をつなぎます。[pc/ibuki/server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)）
-* **緊急度つきの通知**：【緊急】【注意】【確認中】【お知らせ】の 4 段階です。呼吸が見えなくなった時点で軽く知らせ、続いたら緊急で知らせます（[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
-* **ワンコマンドで起動**：`ibuki.command` をダブルクリックするだけで、準備、ビルド、起動、ブラウザの表示まで行います（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **ダッシュボード**：呼吸の波と状態をリアルタイムに表示します。通知と同じできごとも、新しい順に 20 件の履歴と、いま出ている警告に分けて表示します。[web/](web/)（[fd42b05](https://github.com/jphacks/hs_2605/commit/fd42b05)、[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[68faac9](https://github.com/jphacks/hs_2605/commit/68faac9)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
-* **自動テスト**：判定、通知、サーバーの動きを 38 個、ダッシュボードを 33 個のテストで確かめています。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+* **レーダーのファームウェア**：ボードの上で距離ごとの FFT まで計算して送ります。止まっても自分で復帰します。[ibuki.c](firmware/proj_cm55/ibuki.c)（[917dbb7](https://github.com/jphacks/hs_2605/commit/917dbb7)、[8d30423](https://github.com/jphacks/hs_2605/commit/8d30423)）
+* **Brain**：在室、動き、呼吸、呼吸数を判断します。立ち去りと息止めは、その人の反射が残っているかで見分けます。[brain.py](pc/ibuki/brain.py)（[99be1af](https://github.com/jphacks/hs_2605/commit/99be1af)、[53a9a22](https://github.com/jphacks/hs_2605/commit/53a9a22)）
+* **ボードの揺れの検出**：壁や家具の反射がそろって動いたら、ボードの揺れと判断します。[shake.py](pc/ibuki/shake.py)（[9008636](https://github.com/jphacks/hs_2605/commit/9008636)）
+* **サーバーと通知**：ボード、Brain、ダッシュボード、LED をつなぎ、緊急度つきで通知します。[server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)、[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
+* **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
+* **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
+* **自動テスト**：パソコン側 38 個、ダッシュボード 33 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
-IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters. A laptop turns them into a breathing wave, a breathing rate and a simple state (asleep, awake, not breathing, not in bed). If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's red LED blinks. Movement or a bumped board never causes a false "not breathing" alert. Notifications come in four urgency levels, from a quiet "woke up" to an urgent "breathing not detected", and one command starts the whole system. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
+IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
 
 Disclaimer: It's a hackathon prototype, not a medical device.
 

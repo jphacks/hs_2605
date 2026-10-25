@@ -1,6 +1,6 @@
 # IBUKI Web — DEMO / team-server LIVE
 
-React + TypeScript + Vite + Recharts. Uses the existing `pc/ibuki/server.py` at `/ws` and `/api/health`; no separate Python gateway. This branch may not yet contain `pc/`: the integration tools below run an unchanged, fetched Git snapshot in an owned temporary directory, without merging or modifying `pc/` or `firmware/`.
+React + TypeScript + Vite + Recharts. Uses the existing `pc/ibuki/server.py` at `/ws` and `/api/health`; no separate Python gateway. To run the server and the built dashboard together, use `./ibuki.command` in the repo root (http://localhost:8000). The integration tools below run an unchanged, fetched Git snapshot in an owned temporary directory, without merging or modifying `pc/` or `firmware/`.
 
 No medical judgement, infant thresholds, SIDS prevention capability, phone requests, or device commands are implemented in the web client. The team server has notification capabilities; the integration tools explicitly disable them and select the non-alerting placeholder.
 
@@ -34,7 +34,7 @@ Restart Vite or rebuild after setting variables. Prefer the default same-origin 
 
 The six core fields remain `t`, `disp_mm`, `bpm`, `motion`, `present`, `state`; there are no new mandatory keys. Optional `dt_ms`, `source`, `shaking` are read directly from the existing server; other fields are safely ignored. `bpm` may be null. The five states are EMPTY, OK, STILL, CHECK, ALERT. Array length is bounded at 4096; empty arrays are valid. Nonfinite numbers, wrong core types, invalid optional-field types, or invalid states are rejected without crashing.
 
-- **Time:** `t` is milliseconds since the board/replay start, marking the newest sample. Point `i` of `n` is at `t - (n - 1 - i) * dt_ms`. This matches `pc/README.md` and the placeholder implementation. The roles PDF's seconds-like `t:76.6` example is older/ambiguous; a future Brain must preserve ms or agree a change explicitly. No magnitude guessing occurs.
+- **Time:** `t` is milliseconds since the board/replay start, marking the newest sample. Point `i` of `n` is at `t - (n - 1 - i) * dt_ms`. This matches `pc/README.md` and the placeholder implementation. The roles PDF's seconds-like `t:76.6` example is older/ambiguous; the Brain (`pc/ibuki/brain.py`) also sends ms. No magnitude guessing occurs.
 - **Interval priority:** per-message `dt_ms` → positive frontend fallback → estimated `(current.t - previous.t) / n`. Estimation waits for two reliable batches and is visibly labeled. Only new samples are expected, oldest first; rolling windows would duplicate data.
 - **Empty/shaking:** `disp_mm: []` clears waveform history. `shaking: true` hides/clears the wave even if samples are present and shows an unreliable/unavailable notice, never a no-breathing judgement. No zero samples are fabricated. BPM is also hidden while the wave is unavailable.
 - **Placeholder:** status `source: "placeholder"` or health `brain: "placeholder"` is visibly labeled provisional processing, never a breathing verdict. BPM is always hidden even if a malformed producer supplies a numeric value. Placeholder input can be board or replay; it is not automatically simulated input.

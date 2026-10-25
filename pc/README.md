@@ -8,7 +8,7 @@ This is the laptop side of IBUKI. [ibuki/server.py](ibuki/server.py) reads the r
 
 ### Running it
 
-From the repo folder:
+The easiest way is `./ibuki.command` in the repo folder: it starts the server and opens the dashboard. To run only the server:
 
 ```
 ../env/bin/python pc/ibuki/server.py
@@ -31,7 +31,7 @@ Only one program can have the serial port open. While the server runs, start the
 
 [ibuki/serial_reader.py](ibuki/serial_reader.py) parses the board's lines, counts lost lines and reconnects on its own when the USB cable gets pulled.
 
-[ibuki/brain.py](ibuki/brain.py) is the Brain: presence, movement, breathing rate, and the states and alerts described below. The server uses it automatically. The no-breathing alert waits 10 s for demos. For a baby, start the server with `IBUKI_NO_BREATH_S=20`. Its thresholds come from Ramadhan's and lemonwasp's recordings, and the comments in the file say which recording each number comes from.
+[ibuki/brain.py](ibuki/brain.py) is the Brain: presence, movement, breathing rate, and the states and alerts described below. The server uses it automatically. The no-breathing alert waits 10 s for demos. For a baby, start the server with `IBUKI_NO_BREATH_S=20`. Its thresholds come from Ramadhan's and lemonwasp's recordings and were checked on Manami's too (24 recordings from 3 people). The comment next to each threshold says what the recordings showed.
 
 [ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) is the simple stand-in from before the Brain existed (`--brain placeholder`). It never gives a breathing rate and never raises an alert.
 
@@ -66,7 +66,7 @@ To show the team what every notification looks like, send all five, lowest to hi
 
 Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
 
-### For the Brain
+### How the Brain plugs in
 
 Put a class called `Brain` in `pc/ibuki/brain.py` and the server picks it up automatically. You can also point to another class with `--brain module:Class`.
 
@@ -160,7 +160,7 @@ IBUKI のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB で
 
 ### 動かし方
 
-リポジトリのフォルダで：
+いちばん簡単なのは、リポジトリのフォルダで `./ibuki.command` を動かすことです。サーバーを起動して、ダッシュボードを開きます。サーバーだけを動かすときは：
 
 ```
 ../env/bin/python pc/ibuki/server.py
@@ -183,7 +183,7 @@ http://localhost:8000/api/health を開いて、`board_connected` が `true` に
 
 [ibuki/serial_reader.py](ibuki/serial_reader.py) はボードの行を読み取り、抜けた行を数えます。USB が抜けても自分でつなぎ直します。
 
-[ibuki/brain.py](ibuki/brain.py) が Brain です。在室、動き、呼吸数、下に書いた状態と警告を判定します。サーバーが自動で使います。「呼吸なし」の警告はデモ用に 10 秒で出ます。赤ちゃん向けには `IBUKI_NO_BREATH_S=20` を付けてサーバーを起動してください。しきい値は Ramadhan と lemonwasp の録画から決めていて、どの数値がどの録画から来たかはファイル内のコメントに書いてあります。
+[ibuki/brain.py](ibuki/brain.py) が Brain です。在室、動き、呼吸数、下に書いた状態と警告を判定します。サーバーが自動で使います。「呼吸なし」の警告はデモ用に 10 秒で出ます。赤ちゃん向けには `IBUKI_NO_BREATH_S=20` を付けてサーバーを起動してください。しきい値は Ramadhan と lemonwasp の録画から決め、Manami の録画でも確かめました（3 人・24 本）。各しきい値の横のコメントに、録画で何が見えたかを書いてあります。
 
 [ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) は、Brain ができる前の簡単な代わりです（`--brain placeholder`）。呼吸数は出さず、警告も出しません。
 
@@ -218,7 +218,7 @@ curl -X POST http://localhost:8000/api/test-notification
 
 トピックはパスワードのようなものです。知っている人なら誰でも読めて送れます。`.env` は git の対象外なので、うっかりコミットされることはありません。インターネットがないと通知は届きませんが、LED とダッシュボードの警告はそのまま動きます。
 
-### Brain の担当の人へ
+### Brain のつなぎ方
 
 `pc/ibuki/brain.py` に `Brain` というクラスを置くと、サーバーが自動で使います。別のクラスを使うときは `--brain モジュール:クラス` で指定できます。
 
