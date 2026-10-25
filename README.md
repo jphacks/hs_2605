@@ -104,19 +104,20 @@ Brain は機械学習ではなく、録画を見て決めたルールで判断�
 | ボードの揺れ | 壁や家具の反射がそろって動いたら、呼吸を「わからない」にする |
 
 ## 動かし方
-ボードを USB でつなぎ、リポジトリのフォルダで次の 2 つを動かします。
+ボードを USB でつなぎ、`ibuki.command` をダブルクリックします。ターミナルからなら次の 1 行です。
 
 ```
-../env/bin/python pc/ibuki/server.py
+./ibuki.command
 ```
 
-```
-cd web
-npm install
-npm run dev
-```
+ブラウザでダッシュボード（http://localhost:8000）が開くので、LIVE を選びます。止めるときは Ctrl+C か、ターミナルのウィンドウを閉じます。
 
-表示されたアドレスをブラウザで開き、LIVE を選びます。通知の見本をスマートフォンに送るには `../env/bin/python pc/notify_demo.py` を使います。くわしい手順は、ファームウェアが [firmware/README.md](firmware/README.md)、サーバーと通知の設定が [pc/README.md](pc/README.md)、ダッシュボードが [web/README.md](web/README.md) にあります。
+- 初めてのときは Python のパッケージ（[requirements.txt](requirements.txt)）を入れ、ダッシュボードをビルドするので、1 分ほどかかります。Python 3 と Node.js が必要です。
+- スマートフォンと Apple Watch に通知を送るときは、[.env.example](.env.example) を `.env` にコピーし、ntfy のトピックを書きます。
+- ボードの代わりに録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
+- 通知の見本（5 種類）をスマートフォンに送るときは `../env/bin/python pc/notify_demo.py` です。
+
+くわしい手順は、ファームウェアが [firmware/README.md](firmware/README.md)、サーバーと通知の設定が [pc/README.md](pc/README.md)、ダッシュボードが [web/README.md](web/README.md) にあります。
 
 ## 開発技術
 ### 活用した技術
@@ -151,4 +152,4 @@ Disclaimer: It's a hackathon prototype, not a medical device.
 ## チーム
 * Manami Ando
 * RamadhanAdam
-* lemonwasp
+* Hong Taegwan
