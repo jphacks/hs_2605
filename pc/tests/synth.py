@@ -4,7 +4,7 @@ import numpy as np
 
 def make_lines(seconds=20.0, target_bin=9, breaths_per_min=40.0, amp_mm=2.0, target_amp=800.0,
                lose=(), seed=0, n=24, scale=10, shake=None, move=None, hold=None, leave_at=None,
-               lighter=None):
+               lighter=None, room=300.0):
     """Returns board lines like the real firmware (C line, then D lines every 60 ms).
 
     target_bin=None gives an empty room. Bin 9 = 15 + 9 * 3.75 = 48.75 cm.
@@ -14,9 +14,11 @@ def make_lines(seconds=20.0, target_bin=9, breaths_per_min=40.0, amp_mm=2.0, tar
     hold=(t0_s, t1_s): breathing stops (the chest stays where it was).
     leave_at=t_s: the person is gone from then on.
     lighter=(t_s, mm): from then on the breaths are only mm deep (deep breaths, then light ones).
+    room: strength of the room's own still echoes. 300 is a busy room; in our recordings the room
+      where the person sat was much quieter (2-6% of their echo), like room=30.
     """
     rng = np.random.default_rng(seed)
-    static = rng.normal(0, 300, n) + 1j * rng.normal(0, 300, n)
+    static = rng.normal(0, room, n) + 1j * rng.normal(0, room, n)
     out = ["S,0,ibuki fw start", f"C,15.0,37.5,{n},{scale}"]
     board_mm = 0.0
     for i in range(int(seconds / 0.06)):

@@ -10,6 +10,10 @@ Events: alert no_breath / left_bed, info woke_up / fast_breathing.
 
 How it works, per D line (~16.6/s):
   presence  how much the echoes change over 3 s, compared with an empty room
+  leaving   when it goes quiet, is the person's echo gone? 3 s after going quiet, leaving left
+            2-6% of their usual echo in our recordings; with someone still there it never fell
+            below 59%. So a quiet room with their echo still there is "in bed, maybe not
+            breathing", even right after moving
   movement  how much the echo STRENGTHS change, relative to the person's echo. Breathing moves
             the chest a few mm and mostly turns the echo's phase; moving the body changes the
             strengths a lot.
@@ -43,7 +47,9 @@ LAMBDA_MM = 5.0
 PRESENT_ON = 25.0       # 3 s echo activity; empty room 1-5, a person 100+
 PRESENT_OFF = 15.0
 ABSENT_S = 3.0          # seconds below PRESENT_OFF before EMPTY
-LEFT_NEEDS_MOVE_WITHIN_S = 8.0  # nobody leaves without moving: quiet right after big movement = left
+GONE_RATIO = 0.20       # echo at their 3 strongest slots vs its 30 s average: left 0.02-0.06, there 0.59+
+ECHO_MEMORY_S = 30.0    # the person's echo is averaged over ~30 s, so walking away barely moves it
+LEAK_CM = 28.0          # under this, the board's own TX->RX leakage, not a person
 MOVE_ON = 1.6           # relative strength change; breathing 0.7-1.0, moving ~2.6
 MOVE_OFF = 1.25
 MIN_LEVEL = 100.0      # a real person's echo level is 125-440; room noise motion ~12
@@ -84,7 +90,10 @@ class Brain:
         self.snooze_until = -math.inf
         self.alerted = False
         self.left_bed_sent = False
-        self.last_move_t = -math.inf  # last time the person moved (leaving needs moving)
+        # the echo strength per slot while someone is there, averaged over ~30 s. Kept through
+        # reset_tracking() (a bump must not make them "leave"); cleared when they leave.
+        self.person_echo = None
+        self.echo_now = None  # echo strength per slot, smoothed over ~0.5 s
         self.act_hist: collections.deque = collections.deque(maxlen=int(5 * 16.64))
         self.was_shaking = False
         self.norms: dict = {}  # (slot, 'phase'|'echo') -> recent normal sizes
@@ -223,6 +232,12 @@ class Brain:
         T3, Z3 = self._window(3.0)
         act = np.abs(Z3 - Z3.mean(axis=0)).mean(axis=0)
         activity = float(np.max(np.where(use, act, 0.0)))
+        mag = np.abs(z)
+        self.echo_now = mag if self.echo_now is None else self.echo_now + 0.12 * (mag - self.echo_now)
+        if self.present and not shaking:
+            k = 1.0 / (ECHO_MEMORY_S * self.fs)
+            self.person_echo = (self.echo_now.copy() if self.person_echo is None
+                                else self.person_echo + k * (self.echo_now - self.person_echo))
         self._presence(t, activity)
 
         # movement: echo-strength change relative to the person's echo
@@ -238,8 +253,6 @@ class Brain:
             self.moving = rel > MOVE_OFF
         else:
             self.moving = rel > MOVE_ON
-        if self.moving or shaking:
-            self.last_move_t = t
 
         # chest and breathing
         if self.present and (self.chest is None or t - self.chest_picked_t >= 3.0):
@@ -278,14 +291,25 @@ class Brain:
             if self.absent_since is None:
                 self.absent_since = t
             if self.present and t - self.absent_since >= ABSENT_S:
-                if t - self.last_move_t > LEFT_NEEDS_MOVE_WITHIN_S:
-                    return  # quiet WITHOUT moving away first: still there, maybe not breathing
+                if not self._echo_gone():
+                    return  # quiet, but their echo is still there: in bed, maybe not breathing
                 was_settled = self.present_since is not None and t - self.present_since >= LEFT_BED_AFTER_PRESENT_S
                 self.present = False
+                self.person_echo = None
                 self.reset_tracking()
                 if was_settled and not self.left_bed_sent:
                     self.events.append({"type": "alert", "reason": "left_bed", "since_s": 0})
                     self.left_bed_sent = True
+
+    def _echo_gone(self) -> bool:
+        """Has the echo gone from the slots where it is usually strongest while someone is there?
+        Up to 3 slots, each at least a quarter of the strongest: the person, not the room."""
+        if self.person_echo is None:
+            return True
+        cm = self.cfg.first_cm + np.arange(len(self.person_echo)) * self.cfg.step_mm / 10.0
+        echo = np.where(cm >= LEAK_CM, self.person_echo, -1.0)
+        top = [k for k in np.argsort(echo)[::-1][:3] if echo[k] >= echo.max() / 4]
+        return float(self.echo_now[top].sum()) < GONE_RATIO * float(self.person_echo[top].sum())
 
     def _update_state(self, t, shaking, ratio):
         if not self.present:

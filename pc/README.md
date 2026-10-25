@@ -93,7 +93,7 @@ About 5 to 10 times a second, return a status:
 | yes | no | none found yet | CHECK (counting) |
 | yes | no | none for 20 s (10 s for the demo) | ALERT |
 
-Tell "in bed" from "empty" by the echo strength, compared with the empty-room recording. When the board shakes, breathing is unknown: never go to CHECK or ALERT because of a shake.
+Tell "in bed" from "empty" by the echo. When the room goes quiet, check whether the person's echo is still there: leaving takes it away (2-6% of their usual echo in our recordings), a breath-hold keeps it (59% or more). Don't rely on seeing them move first: someone can move and then stop breathing. When the board shakes, breathing is unknown: never go to CHECK or ALERT because of a shake.
 
 Events go out as extra dicts in the same list:
 
@@ -245,7 +245,7 @@ class Brain:
 | いる | 静止 | まだ見つからない | CHECK（数えている） |
 | いる | 静止 | 20 秒なし（デモは 10 秒） | ALERT |
 
-「ベッドにいる」と「空」は、反射の強さを空の部屋の録画と比べて見分けます。ボードが揺れたときは呼吸を「不明」にして、揺れが原因で CHECK や ALERT にしないでください。
+「ベッドにいる」と「空」は反射で見分けます。静かになったら、その人の反射が残っているかを確かめてください。いなくなれば反射は消え（録画ではふだんの 2〜6%）、息を止めているだけなら残ります（59% 以上）。「先に動いたから、いなくなった」とは決めないでください。動いたあとに息が止まることもあります。ボードが揺れたときは呼吸を「不明」にして、揺れが原因で CHECK や ALERT にしないでください。
 
 イベントは、同じリストに別の dict として入れます：
 
