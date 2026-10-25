@@ -81,6 +81,15 @@ IBUKI は 3 つの部分でできています。
 
 実機で測った胸の動きです。呼吸すると波が見え、息を止めると波が消えます。Brain が見ているのは、この波です。
 
+### 大人で試した結果が赤ちゃんにも当てはまる理由
+テストは大人（私たち）で行いました。IBUKI は 0.1〜1.5 Hz、つまり 1 分に 6〜90 回の呼吸を読み取れます。
+
+- 赤ちゃんの呼吸は大人より速く、新生児はふつう 1 分に 30〜60 回です。WHO の「速い呼吸」の目安も、2 か月未満は 60 回、2〜12 か月は 50 回、1〜5 歳は 40 回で、どれもこの範囲に入ります。
+- 警告は決まった大きさで判断せず、その子のふだんの呼吸と比べます。なので、小さな呼吸にも合わせられます。
+- 限界：赤ちゃんの胸の動きは大人より小さいです。とても浅い呼吸は 20〜30 cm では見えましたが、50 cm では見えませんでした。なので、ボードは赤ちゃんの近くに置きます。次は実際の赤ちゃんで確かめます。
+
+出典：WHO「[Management of the sick young infant aged up to 2 months: Chart booklet](https://www.who.int/publications/i/item/9789241516365)」（2 か月未満）、WHO「[IMCI chart booklet](https://apo.who.int/publications/i/item/9789241506823)」（2 か月〜5 歳）
+
 ## しくみ
 ```mermaid
 flowchart LR
@@ -131,6 +140,8 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 
 ## English summary
 IBUKI watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' phone and Apple Watch get a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
+
+We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside IBUKI's range of 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
 
 Disclaimer: It's a hackathon prototype, not a medical device.
 
