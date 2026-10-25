@@ -108,7 +108,7 @@ CHECK alone sends no notification: it flickers on during short pauses, and paren
 
 For no breathing, the laptop also plays a loud siren. Like a baby monitor, it keeps sounding until a person acknowledges it: the red 「アラームを止める」 button on the dashboard, the board's SW1 button, or Enter in the server window. Breathing coming back alone does not stop it. `IBUKI_SIREN=0` in `.env` turns it off.
 
-The LED goes off when a status says OK or STILL again, or when someone presses the button. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
+The LED goes off when someone presses the button. After "left the bed" it also goes off when a status says OK or STILL again (the baby is back). After no breathing it keeps blinking until the button, like the siren. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
 
 A few things about the data. D lines come every 60 ms (16.6 per second, not 20). Babies breathe about 30 to 60 times a minute, so filter breathing with about 0.3 to 1.5 Hz (18 to 90 a minute), not the adult 0.15 to 0.6 Hz. Newborns often pause for 5 to 10 s, which is why the alert waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, start the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
 
@@ -262,7 +262,7 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 
 呼吸が確認できないときは、パソコンから大きなアラーム音も鳴ります。ベビーモニターと同じく、人が確認するまで鳴り続けます。止めるには、ダッシュボードの赤い「アラームを止める」ボタン、ボードの SW1 ボタン、またはサーバーのウィンドウの Enter を押します。呼吸が戻っただけでは止まりません。`.env` に `IBUKI_SIREN=0` と書くと鳴らなくなります。
 
-状態が OK か STILL に戻るか、ボタンが押されると LED は消えます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
+ボタンが押されると LED は消えます。「ベッドにいません」のあとは、状態が OK か STILL に戻ったとき（赤ちゃんが戻ったとき）にも消えます。「呼吸が確認できません」のあとは、アラーム音と同じく、ボタンが押されるまで点滅し続けます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
 
 データについて少し。D 行は 60 ms ごと（1 秒に 16.6 本、20 本ではありません）に来ます。赤ちゃんの呼吸は 1 分に 30〜60 回くらいなので、呼吸のフィルタは大人用の 0.15〜0.6 Hz ではなく、0.3〜1.5 Hz（1 分に 18〜90 回）くらいにしてください。新生児は 5〜10 秒息が止まることがよくあるので、警告は 20 秒待ちます。`radar restart` と書かれた `S` 行が来たときや、`t_ms` が 0.5 秒以上飛んだときは、位相の追跡をやり直してください。データの形は [firmware/README.md](../firmware/README.md) に全部書いてあります。
 

@@ -322,8 +322,10 @@ class Hub:
             state = o["state"]
             if state == "ALERT" and self.last_state != "ALERT":
                 self.set_led(True)
-            elif state in ("OK", "STILL") and self.led_on:
-                self.set_led(False)  # the baby is there and fine again
+            elif state in ("OK", "STILL") and self.led_on and not self.siren.on:
+                # the baby is there and fine again. Not while the no-breathing alarm is still
+                # unacknowledged: like the siren, the LED keeps blinking until someone presses stop
+                self.set_led(False)
             self.last_state = state
         await self.broadcast(o)
 

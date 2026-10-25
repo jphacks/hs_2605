@@ -30,6 +30,28 @@ class AlertBrain:
         return out
 
 
+class RecoverBrain:
+    """No-breathing alert after 20 D lines, then breathing again (STILL) from 40, no button."""
+
+    name = "recover-test"
+
+    def __init__(self):
+        self.d = 0
+
+    def feed(self, line):
+        if not line.startswith("D,"):
+            return []
+        self.d += 1
+        out = []
+        if self.d == 20:
+            out.append({"type": "alert", "reason": "no_breath", "since_s": 10})
+        if self.d % 2 == 0:
+            state = "STILL" if self.d < 20 or self.d >= 40 else "ALERT"
+            out.append({"t": self.d * 60, "state": state, "bpm": None, "disp_mm": [0.0, 0.0],
+                        "motion": 1.0, "present": True, "chest_cm": 48.75})
+        return out
+
+
 class StoryBrain:
     """Baby story by D-line count: awake, woke-up info, left the bed (alert), back asleep."""
 

@@ -14,15 +14,19 @@ How it works, per D line (~16.6/s):
             2-6% of their usual echo in our recordings; with someone still there it never fell
             below 59%. So a quiet room with their echo still there is "in bed, maybe not
             breathing", even right after moving
-  movement  how much the echo STRENGTHS change, relative to the person's echo. Breathing moves
-            the chest a few mm and mostly turns the echo's phase; moving the body changes the
-            strengths a lot.
-  chest     the person's 3 strongest echo slots (re-picked every 3 s). Weak slots are left out:
-            their phase is mostly noise
+  movement  how much the echo STRENGTHS change within 22 cm of the chest (the person's body),
+            relative to the person's echo. Breathing moves the chest a few mm and mostly turns
+            the echo's phase; moving the body changes the strengths a lot. A hand by the board
+            or someone walking past further away is not the sleeper moving.
+  chest     the person's 3 strongest echo slots (re-picked every 3 s), from 28 cm (closer is the
+            board's own leakage, or a hand by the board) and only where the echo changes
+            smoothly like a breathing chest, not jumping like someone moving. Weak slots are
+            left out: their phase is mostly noise
   breathing each slot's phase -> mm, band-passed 0.1-1.5 Hz (adults and babies). Each slot is
             compared with its own normal breathing size, and the middle of the 3 ratios counts.
             A clean breath-hold drops to 12-15% at the strongest slots. Natural breathing after
-            deep breaths can be much smaller (Manami: 16-30%), so "normal" is only the last 15 s
+            deep breaths can be much smaller (Manami: 16-30%), so "normal" is only the last 15 s.
+            It is forgotten when the person leaves: the next one is compared with their own
   rate      FFT peak over 20 s, checked against counted breaths; None if they disagree
   shake     the board itself moved (shake.py): breathing unknown, never an alarm
 
@@ -50,8 +54,12 @@ ABSENT_S = 3.0          # seconds below PRESENT_OFF before EMPTY
 GONE_RATIO = 0.20       # echo at their 3 strongest slots vs its 30 s average: left 0.02-0.06, there 0.59+
 ECHO_MEMORY_S = 30.0    # the person's echo is averaged over ~30 s, so walking away barely moves it
 LEAK_CM = 28.0          # under this, the board's own TX->RX leakage, not a person
+JUMP_MAX = 1.0          # line-to-line echo change / its change over 10 s: breathing chests 0.15-0.87
+                        # (99%), someone moving 1.12-1.48, empty-room noise ~1.34
 MOVE_ON = 1.6           # relative strength change; breathing 0.7-1.0, moving ~2.6
 MOVE_OFF = 1.25
+MOVE_SPAN_SLOTS = 6     # movement counts within 6 slots (22 cm) of the chest: the person's body.
+                        # 3 slots missed a person settling in, so "normal" was learned too big
 MIN_LEVEL = 100.0      # a real person's echo level is 125-440; room noise motion ~12
 NO_BREATH_RATIO = 0.30  # wave size vs this person's normal; clean holds drop to 0.12-0.25
 BREATH_OK_RATIO = 0.40  # back to "breathing" (hysteresis); also when normal size is learned
@@ -120,8 +128,11 @@ class Brain:
         self.chest_picked_t = -math.inf
         self.shake.reset()
 
+    def _cm(self, n):
+        return self.cfg.first_cm + np.arange(n) * self.cfg.step_mm / 10.0
+
     def _use(self, n):
-        return (self.cfg.first_cm + np.arange(n) * self.cfg.step_mm / 10.0) >= self.min_cm
+        return self._cm(n) >= self.min_cm
 
     def _window(self, seconds):
         t_now = self.hist[-1][0]
@@ -137,8 +148,14 @@ class Brain:
         T, Z = self._window(10.0)
         if len(T) < 5 * self.fs:
             return
-        use = self._use(Z.shape[1])
-        activity = np.where(use, np.abs(Z - Z.mean(axis=0)).mean(axis=0), -1.0)
+        # not under LEAK_CM: a hand or a laptop right next to the board changes those echoes far
+        # more than a chest 50 cm away (in the presentation the "chest" ended up at 22.5 cm)
+        use = self._use(Z.shape[1]) & (self._cm(Z.shape[1]) >= LEAK_CM)
+        change = np.abs(Z - Z.mean(axis=0)).mean(axis=0)
+        # and not where the echo jumps from one line to the next: someone walking past or a hand
+        # moving changes it far more than a breathing chest, but not smoothly
+        jumpy = np.abs(np.diff(Z, axis=0)).mean(axis=0) > JUMP_MAX * change
+        activity = np.where(use & ~jumpy, change, -1.0)
         order = [int(k) for k in np.argsort(activity)[::-1][:3] if activity[k] >= PRESENT_OFF]
         if not order:
             return
@@ -205,8 +222,10 @@ class Brain:
             self.cfg = m
             return []
         if isinstance(m, Button):
+            # no extra status here: it would repeat the last time with no wave, and the dashboard
+            # takes that as a restart and starts its graph from zero. The next line shows the change
             self._button()
-            return [self._status(self.last_t * 1000 if self.last_t else 0)] + self._take_events()
+            return self._take_events()
         if isinstance(m, Status) and "radar restart" in m.text:
             self.reset_tracking()
             return []
@@ -240,11 +259,13 @@ class Brain:
                                 else self.person_echo + k * (self.echo_now - self.person_echo))
         self._presence(t, activity)
 
-        # movement: echo-strength change relative to the person's echo
+        # movement: echo-strength change relative to the person's echo, only near their chest:
+        # a hand by the board or someone walking past must not make the sleeper look awake
+        near = use if self.chest is None else use & (np.abs(np.arange(len(z)) - self.chest) <= MOVE_SPAN_SLOTS)
         if prev is not None and activity > 0:
-            mag_change = float(np.abs(np.abs(z[use]) - np.abs(prev[use])).sum())
+            mag_change = float(np.abs(np.abs(z[near]) - np.abs(prev[near])).sum())
             self.motion_acc.append(mag_change)
-        self.act_hist.append(activity)
+        self.act_hist.append(float(np.max(np.where(near, act, 0.0))))
         # the person's echo level over the last 5 s; never below MIN_LEVEL, so the room's own
         # noise can't look like movement when a person lies perfectly still
         level = max(max(self.act_hist), MIN_LEVEL)
@@ -299,6 +320,7 @@ class Brain:
         was_settled = self.present_since is not None and t - self.present_since >= LEFT_BED_AFTER_PRESENT_S
         self.present = False
         self.person_echo = None
+        self.norms = {}  # the next person breathes differently: learn their normal afresh
         self.reset_tracking()
         if was_settled and not self.left_bed_sent:
             self.events.append({"type": "alert", "reason": "left_bed", "since_s": 0})

@@ -24,6 +24,16 @@ def states_between(statuses, t0, t1):
     return {s["state"] for s in statuses if t0 * 1000 <= s["t"] < t1 * 1000}
 
 
+def later(lines, dt_ms):
+    """The D lines of another make_lines() run, continuing dt_ms later (same room: same seed)."""
+    out = []
+    for ln in lines:
+        if ln.startswith("D,"):
+            kind, seq, t, rest = ln.split(",", 3)
+            out.append(f"D,{int(seq) + 100000},{int(t) + dt_ms},{rest}")
+    return out
+
+
 class BrainTest(unittest.TestCase):
     def test_empty_room(self):
         st, ev = run(make_lines(seconds=20, target_bin=None))
@@ -105,6 +115,35 @@ class BrainTest(unittest.TestCase):
         self.assertNotIn("left_bed", [e["reason"] for e in ev])
         self.assertIn("no_breath", [e["reason"] for e in ev])
 
+    def test_a_hand_next_to_the_board_is_not_the_chest(self):
+        # in the presentation the "chest" ended up at 22.5 cm: a hand moving by the board
+        st, ev = run(make_lines(seconds=40, target_bin=12, breaths_per_min=20, amp_mm=1.0,
+                                target_amp=300, move=(0, 40, (1, 2)), room=30))
+        chests = {s["chest_cm"] for s in st if s["t"] > 10000 and s["chest_cm"] is not None}
+        self.assertTrue(chests, "no chest found")
+        self.assertGreaterEqual(min(chests), 28.0, chests)
+
+    def test_others_moving_away_from_the_bed_do_not_hide_a_breath_hold(self):
+        # a hand by the board (19-23 cm) and someone walking past (90-94 cm) while the sleeper
+        # (49 cm) stops breathing: their movement is not the sleeper's
+        for bins in ((1, 2), (20, 21)):
+            st, ev = run(make_lines(seconds=60, target_bin=9, breaths_per_min=20, amp_mm=1.0,
+                                    hold=(25, 60), move=(0, 60, bins), room=30))
+            self.assertIn("no_breath", [e["reason"] for e in ev], bins)
+
+    def test_leaving_forgets_their_normal_breathing(self):
+        # the next person is compared with their own breathing. Mixing our recordings, Manami
+        # lying down after lemonwasp (deep breaths) got the no-breathing alarm before any hold
+        b = Brain(no_breath_s=10)
+        first = make_lines(seconds=30, target_bin=9, breaths_per_min=12, amp_mm=2.0, leave_at=22, room=30)
+        st, ev = run(first, b)
+        self.assertIn("left_bed", [e["reason"] for e in ev])
+        self.assertEqual(b.norms, {})
+        second = make_lines(seconds=45, target_bin=9, breaths_per_min=16, amp_mm=0.4, room=30)
+        st, ev = run(later(second, 30000), b)
+        self.assertEqual([e for e in ev if e["type"] == "alert"], [])
+        self.assertEqual(states_between(st, 60, 75), {"STILL"})
+
     def test_board_shake_never_alerts(self):
         st, ev = run(make_lines(seconds=50, target_bin=9, breaths_per_min=20, amp_mm=1.0,
                                 shake=(25, 32, 0.5)))
@@ -117,8 +156,13 @@ class BrainTest(unittest.TestCase):
         st, ev = run(lines[: int(len(lines) * 0.75)], brain)  # up to ~45 s: in ALERT
         self.assertEqual(st[-1]["state"], "ALERT")
         out = brain.feed("B,1")
-        self.assertEqual(out[0]["state"], "OK")  # acknowledged
+        # no extra status: it repeated the last time with no wave, so the dashboard's graph
+        # started again from zero every time someone pressed stop
+        self.assertEqual([o for o in out if "state" in o], [])
         st2, ev2 = run(lines[int(len(lines) * 0.75):], brain)
+        self.assertIn(st2[0]["state"], ("OK", "STILL"))  # acknowledged
+        self.assertGreater(st2[0]["t"], st[-1]["t"])
+        self.assertTrue(st2[0]["disp_mm"])
         self.assertEqual([e for e in ev2 if e["type"] == "alert"], [])  # snoozed for 30 s
 
     def test_ignores_junk(self):
