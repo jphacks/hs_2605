@@ -222,8 +222,10 @@ class Brain:
             self.cfg = m
             return []
         if isinstance(m, Button):
+            # no extra status here: it would repeat the last time with no wave, and the dashboard
+            # takes that as a restart and starts its graph from zero. The next line shows the change
             self._button()
-            return [self._status(self.last_t * 1000 if self.last_t else 0)] + self._take_events()
+            return self._take_events()
         if isinstance(m, Status) and "radar restart" in m.text:
             self.reset_tracking()
             return []

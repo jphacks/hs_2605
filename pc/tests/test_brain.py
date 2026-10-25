@@ -156,8 +156,13 @@ class BrainTest(unittest.TestCase):
         st, ev = run(lines[: int(len(lines) * 0.75)], brain)  # up to ~45 s: in ALERT
         self.assertEqual(st[-1]["state"], "ALERT")
         out = brain.feed("B,1")
-        self.assertEqual(out[0]["state"], "OK")  # acknowledged
+        # no extra status: it repeated the last time with no wave, so the dashboard's graph
+        # started again from zero every time someone pressed stop
+        self.assertEqual([o for o in out if "state" in o], [])
         st2, ev2 = run(lines[int(len(lines) * 0.75):], brain)
+        self.assertIn(st2[0]["state"], ("OK", "STILL"))  # acknowledged
+        self.assertGreater(st2[0]["t"], st[-1]["t"])
+        self.assertTrue(st2[0]["disp_mm"])
         self.assertEqual([e for e in ev2 if e["type"] == "alert"], [])  # snoozed for 30 s
 
     def test_ignores_junk(self):
