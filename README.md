@@ -102,7 +102,7 @@ flowchart LR
 Brain は機械学習ではなく、録画から決めたルールで判断します。くわしくは [pc/README.md](pc/README.md) にあります。
 
 ## 動かし方
-ボードを USB でつなぎ、`ibuki.command` をダブルクリックします（ターミナルなら `./ibuki.command`）。ブラウザでダッシュボードが開くので、LIVE を選びます。
+ボードを USB でつなぎ、`ibuki.command` をダブルクリックします（ターミナルなら `./ibuki.command`）。ブラウザで LIVE 監視画面が自動的に開きます。
 
 - 初回は Python のパッケージ（[requirements.txt](requirements.txt)）を入れて、ダッシュボードをビルドします。Python 3 と Node.js が必要です。
 - 通知を使うときは、[.env.example](.env.example) を `.env` にコピーして、ntfy のトピックを書きます。

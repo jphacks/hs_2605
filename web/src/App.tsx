@@ -1,6 +1,8 @@
 import { useEffect, useReducer, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { createMockSource } from './data/mockSource';
+import { createModeSource, selectDashboardMode } from './data/mode';
+import type { DashboardMode } from './data/mode';
 import { createWebSocketSource } from './data/webSocketSource';
 import type { ConnectionState } from './data/webSocketSource';
 import { createNotificationState, reduceNotifications } from './data/notifications';
@@ -11,7 +13,6 @@ import { deriveLiveView } from './data/liveView';
 import type { BreathingState, StatusSource } from './data/status';
 import { useDashboard } from './useDashboard';
 
-type Mode = 'DEMO' | 'LIVE';
 const states: Record<BreathingState, { label: string; title: string; description: string }> = {
   EMPTY: { label: '不在', title: '対象を検知していません', description: '対象がいないシーンをシミュレーションしています。' },
   OK: { label: '動きあり', title: '呼吸の動きを表示中', description: 'ゆるやかな胸の動きを、サンプル波形で表現しています。' },
@@ -27,12 +28,11 @@ const liveIntervalMs = Number.isFinite(configuredInterval) && configuredInterval
 const endpoints = resolveEndpoints(window.location.href, import.meta.env.VITE_LIVE_WS_URL, import.meta.env.VITE_LIVE_HEALTH_URL);
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>('DEMO');
-  // Remounting clears history, alert events, and all socket/timer subscriptions.
-  return <Dashboard key={mode} mode={mode} onModeChange={setMode} />;
+  const mode = selectDashboardMode(import.meta.env.DEV, window.location.search);
+  return <Dashboard mode={mode} />;
 }
 
-function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mode) => void }) {
+function Dashboard({ mode }: { mode: DashboardMode }) {
   const demo = mode === 'DEMO';
   const [connection, setConnection] = useState<ConnectionState>('connecting');
   const [liveReady, setLiveReady] = useState(false);
@@ -41,36 +41,38 @@ function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mo
   const [health, setHealth] = useState<ServerHealth | null>(null);
   const [resetKey, setResetKey] = useState(0);
   useEffect(() => { if (!demo) return watchHealth(endpoints.health, setHealth); }, [demo]);
-  const [mock] = useState(createMockSource);
-  const [source] = useState<StatusSource>(() => {
-    if (demo) return mock;
-    let lastTime: number | null = null;
-    let inputConnected: boolean | null = null;
-    const live = createWebSocketSource({
-      url: endpoints.ws,
-      onConnection(next) {
-        dispatchNotification({ type: 'connection', value: next });
-        setConnection(next);
-        if (next !== 'connected') { setLiveReady(false); lastTime = null; setResetKey(key => key + 1); }
-        if (next === 'connecting') { setBoard(null); setHealth(null); inputConnected = null; }
-      },
-      onAlert: event => dispatchNotification({ type: 'event', event, receivedAt: Date.now() }),
-      onInfo: event => dispatchNotification({ type: 'event', event, receivedAt: Date.now() }),
-      onBoard(connected) {
-        dispatchNotification({ type: 'board', connected });
-        if (connected !== inputConnected) { setLiveReady(false); lastTime = null; setResetKey(key => key + 1); }
-        inputConnected = connected;
-        setBoard(connected);
-      },
-    });
-    return { subscribe: listener => live.subscribe(status => {
-      dispatchNotification({ type: 'status', status });
-      // /ws initially sends a cached status. Wait for a progressing timestamp.
-      setLiveReady(inputConnected !== false && lastTime !== null && status.t > lastTime);
-      lastTime = status.t;
-      listener(status);
-    }) };
-  });
+  const [mock] = useState(() => demo ? createMockSource() : null);
+  const [source] = useState<StatusSource>(() => createModeSource<StatusSource>(mode, {
+    demo: () => mock!,
+    live: () => {
+      let lastTime: number | null = null;
+      let inputConnected: boolean | null = null;
+      const live = createWebSocketSource({
+        url: endpoints.ws,
+        onConnection(next) {
+          dispatchNotification({ type: 'connection', value: next });
+          setConnection(next);
+          if (next !== 'connected') { setLiveReady(false); lastTime = null; setResetKey(key => key + 1); }
+          if (next === 'connecting') { setBoard(null); setHealth(null); inputConnected = null; }
+        },
+        onAlert: event => dispatchNotification({ type: 'event', event, receivedAt: Date.now() }),
+        onInfo: event => dispatchNotification({ type: 'event', event, receivedAt: Date.now() }),
+        onBoard(connected) {
+          dispatchNotification({ type: 'board', connected });
+          if (connected !== inputConnected) { setLiveReady(false); lastTime = null; setResetKey(key => key + 1); }
+          inputConnected = connected;
+          setBoard(connected);
+        },
+      });
+      return { subscribe: listener => live.subscribe(status => {
+        dispatchNotification({ type: 'status', status });
+        // /ws initially sends a cached status. Wait for a progressing timestamp.
+        setLiveReady(inputConnected !== false && lastTime !== null && status.t > lastTime);
+        lastTime = status.t;
+        listener(status);
+      }) };
+    },
+  }));
   const [selected, setSelected] = useState<BreathingState>('OK');
   const data = useDashboard(source, demo ? 50 : liveIntervalMs, resetKey);
   const liveView = deriveLiveView(data.status, connection, board, liveReady, health);
@@ -87,7 +89,7 @@ function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mo
   return <main>
     <header>
       <a className="brand" href="#"><span className="brand-symbol">≈</span><span>IBUKI<small>息吹 / MOTION MONITOR</small></span></a>
-      <div className="header-controls"><div className="mode-switch" role="group" aria-label="データソース">{(['DEMO', 'LIVE'] as const).map(value => <button key={value} aria-pressed={mode === value} onClick={() => onModeChange(value)}>{value}</button>)}</div><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE · WebSocket 受信'}</span></div>
+      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE · WebSocket 受信'}</span></div>
     </header>
     {!demo && <section className={`connection-panel connection-${connection}`} aria-live="polite">
       <strong>WebSocket：{connectionLabels[connection]}</strong><span>{endpoints.ws}</span>
@@ -119,7 +121,7 @@ function Dashboard({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mo
         <article className="panel metric-row"><div><p className="eyebrow">PRESENCE · {readingLabel}</p><h2>在室</h2></div><strong className="presence">{!status ? '—' : status.present ? '検知あり' : '検知なし'}</strong></article>
       </aside>
     </section>
-    {demo && <section className="panel controls"><div><p className="eyebrow">INTERACTIVE DEMO</p><h2>シーンを切り替える</h2><p className="muted">表示したい模擬状態を選択してください。</p></div><div className="state-buttons" role="group" aria-label="模擬状態の選択">{(Object.keys(states) as BreathingState[]).map(state => <button key={state} aria-pressed={selected === state} onClick={() => { mock.setState(state); setSelected(state); }} className={selected === state ? 'selected' : ''}><span>{state}</span><small>{states[state].label}</small></button>)}</div></section>}
+    {demo && <section className="panel controls"><div><p className="eyebrow">INTERACTIVE DEMO</p><h2>シーンを切り替える</h2><p className="muted">表示したい模擬状態を選択してください。</p></div><div className="state-buttons" role="group" aria-label="模擬状態の選択">{(Object.keys(states) as BreathingState[]).map(state => <button key={state} aria-pressed={selected === state} onClick={() => { mock?.setState(state); setSelected(state); }} className={selected === state ? 'selected' : ''}><span>{state}</span><small>{states[state].label}</small></button>)}</div></section>}
     <footer><p><strong>{demo ? 'すべてシミュレーションです。' : liveView.sourceLabel}</strong> {demo ? '実際のセンサーには接続していません。' : '接続や受信は、呼吸判定の精度を保証するものではありません。'}</p><p>本プロトタイプは医療機器ではなく、診断・安全の保証・SIDS（乳幼児突然死症候群）の予防を目的としません。</p><div><span>IBUKI — JPHACKS 2026</span><span>WEB PROTOTYPE / 03</span></div></footer>
   </main>;
 }
