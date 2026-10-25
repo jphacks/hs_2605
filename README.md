@@ -35,7 +35,7 @@
 | 眠っています | じっとしていて、呼吸が検知できている |
 | 起きています | 動いている（激しく動いている間は呼吸は正しく測定されません） |
 | 呼吸を確認中 | 呼吸が検知できていない |
-| 呼吸が確認できません | じっとしているのに、呼吸が検知されないが10秒以上続いている（緊急通知、パソコンのアラーム音、LED の点滅。アラーム音はボタンを押すまで止まりません） |
+| 呼吸が確認できません | じっとしているのに、呼吸が検知されない状態が10秒以上続いている（緊急通知、パソコンのアラーム音、LED の点滅。アラーム音はボタンを押すまで止まりません） |
 | 呼吸が速い状態が続いています | 通常より呼吸が速い状態が続いている |
 | ベッドにいません | 赤ちゃんがいない状態（通知と LED の点滅） |
 
@@ -47,7 +47,7 @@
 跳ね返ってきた電波の位相のずれから、胸の動きをミリ単位で計算します。距離ごとに分けて計算するため、壁や家具の反射と区別できます。
 
 #### 3. 日常的に使える「起きたよ」機能
-赤ちゃんが起きたときにスマートフォンで通知を受け取るができます。万が一のときだけでなく、在宅勤務中など、普段の生活にも便利です。国際色豊かなメンバーでのディスカッションの中で「海外では赤ちゃんと大人の別室睡眠の習慣がある」という意見から生まれました。
+赤ちゃんが起きたときにスマートフォンで通知を受け取ることができます。万が一のときだけでなく、在宅勤務中など、普段の生活にも便利です。国際色豊かなメンバーでのディスカッションの中で「海外では赤ちゃんと大人の別室睡眠の習慣がある」という意見から生まれました。
 
 #### 4. 誤報を出さない
 動いているときやボードが揺れたときは、呼吸を「確認中」として扱い、「呼吸が止まった」とは知らせません。静かになったときは、その人の反射が残っているかで、「ベッドにいない」と「息が止まった」を見分けます。
@@ -163,7 +163,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **サーバーと通知**：ボード、Brain、ダッシュボード、LED をつなぎ、緊急度つきで通知します。[server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)、[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
 * **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **自動テスト**：パソコン側 39 個、ダッシュボード 51 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+* **自動テスト**：パソコン側 40 個、ダッシュボード 51 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
 息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
