@@ -104,16 +104,15 @@ class Notifier:
 
     # Seconds between two pushes for the same reason (a baby waking up and dozing off again
     # should not buzz the phone every minute).
-    MIN_INTERVAL_S = {"woke_up": 300.0, "check": 120.0}
+    MIN_INTERVAL_S = {"woke_up": 300.0}
 
     # reason -> (ntfy priority, tag shown as an icon). On the iPhone, 5 (urgent) and 4 (high)
-    # arrive as Time Sensitive and can break through Focus; 3 is a normal ping (the "check"
-    # nudge before an alert); 2 (low) arrives silently.
+    # arrive as Time Sensitive and can break through Focus; 2 (low) arrives silently.
+    # CHECK sends nothing: it flickers on during short pauses, and too many pings get ignored.
     LEVELS = {
         "no_breath": (5, "rotating_light"),
         "left_bed": (4, "warning"),
         "fast_breathing": (4, "warning"),
-        "check": (3, "mag"),
         "woke_up": (2, "baby"),
     }
 
@@ -122,7 +121,6 @@ class Notifier:
         "no_breath": "【緊急】呼吸が確認できません",
         "left_bed": "【注意】ベッドにいません",
         "fast_breathing": "【注意】呼吸が速い状態が続いています",
-        "check": "【確認中】呼吸が見えません",
         "woke_up": "【お知らせ】起きました",
     }
 
@@ -148,8 +146,6 @@ class Notifier:
         if reason == "fast_breathing":
             rate = f"1分に{round(bpm)}回の" if bpm else ""
             return f"{rate}速い呼吸が続いています。様子を見てください。"
-        if reason == "check":
-            return "呼吸が一時的に見えなくなりました。このまま続くと警告します。"
         return f"赤ちゃんの様子を確認してください（{reason}）"
 
     def send(self, title: str, message: str, key: str = "", force: bool = False,
@@ -255,9 +251,6 @@ class Hub:
         elif "state" in o:
             self.latest = o
             state = o["state"]
-            if state == "CHECK" and self.last_state not in ("CHECK", "ALERT"):
-                # a nudge before the alert: breathing is not seen right now (push only, no LED)
-                asyncio.get_running_loop().run_in_executor(None, self._notify, {"reason": "check"}, False)
             if state == "ALERT" and self.last_state != "ALERT":
                 self.set_led(True)
             elif state in ("OK", "STILL") and self.led_on:

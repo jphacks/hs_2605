@@ -111,7 +111,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(s.output.count("would send to board: L,1"), 1)  # once, not per status
         self.assertIn("would send to board: L,0", s.output)
         self.assertIn("ntfy [no_breath, priority 5]: not sent (failed", s.output)
-        self.assertEqual(s.output.count("ntfy [check, priority 3]"), 1)  # one nudge before the alert
+        self.assertNotIn("ntfy [check", s.output)  # CHECK alone never pushes
         self.assertTrue(alive["ntfy"])
         self.assertFalse(alive["led_on"])
         self.assertFalse(test_push["ok"])
@@ -144,8 +144,6 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(Notifier.message_for({"reason": "woke_up"}), "赤ちゃんが起きたようです。")
         self.assertEqual(Notifier.message_for({"reason": "fast_breathing", "bpm": 62.4}),
                          "1分に62回の速い呼吸が続いています。様子を見てください。")
-        self.assertEqual(Notifier.message_for({"reason": "check"}),
-                         "呼吸が一時的に見えなくなりました。このまま続くと警告します。")
 
     def test_titles_start_with_the_urgency(self):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -153,7 +151,6 @@ class ServerTest(unittest.TestCase):
 
         self.assertEqual(Notifier.title_for({"reason": "no_breath"}, True), "【緊急】呼吸が確認できません")
         self.assertEqual(Notifier.title_for({"reason": "left_bed"}, True), "【注意】ベッドにいません")
-        self.assertEqual(Notifier.title_for({"reason": "check"}, False), "【確認中】呼吸が見えません")
         self.assertEqual(Notifier.title_for({"reason": "woke_up"}, False), "【お知らせ】起きました")
         self.assertEqual(Notifier.title_for({"reason": "something_new"}, True), "【緊急】IBUKI")
 
@@ -164,7 +161,6 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(Notifier.level_for({"reason": "no_breath"}, True), (5, "rotating_light"))
         self.assertEqual(Notifier.level_for({"reason": "left_bed"}, True), (4, "warning"))
         self.assertEqual(Notifier.level_for({"reason": "fast_breathing"}, False), (4, "warning"))
-        self.assertEqual(Notifier.level_for({"reason": "check"}, False), (3, "mag"))
         self.assertEqual(Notifier.level_for({"reason": "woke_up"}, False), (2, "baby"))
         self.assertEqual(Notifier.level_for({"reason": "something_new"}, True), (5, "warning"))
         self.assertEqual(Notifier.level_for({"reason": "something_new"}, False), (3, "baby"))
