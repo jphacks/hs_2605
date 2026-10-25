@@ -97,6 +97,8 @@ Events go out as extra dicts in the same list:
 | `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | asleep and above the WHO "fast breathing" level for 5 minutes: 60/min under 2 months, 50 at 2 to 12 months, 40 at 1 to 5 years | high push, no LED |
 | `{"type": "info", "reason": "woke_up"}` | moving again after a long still period | silent push, no LED |
 
+When a status first says CHECK, the server also sends a nudge (priority 3, no LED, at most every 2 minutes), so the parents can look before the alert. Every notification title starts with its urgency: 【緊急】, 【注意】, 【確認中】 or 【お知らせ】.
+
 The LED goes off when a status says OK or STILL again, or when someone presses the button. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
 
 A few things about the data. D lines come every 60 ms (16.6 per second, not 20). Babies breathe about 30 to 60 times a minute, so filter breathing with about 0.3 to 1.5 Hz (18 to 90 a minute), not the adult 0.15 to 0.6 Hz. Newborns often pause for 5 to 10 s, which is why the alert waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, start the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
@@ -239,6 +241,8 @@ class Brain:
 | `{"type": "alert", "reason": "left_bed"}` | ベッドにいた赤ちゃんがいなくなったとき | LED を赤、高い優先度の通知 |
 | `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | 眠っていて、WHO の「速い呼吸」の目安を 5 分超えたとき（2 か月未満 60 回、2〜12 か月 50 回、1〜5 歳 40 回） | 高い優先度の通知、LED なし |
 | `{"type": "info", "reason": "woke_up"}` | 長く静かだったあとに動き出したとき | 音なしの通知、LED なし |
+
+状態が初めて CHECK になったときも、警告の前に軽い通知（優先度 3、LED なし、2 分に 1 回まで）を送ります。通知のタイトルは、緊急度（【緊急】【注意】【確認中】【お知らせ】）から始まります。
 
 状態が OK か STILL に戻るか、ボタンが押されると LED は消えます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
 
