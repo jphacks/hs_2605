@@ -104,15 +104,26 @@ class Notifier:
 
     # Seconds between two pushes for the same reason (a baby waking up and dozing off again
     # should not buzz the phone every minute).
-    MIN_INTERVAL_S = {"woke_up": 300.0}
+    MIN_INTERVAL_S = {"woke_up": 300.0, "check": 120.0}
 
     # reason -> (ntfy priority, tag shown as an icon). On the iPhone, 5 (urgent) and 4 (high)
-    # arrive as Time Sensitive and can break through Focus; 2 (low) arrives silently.
+    # arrive as Time Sensitive and can break through Focus; 3 is a normal ping (the "check"
+    # nudge before an alert); 2 (low) arrives silently.
     LEVELS = {
         "no_breath": (5, "rotating_light"),
         "left_bed": (4, "warning"),
         "fast_breathing": (4, "warning"),
+        "check": (3, "mag"),
         "woke_up": (2, "baby"),
+    }
+
+    # The title starts with the urgency, so it can be read from the lock screen.
+    TITLES = {
+        "no_breath": "【緊急】呼吸が確認できません",
+        "left_bed": "【注意】ベッドにいません",
+        "fast_breathing": "【注意】呼吸が速い状態が続いています",
+        "check": "【確認中】呼吸が見えません",
+        "woke_up": "【お知らせ】起きました",
     }
 
     @classmethod
@@ -120,17 +131,25 @@ class Notifier:
         default = (5, "warning") if urgent else (3, "baby")
         return cls.LEVELS.get(str(event.get("reason")), default)
 
+    @classmethod
+    def title_for(cls, event: dict, urgent: bool) -> str:
+        return cls.TITLES.get(str(event.get("reason")), "【緊急】IBUKI" if urgent else "【お知らせ】IBUKI")
+
     @staticmethod
     def message_for(event: dict) -> str:
         reason, since, bpm = event.get("reason"), event.get("since_s"), event.get("bpm")
         if reason == "no_breath":
-            return "赤ちゃんの呼吸が確認できません" + (f"（{since}秒）" if since else "")
+            gone = f"{since}秒間" if since else ""
+            return f"赤ちゃんの呼吸が{gone}見えません。すぐに様子を見てください。"
         if reason == "left_bed":
-            return "赤ちゃんがベッドにいません"
+            return "赤ちゃんがベッドにいません。様子を確認してください。"
         if reason == "woke_up":
-            return "赤ちゃんが起きたようです"
+            return "赤ちゃんが起きたようです。"
         if reason == "fast_breathing":
-            return "赤ちゃんの呼吸がいつもより速いようです" + (f"（1分に{round(bpm)}回）" if bpm else "")
+            rate = f"1分に{round(bpm)}回の" if bpm else ""
+            return f"{rate}速い呼吸が続いています。様子を見てください。"
+        if reason == "check":
+            return "呼吸が一時的に見えなくなりました。このまま続くと警告します。"
         return f"赤ちゃんの様子を確認してください（{reason}）"
 
     def send(self, title: str, message: str, key: str = "", force: bool = False,
@@ -236,6 +255,9 @@ class Hub:
         elif "state" in o:
             self.latest = o
             state = o["state"]
+            if state == "CHECK" and self.last_state not in ("CHECK", "ALERT"):
+                # a nudge before the alert: breathing is not seen right now (push only, no LED)
+                asyncio.get_running_loop().run_in_executor(None, self._notify, {"reason": "check"}, False)
             if state == "ALERT" and self.last_state != "ALERT":
                 self.set_led(True)
             elif state in ("OK", "STILL") and self.led_on:
@@ -246,8 +268,8 @@ class Hub:
     def _notify(self, event: dict, urgent: bool = True):
         reason = str(event.get("reason"))
         priority, tag = Notifier.level_for(event, urgent)
-        ok, info = self.notifier.send("IBUKI", Notifier.message_for(event), key=reason,
-                                      priority=priority, tag=tag)
+        ok, info = self.notifier.send(Notifier.title_for(event, urgent), Notifier.message_for(event),
+                                      key=reason, priority=priority, tag=tag)
         log(f"ntfy [{reason}, priority {priority}]: {'sent' if ok else 'not sent'} ({info})")
 
     def set_led(self, on: bool, force: bool = False):
@@ -325,8 +347,8 @@ def create_app(args) -> FastAPI:
 
     @app.post("/api/test-notification")
     def test_notification():
-        ok, info = notifier.send("IBUKI", "テスト通知です（IBUKI）", force=True, priority=3,
-                                 tag="white_check_mark")
+        ok, info = notifier.send("【テスト】IBUKI の通知", "通知は正しく届いています。", force=True,
+                                 priority=3, tag="white_check_mark")
         log(f"test notification: {'sent' if ok else 'not sent'} ({info})")
         return {"ok": ok, "info": info}
 
