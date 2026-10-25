@@ -55,7 +55,14 @@ To check it, start the server and run:
 curl -X POST http://localhost:8000/api/test-notification
 ```
 
-The phone should show 「テスト通知です（IBUKI）」.
+The phone should show 「【テスト】IBUKI の通知」.
+
+To show the team what every notification looks like, send all five, lowest to highest urgency (no server needed):
+
+```
+../env/bin/python pc/notify_demo.py
+../env/bin/python pc/notify_demo.py no_breath    # only this one
+```
 
 Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
 
@@ -200,7 +207,14 @@ ntfy を使っています。iPhone に ntfy アプリを入れて、+ を押し
 curl -X POST http://localhost:8000/api/test-notification
 ```
 
-スマホに「テスト通知です（IBUKI）」が届けば OK です。
+スマホに「【テスト】IBUKI の通知」が届けば OK です。
+
+チームにすべての通知の見た目を見せるときは、緊急度の低い順に 5 つ送ります（サーバーは不要です）：
+
+```
+../env/bin/python pc/notify_demo.py
+../env/bin/python pc/notify_demo.py no_breath    # これだけ送る
+```
 
 トピックはパスワードのようなものです。知っている人なら誰でも読めて送れます。`.env` は git の対象外なので、うっかりコミットされることはありません。インターネットがないと通知は届きませんが、LED とダッシュボードの警告はそのまま動きます。
 

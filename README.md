@@ -116,7 +116,7 @@ npm install
 npm run dev
 ```
 
-表示されたアドレスをブラウザで開き、LIVE を選びます。くわしい手順は、ファームウェアが [firmware/README.md](firmware/README.md)、サーバーと通知の設定が [pc/README.md](pc/README.md)、ダッシュボードが [web/README.md](web/README.md) にあります。
+表示されたアドレスをブラウザで開き、LIVE を選びます。通知の見本をスマートフォンに送るには `../env/bin/python pc/notify_demo.py` を使います。くわしい手順は、ファームウェアが [firmware/README.md](firmware/README.md)、サーバーと通知の設定が [pc/README.md](pc/README.md)、ダッシュボードが [web/README.md](web/README.md) にあります。
 
 ## 開発技術
 ### 活用した技術
