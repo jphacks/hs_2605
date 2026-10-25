@@ -85,6 +85,18 @@ class BrainTest(unittest.TestCase):
         self.assertIn({"type": "alert", "reason": "left_bed", "since_s": 0}, ev)
         self.assertNotIn("no_breath", [e["reason"] for e in ev])
 
+    def test_breathing_gone_with_their_echo_is_leaving_not_alarm(self):
+        # walking off slowly: breathing vanishes before the room is quiet (seen live at 14:14,
+        # no_breath came 1 s before left_bed). Their echo is gone, so it must be "left the bed"
+        b = Brain(no_breath_s=10)
+        run(make_lines(seconds=25, target_bin=9, breaths_per_min=20, amp_mm=1.0, room=30), b)
+        b.echo_now = b.person_echo * 0.02
+        b._update_state(b.last_t, False, 0.1)
+        reasons = [e["reason"] for e in b._take_events()]
+        self.assertEqual(b.state, "EMPTY")
+        self.assertIn("left_bed", reasons)
+        self.assertNotIn("no_breath", reasons)
+
     def test_moving_then_not_breathing_is_no_breath_not_left_bed(self):
         # the dangerous mix-up: their echo is still there, so the alert must be about breathing
         st, ev = run(make_lines(seconds=45, target_bin=9, breaths_per_min=20, amp_mm=1.0,

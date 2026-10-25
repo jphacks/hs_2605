@@ -293,13 +293,16 @@ class Brain:
             if self.present and t - self.absent_since >= ABSENT_S:
                 if not self._echo_gone():
                     return  # quiet, but their echo is still there: in bed, maybe not breathing
-                was_settled = self.present_since is not None and t - self.present_since >= LEFT_BED_AFTER_PRESENT_S
-                self.present = False
-                self.person_echo = None
-                self.reset_tracking()
-                if was_settled and not self.left_bed_sent:
-                    self.events.append({"type": "alert", "reason": "left_bed", "since_s": 0})
-                    self.left_bed_sent = True
+                self._leave(t)
+
+    def _leave(self, t):
+        was_settled = self.present_since is not None and t - self.present_since >= LEFT_BED_AFTER_PRESENT_S
+        self.present = False
+        self.person_echo = None
+        self.reset_tracking()
+        if was_settled and not self.left_bed_sent:
+            self.events.append({"type": "alert", "reason": "left_bed", "since_s": 0})
+            self.left_bed_sent = True
 
     def _echo_gone(self) -> bool:
         """Has the echo gone from the slots where it is usually strongest while someone is there?
@@ -338,6 +341,13 @@ class Brain:
             self._fast(t)
             return
         if ratio < NO_BREATH_RATIO:
+            if self._echo_gone():
+                # Walking off slowly: breathing vanishes before the room is quiet. Their echo is
+                # gone too, so they left. Never the no-breathing alarm (and its siren) for that.
+                self._leave(t)
+                self._set("EMPTY", t)
+                self.no_breath_since = None
+                return
             if self.no_breath_since is None:
                 self.no_breath_since = t - WINDOW_LAG_S
             gone = t - self.no_breath_since
