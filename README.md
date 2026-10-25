@@ -2,9 +2,9 @@
 
 **カメラも、ウェアラブル端末もいらない。非接触センサーで、お休み中の赤ちゃんの呼吸を見守る。**
 
-<!-- デモ動画ができたら、下の行のコメントを外して画像と動画の URL を入れる
-[![息吹～IBUKI～ demo](画像URL)](動画URL)
--->
+[![デモ動画：息を止めると、スマートフォンに緊急の通知が届く](docs/videos/demo_1_no_breathing.jpg)](https://jphacks.github.io/hs_2605/videos/demo_1_no_breathing.mp4)
+
+▶ 画像をクリックするとデモ動画が開きます（息を止めると警告が出るまで）。ほかの動画は[デモ動画](#デモ動画)にあります。
 
 ベビーベッドのそばに置いた 60 GHz のミリ波レーダーが、赤ちゃんの胸のわずか数ミリの上下運動をとらえます。呼吸が止まっていると判断された場合、保護者のスマートフォンに通知が届き、ボードの赤い LED が点滅します。
 
@@ -35,7 +35,7 @@
 | 眠っています | じっとしていて、呼吸が検知できている |
 | 起きています | 動いている（激しく動いている間は呼吸は正しく測定されません） |
 | 呼吸を確認中 | 呼吸が検知できていない |
-| 呼吸が確認できません | じっとしているのに、呼吸が検知されないが10秒以上続いている（緊急通知、パソコンのアラーム音、LED の点滅。アラーム音はボタンを押すまで止まりません） |
+| 呼吸が確認できません | じっとしているのに、呼吸が検知されない状態が10秒以上続いている（緊急通知、パソコンのアラーム音、LED の点滅。アラーム音はボタンを押すまで止まりません） |
 | 呼吸が速い状態が続いています | 通常より呼吸が速い状態が続いている |
 | ベッドにいません | 赤ちゃんがいない状態（通知と LED の点滅） |
 
@@ -47,7 +47,7 @@
 跳ね返ってきた電波の位相のずれから、胸の動きをミリ単位で計算します。距離ごとに分けて計算するため、壁や家具の反射と区別できます。
 
 #### 3. 日常的に使える「起きたよ」機能
-赤ちゃんが起きたときにスマートフォンで通知を受け取るができます。万が一のときだけでなく、在宅勤務中など、普段の生活にも便利です。国際色豊かなメンバーでのディスカッションの中で「海外では赤ちゃんと大人の別室睡眠の習慣がある」という意見から生まれました。
+赤ちゃんが起きたときにスマートフォンで通知を受け取ることができます。万が一のときだけでなく、在宅勤務中など、普段の生活にも便利です。国際色豊かなメンバーでのディスカッションの中で「海外では赤ちゃんと大人の別室睡眠の習慣がある」という意見から生まれました。
 
 #### 4. 誤報を出さない
 動いているときやボードが揺れたときは、呼吸を「確認中」として扱い、「呼吸が止まった」とは知らせません。静かになったときは、その人の反射が残っているかで、「ベッドにいない」と「息が止まった」を見分けます。
@@ -127,6 +127,14 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 - 通知を使うときは、[.env.example](.env.example) を `.env` にコピーして、ntfy のトピックを書きます。
 - 録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
 
+**ボードがなくても試せます。** Hack Day に実機で録った録画（各 1 分）を [recordings/samples/](recordings/samples/) に入れています。
+
+| コマンド | 見られること |
+|---|---|
+| `./ibuki.command --replay recordings/samples/breathing.sample.csv` | ふつうの呼吸：「眠っています」と呼吸の波 |
+| `./ibuki.command --replay recordings/samples/hold.sample.csv` | 息止め：「呼吸を確認中」から「呼吸が確認できません」の警告 |
+| `./ibuki.command --replay recordings/samples/leave.sample.csv` | 立ち去り：「ベッドにいません」の通知 |
+
 ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md) にくわしく書いてあります。
 
 ## 開発技術
@@ -155,7 +163,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **サーバーと通知**：ボード、Brain、ダッシュボード、LED をつなぎ、緊急度つきで通知します。[server.py](pc/ibuki/server.py)（[50cdc95](https://github.com/jphacks/hs_2605/commit/50cdc95)、[89c1b0b](https://github.com/jphacks/hs_2605/commit/89c1b0b)）
 * **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **自動テスト**：パソコン側 39 個、ダッシュボード 51 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+* **自動テスト**：パソコン側 40 個、ダッシュボード 51 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
 
 ## English summary
 息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
