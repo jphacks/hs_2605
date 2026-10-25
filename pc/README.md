@@ -106,7 +106,7 @@ Events go out as extra dicts in the same list:
 
 CHECK alone sends no notification: it flickers on during short pauses, and parents who get too many pings start ignoring them. Every notification title starts with its urgency: 【緊急】, 【注意】 or 【お知らせ】.
 
-For no breathing, the laptop also plays a loud siren. Like a baby monitor, it keeps sounding until a person acknowledges it: the board's button, the dashboard's cancel, or Enter in the server window. Breathing coming back alone does not stop it. `IBUKI_SIREN=0` in `.env` turns it off.
+For no breathing, the laptop also plays a loud siren. Like a baby monitor, it keeps sounding until a person acknowledges it: the board's button or Enter in the server window. Breathing coming back alone does not stop it. `IBUKI_SIREN=0` in `.env` turns it off.
 
 The LED goes off when a status says OK or STILL again, or when someone presses the button. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
 
@@ -260,7 +260,7 @@ class Brain:
 
 CHECK だけでは通知を送りません。短い間だけ CHECK になることが多く、通知が多すぎると保護者が見なくなるからです。通知のタイトルは、緊急度（【緊急】【注意】【お知らせ】）から始まります。
 
-呼吸が確認できないときは、パソコンから大きなアラーム音も鳴ります。ベビーモニターと同じく、人が確認するまで鳴り続けます。止めるには、ボードのボタン、ダッシュボードの取り消し、またはサーバーのウィンドウで Enter を押します。呼吸が戻っただけでは止まりません。`.env` に `IBUKI_SIREN=0` と書くと鳴らなくなります。
+呼吸が確認できないときは、パソコンから大きなアラーム音も鳴ります。ベビーモニターと同じく、人が確認するまで鳴り続けます。止めるには、ボードのボタンを押すか、サーバーのウィンドウで Enter を押します。呼吸が戻っただけでは止まりません。`.env` に `IBUKI_SIREN=0` と書くと鳴らなくなります。
 
 状態が OK か STILL に戻るか、ボタンが押されると LED は消えます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
 
