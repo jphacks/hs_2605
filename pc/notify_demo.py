@@ -1,9 +1,9 @@
 """Send IBUKI's notifications to the phone, to show what each one looks like.
 
 Run from the repo root:
-  ../env/bin/python pc/notify_demo.py                all five, lowest to highest urgency, 5 s apart
-  ../env/bin/python pc/notify_demo.py no_breath      only some (woke_up, check, fast_breathing,
-                                                     left_bed, no_breath)
+  ../env/bin/python pc/notify_demo.py                all four, lowest to highest urgency, 5 s apart
+  ../env/bin/python pc/notify_demo.py no_breath      only some (woke_up, fast_breathing, left_bed,
+                                                     no_breath)
 
 Uses the same ntfy topic as the server: IBUKI_NTFY_TOPIC in <repo>/.env.
 """
@@ -23,7 +23,6 @@ from ibuki.server import Notifier  # noqa: E402
 # lowest to highest urgency: (event like the Brain sends it, urgent)
 DEMO = [
     ({"reason": "woke_up"}, False),
-    ({"reason": "check"}, False),
     ({"reason": "fast_breathing", "bpm": 55}, False),
     ({"reason": "left_bed"}, True),
     ({"reason": "no_breath", "since_s": 10}, True),
