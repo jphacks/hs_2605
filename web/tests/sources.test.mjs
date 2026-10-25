@@ -10,7 +10,7 @@ async function load(relative) {
   return import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 }
 const { createWebSocketSource, isBrainStatus } = await load('../src/data/webSocketSource.ts');
-const { appendWaveform } = await load('../src/data/waveform.ts');
+const { appendWaveform, glideEnd } = await load('../src/data/waveform.ts');
 const { createMockSource } = await load('../src/data/mockSource.ts');
 const { deriveLiveView } = await load('../src/data/liveView.ts');
 const { resolveEndpoints, parseHealth, watchHealth } = await load('../src/data/health.ts');
@@ -263,6 +263,14 @@ test('dt_ms has priority; empty/shaking statuses keep the drawn wave and add no 
   assert.deepEqual(appendWaveform(points, actual, { ...actual, t: status.t - 1000 }, null), []); // the board restarted
   // No interpolation across an unavailable batch when dt_ms is absent.
   assert.deepEqual(appendWaveform([], { ...status, disp_mm: [] }, { ...status, t: status.t + 120 }, null), []);
+});
+
+test('the time axis glides between updates, one update behind the newest sample and never past it', () => {
+  // moving it only when an update arrived made the wave jump 8 times a second
+  assert.equal(glideEnd(10120, 120, 0), 10);
+  assert.equal(glideEnd(10120, 120, 60), 10.06);
+  assert.equal(glideEnd(10120, 120, 500), 10.12); // a late update: wait at the newest sample
+  assert.equal(glideEnd(10120, 0, 300), 10.12); // first status or a restart: no glide
 });
 
 test('a pause keeps the old wave, marks no reading, then the wave continues and old points age out', () => {

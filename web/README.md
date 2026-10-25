@@ -88,7 +88,8 @@ A current warning is shown only after an alert event was received. Subsequent, n
 
 | File | Purpose |
 |---|---|
-| [src/App.tsx](src/App.tsx) | Dashboard layout, LIVE/DEMO presentation and waveform |
+| [src/App.tsx](src/App.tsx) | Dashboard layout and LIVE/DEMO presentation |
+| [src/WaveChart.tsx](src/WaveChart.tsx) | The breathing graph: last 30 s, time axis glides smoothly between updates |
 | [src/ConnectionStatus.tsx](src/ConnectionStatus.tsx) | Compact connection strip and expandable diagnostics |
 | [src/NotificationPanel.tsx](src/NotificationPanel.tsx) | Current warnings and event history |
 | [src/data/](src/data/) | WebSocket, health, source selection, status words, waveform and notification logic |
@@ -207,7 +208,8 @@ Brain が送る状態は 5 種類です：
 
 | ファイル | 内容 |
 |---|---|
-| [src/App.tsx](src/App.tsx) | 画面のレイアウト、LIVE/DEMO、波形表示 |
+| [src/App.tsx](src/App.tsx) | 画面のレイアウト、LIVE/DEMO |
+| [src/WaveChart.tsx](src/WaveChart.tsx) | 呼吸の波形グラフ（直近 30 秒。時間軸は更新の間もなめらかに流れます） |
 | [src/ConnectionStatus.tsx](src/ConnectionStatus.tsx) | コンパクトな接続状況と折りたたみ式の詳細 |
 | [src/NotificationPanel.tsx](src/NotificationPanel.tsx) | 現在の警告と通知履歴 |
 | [src/data/](src/data/) | WebSocket、ヘルス情報、入力元、状態の表示文、波形、通知の処理 |

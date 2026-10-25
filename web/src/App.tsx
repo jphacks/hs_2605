@@ -1,5 +1,4 @@
 import { useEffect, useReducer, useState } from 'react';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { createMockSource } from './data/mockSource';
 import { createModeSource, selectDashboardMode } from './data/mode';
 import type { DashboardMode } from './data/mode';
@@ -13,7 +12,7 @@ import type { ServerHealth } from './data/health';
 import { deriveLiveView } from './data/liveView';
 import type { BreathingState, StatusSource } from './data/status';
 import { useDashboard } from './useDashboard';
-import { WINDOW_S } from './data/waveform';
+import WaveChart from './WaveChart';
 import { describeStatus, stateWords } from './data/statusView';
 
 const configuredInterval = Number(import.meta.env.VITE_LIVE_SAMPLE_INTERVAL_MS);
@@ -80,7 +79,6 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   // Keep showing the drawn wave while the data is current, even when this update has none: the
   // graph pauses (grey dashed "no reading") instead of emptying, which looked like a restart.
   const points = demo || liveView.status ? data.points : [];
-  const end = Math.max(WINDOW_S, (status?.t ?? 0) / 1000);
   const current = status?.state;
   const statusView = describeStatus({ state: current ?? null, shaking: status?.shaking ?? false,
     placeholder: !demo && liveView.placeholder, waiting: demo ? 'デモを準備しています' : liveView.notice });
@@ -116,15 +114,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <div className="panel-heading"><div><p className="eyebrow">BREATHING MOTION</p><h2>呼吸の動き</h2></div><span className="chart-live"><span className="dot"/>{sourceTag}</span></div>
         <p className="chart-description">胸の動き（mm） · 直近30秒</p>
         {chartNote && <p className="muted" role="status">{chartNote}</p>}
-        <div className="chart" role="img" aria-label={`胸の動きの波形。${statusView.title}`}>
-          <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 0 }} accessibilityLayer>
-            <CartesianGrid stroke="#e6ede9" strokeDasharray="3 6" vertical={false}/>
-            <XAxis type="number" dataKey="time" domain={[end - WINDOW_S, end]} ticks={[end - 30, end - 20, end - 10, end]} tickFormatter={v => Math.round(v - end) === 0 ? '今' : `${Math.round(v - end)}秒`} tickLine={false} axisLine={false} tick={{ fill: '#7b8983', fontSize: 12 }}/>
-            <YAxis type="number" domain={demo ? [-2, 2] : ['auto', 'auto']} tickFormatter={v => `${Number(Number(v).toFixed(2))}`} tickLine={false} axisLine={false} width={46} tick={{ fill: '#7b8983', fontSize: 12 }}/>
-            <Line type="linear" dataKey="idle" stroke="#a9b3ae" strokeWidth={2} strokeDasharray="6 5" dot={false} isAnimationActive={false}/>
-            <Line type="linear" dataKey="displacement" stroke={current === 'ALERT' ? '#c25d50' : '#438b77'} strokeWidth={2.5} dot={false} isAnimationActive={false}/>
-          </LineChart></ResponsiveContainer>
-        </div>
+        <WaveChart points={points} t={status?.t ?? null} alert={current === 'ALERT'} demo={demo} label={`胸の動きの波形。${statusView.title}`}/>
         <div className="chart-footer"><span><i/>胸の動き{demo ? '（シミュレーション）' : ''}</span><span><i className="idle-key"/>測定なし（揺れ・学習中・不在のとき）</span></div>
       </article>
       <aside className="metrics" aria-label="いまの様子">

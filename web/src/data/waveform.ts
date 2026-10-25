@@ -3,6 +3,12 @@ import type { BrainStatus } from './status';
 // (shaking, learning, nobody there), drawn as a grey dashed line, never as breathing.
 export interface WavePoint { time: number; displacement: number | null; idle?: number }
 export const WINDOW_S = 30;
+// Updates arrive every ~120 ms. Moving the time axis only when one arrives made the wave jump
+// 8 times a second. The axis glides instead: one update (step ms) behind the newest sample t,
+// moving toward it as time passes, and never past it (no running ahead of the data).
+export function glideEnd(t: number, step: number, sinceArrivalMs: number): number {
+  return (t - step + Math.min(Math.max(sinceArrivalMs, 0), step)) / 1000;
+}
 // t is milliseconds and marks the last sample of a batch (pending Brain agreement).
 // Without an agreed interval, estimate spacing from consecutive batch timestamps.
 export function appendWaveform(points: WavePoint[], previous: BrainStatus | null, status: BrainStatus, intervalMs: number | null): WavePoint[] {
