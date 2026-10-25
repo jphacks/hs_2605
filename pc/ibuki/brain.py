@@ -54,7 +54,7 @@ NORM_S = 15.0           # "normal" = the middle of the last 15 s of clear breath
 RATE_RATIO = 0.35       # show a breathing rate only above this
 CHECK_AFTER_S = 0.0     # show CHECK as soon as no breathing is seen
 WINDOW_LAG_S = 3.0      # the 6 s size window notices a hold ~3 s late: count from there
-WOKE_UP_AFTER_STILL_S = 30.0
+WOKE_UP_AFTER_STILL_S = 600.0  # "woke up" only after 10 min asleep, not after every short rest
 LEFT_BED_AFTER_PRESENT_S = 10.0
 FAST_BREATHING_BPM = 50.0   # WHO "fast breathing" for 2-12 months
 FAST_BREATHING_FOR_S = 300.0
