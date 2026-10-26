@@ -1,92 +1,6 @@
 # 息吹～IBUKI～ firmware
 
-[English](#english) | [日本語](#日本語)
-
-## English
-
-This is the firmware for the Infineon PSOC Edge E84 AI Kit (KIT_PSE84_AI). It reads the 60 GHz radar, does the range FFT on the board, and streams the result to the laptop over the KitProg3 USB serial port. Everything after that, like breathing, movement and alerts, happens on the PC.
-
-We started from Infineon's `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` and replaced their gesture model with our own processing in [proj_cm55/ibuki.c](proj_cm55/ibuki.c). Infineon's original README is in [README_infineon.md](README_infineon.md).
-
-### What the board does
-
-For every radar frame we take RX antenna 1. For each of the 32 chirps we remove the DC offset, apply a Hann window and run a 64-point FFT with CMSIS-DSP. The complex bins are averaged over the chirps and over two frames, and the bins from 15 cm to 101 cm go out as one `D` line. That's about 16.6 lines a second, which uses roughly a third of the 115200 baud link.
-
-### Radar settings
-
-We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). The register values come from Infineon's tool, so don't edit them by hand.
-
-| Setting | Value |
-|---|---|
-| Frequency | 58.5–62.5 GHz |
-| Samples per chirp | 64 at 2 MHz |
-| Chirps per frame | 32 |
-| RX antennas | 3 read, RX1 used |
-| Frame rate | 33.3 per second |
-| Range bin | 3.75 cm |
-| Max range | 1.2 m |
-| Bins we send | 4 to 27, which is 15.0 to 101.25 cm |
-
-### Serial protocol
-
-115200 8N1, one message per line, comma separated, no spaces. Ignore any line that doesn't match.
-
-| Line | Direction | What it means |
-|---|---|---|
-| `C,first_cm,step_mm,n,scale` | board to PC | Sent at boot and every 5 s. Right now it's `C,15.0,37.5,24,10`. |
-| `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
-| `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. |
-| `B,1` | board to PC | The user button was pressed. |
-| `L,1` / `L,0` | PC to board | Alert: the red LED blinks twice a second (so it stands out from the board's other red lights), or off. |
-| `R,1` | PC to board | Restart the radar. |
-| `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
-
-### When the radar has problems
-
-If the sensor's FIFO overflows, the block we just read might be shifted, so the board throws it away and restarts the radar. If no frame arrives for a second, a watchdog restarts it too. Either way the board sends an `S` line such as `S,74268,radar restart: fifo overflow 0x00000000`. The last number is the driver status, and 0 means the restart worked.
-
-After a restart, `t_ms` jumps ahead but `seq` keeps counting. The PC should start its phase tracking over when it sees one of these lines, or a jump in `t_ms` of more than half a second.
-
-[tools/recovery_test.py](tools/recovery_test.py) checks all of this on a real board with a restart request, a 300 ms stall and a 1.5 s stall. It passes on ours.
-
-### Building and flashing
-
-You need ModusToolbox 3.7 or newer (we use 3.9), the Arm GCC 14.2.1 package, the Edge Protect Security Suite and the Programming Tools, which bring OpenOCD. They're all on Infineon's Developer Center. Downloading them in the browser was much faster for us than from the terminal.
-
-```
-cd firmware
-make getlibs     # once per machine, downloads about 240 MB into ../mtb_shared
-make build -j8   # Debug only, GCC can't build Release for this example
-make program     # flashes over KitProg3 and replaces the demo that ships on the board
-```
-
-Then check the stream from the repo folder:
-
-```
-../env/bin/python firmware/tools/check_stream.py --seconds 20
-```
-
-You should see about 16.6 D lines per second and `gaps: 0`. To watch the data live, run [tools/live_view.py](tools/live_view.py). It shows where something is moving, the breathing wave, the signal quality, and whether the board is being shaken.
-
-### Good to know
-
-The bins closer than about 28 cm contain the radar's own transmit signal leaking into the receiver. We still send them, because a child in bed can be close to the board, but the PC tools skip them when they look for the target. We haven't tested yet whether a child closer than about 25 cm stands out above the leakage.
-
-If `make program` says the KitProg3 firmware is out of date, update it once:
-
-```
-/Applications/ModusToolboxProgtools-2.0/fw-loader/bin/fw-loader --update-kp3 all
-```
-
-VS Code marks things in `main.c` as undefined because it doesn't know the ModusToolbox include paths. The build itself is fine. Running `make vscode` in this folder sets the paths up.
-
-### If something doesn't work
-
-No serial port: run `ls /dev/cu.usbmodem*`. Use the KitProg3 USB-C port with a cable that carries data, and close anything else that has the port open.
-
-No D lines: look at the `S` lines. Driver errors show up there with their error code.
-
-Gaps in `seq`: lines are getting lost on the way. Send fewer bins or average more frames with `IBUKI_NUM_BINS` and `IBUKI_FRAMES_PER_LINE` in [proj_cm55/ibuki.h](proj_cm55/ibuki.h).
+[日本語](#日本語) | [English](#english)
 
 ## 日本語
 
@@ -173,3 +87,89 @@ VS Code では `main.c` の一部が「undefined」と赤く表示されます�
 D 行が来ない：`S` 行を見てください。ドライバのエラーはエラーコード付きでそこに出ます。
 
 `seq` が飛ぶ：途中で行が失われています。[proj_cm55/ibuki.h](proj_cm55/ibuki.h) の `IBUKI_NUM_BINS` を減らすか、`IBUKI_FRAMES_PER_LINE` を増やしてください。
+
+## English
+
+This is the firmware for the Infineon PSOC Edge E84 AI Kit (KIT_PSE84_AI). It reads the 60 GHz radar, does the range FFT on the board, and streams the result to the laptop over the KitProg3 USB serial port. Everything after that, like breathing, movement and alerts, happens on the PC.
+
+We started from Infineon's `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` and replaced their gesture model with our own processing in [proj_cm55/ibuki.c](proj_cm55/ibuki.c). Infineon's original README is in [README_infineon.md](README_infineon.md).
+
+### What the board does
+
+For every radar frame we take RX antenna 1. For each of the 32 chirps we remove the DC offset, apply a Hann window and run a 64-point FFT with CMSIS-DSP. The complex bins are averaged over the chirps and over two frames, and the bins from 15 cm to 101 cm go out as one `D` line. That's about 16.6 lines a second, which uses roughly a third of the 115200 baud link.
+
+### Radar settings
+
+We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). The register values come from Infineon's tool, so don't edit them by hand.
+
+| Setting | Value |
+|---|---|
+| Frequency | 58.5–62.5 GHz |
+| Samples per chirp | 64 at 2 MHz |
+| Chirps per frame | 32 |
+| RX antennas | 3 read, RX1 used |
+| Frame rate | 33.3 per second |
+| Range bin | 3.75 cm |
+| Max range | 1.2 m |
+| Bins we send | 4 to 27, which is 15.0 to 101.25 cm |
+
+### Serial protocol
+
+115200 8N1, one message per line, comma separated, no spaces. Ignore any line that doesn't match.
+
+| Line | Direction | What it means |
+|---|---|---|
+| `C,first_cm,step_mm,n,scale` | board to PC | Sent at boot and every 5 s. Right now it's `C,15.0,37.5,24,10`. |
+| `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
+| `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. |
+| `B,1` | board to PC | The user button was pressed. |
+| `L,1` / `L,0` | PC to board | Alert: the red LED blinks twice a second (so it stands out from the board's other red lights), or off. |
+| `R,1` | PC to board | Restart the radar. |
+| `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
+
+### When the radar has problems
+
+If the sensor's FIFO overflows, the block we just read might be shifted, so the board throws it away and restarts the radar. If no frame arrives for a second, a watchdog restarts it too. Either way the board sends an `S` line such as `S,74268,radar restart: fifo overflow 0x00000000`. The last number is the driver status, and 0 means the restart worked.
+
+After a restart, `t_ms` jumps ahead but `seq` keeps counting. The PC should start its phase tracking over when it sees one of these lines, or a jump in `t_ms` of more than half a second.
+
+[tools/recovery_test.py](tools/recovery_test.py) checks all of this on a real board with a restart request, a 300 ms stall and a 1.5 s stall. It passes on ours.
+
+### Building and flashing
+
+You need ModusToolbox 3.7 or newer (we use 3.9), the Arm GCC 14.2.1 package, the Edge Protect Security Suite and the Programming Tools, which bring OpenOCD. They're all on Infineon's Developer Center. Downloading them in the browser was much faster for us than from the terminal.
+
+```
+cd firmware
+make getlibs     # once per machine, downloads about 240 MB into ../mtb_shared
+make build -j8   # Debug only, GCC can't build Release for this example
+make program     # flashes over KitProg3 and replaces the demo that ships on the board
+```
+
+Then check the stream from the repo folder:
+
+```
+../env/bin/python firmware/tools/check_stream.py --seconds 20
+```
+
+You should see about 16.6 D lines per second and `gaps: 0`. To watch the data live, run [tools/live_view.py](tools/live_view.py). It shows where something is moving, the breathing wave, the signal quality, and whether the board is being shaken.
+
+### Good to know
+
+The bins closer than about 28 cm contain the radar's own transmit signal leaking into the receiver. We still send them, because a child in bed can be close to the board, but the PC tools skip them when they look for the target. We haven't tested yet whether a child closer than about 25 cm stands out above the leakage.
+
+If `make program` says the KitProg3 firmware is out of date, update it once:
+
+```
+/Applications/ModusToolboxProgtools-2.0/fw-loader/bin/fw-loader --update-kp3 all
+```
+
+VS Code marks things in `main.c` as undefined because it doesn't know the ModusToolbox include paths. The build itself is fine. Running `make vscode` in this folder sets the paths up.
+
+### If something doesn't work
+
+No serial port: run `ls /dev/cu.usbmodem*`. Use the KitProg3 USB-C port with a cable that carries data, and close anything else that has the port open.
+
+No D lines: look at the `S` lines. Driver errors show up there with their error code.
+
+Gaps in `seq`: lines are getting lost on the way. Send fewer bins or average more frames with `IBUKI_NUM_BINS` and `IBUKI_FRAMES_PER_LINE` in [proj_cm55/ibuki.h](proj_cm55/ibuki.h).

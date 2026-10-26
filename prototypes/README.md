@@ -1,26 +1,6 @@
 # Prototypes
 
-[English](#english) | [日本語](#日本語)
-
-## English
-
-Early experiments from the start of the hackathon. They helped us shape the system, but the running system doesn't use them. The real Brain is [pc/ibuki/brain.py](../pc/ibuki/brain.py), and the real tests are in [pc/tests/](../pc/tests/).
-
-| File | What it is |
-|---|---|
-| [brain.py](brain.py) | The first Brain prototype. It reads board lines from stdin and uses the PC clock and an adult breathing filter (0.15-0.6 Hz). |
-| [fake_board_for_generation.py](fake_board_for_generation.py) | A fake board in the real line format (`C,15.0,37.5,24,10`, 16.6 lines a second). It runs for 5 minutes and switches between 30 s of breathing (15 a minute) and 30 s of breath-hold. |
-| [fake_board.py](fake_board.py) | The very first fake board, still in an older format (3 slots, 20 lines a second). |
-| [.history-memo/](.history-memo/) | Notes and prompts from building the prototypes. |
-
-To try the fake board with the server, save its output and replay it:
-
-```
-../env/bin/python prototypes/fake_board_for_generation.py > recordings/fake_board.csv
-../env/bin/python pc/ibuki/server.py --replay recordings/fake_board.csv --loop
-```
-
-The first command takes 5 minutes. The fake data has no noise, so don't use it to set thresholds. Use real recordings for that (see [pc/README.md](../pc/README.md)).
+[日本語](#日本語) | [English](#english)
 
 ## 日本語
 
@@ -41,3 +21,23 @@ The first command takes 5 minutes. The fake data has no noise, so don't use it t
 ```
 
 1 行目は 5 分かかります。偽のデータにはノイズがないので、しきい値を決めるのには使わないでください。しきい値には本物の録画を使います（[pc/README.md](../pc/README.md) を参照）。
+
+## English
+
+Early experiments from the start of the hackathon. They helped us shape the system, but the running system doesn't use them. The real Brain is [pc/ibuki/brain.py](../pc/ibuki/brain.py), and the real tests are in [pc/tests/](../pc/tests/).
+
+| File | What it is |
+|---|---|
+| [brain.py](brain.py) | The first Brain prototype. It reads board lines from stdin and uses the PC clock and an adult breathing filter (0.15-0.6 Hz). |
+| [fake_board_for_generation.py](fake_board_for_generation.py) | A fake board in the real line format (`C,15.0,37.5,24,10`, 16.6 lines a second). It runs for 5 minutes and switches between 30 s of breathing (15 a minute) and 30 s of breath-hold. |
+| [fake_board.py](fake_board.py) | The very first fake board, still in an older format (3 slots, 20 lines a second). |
+| [.history-memo/](.history-memo/) | Notes and prompts from building the prototypes. |
+
+To try the fake board with the server, save its output and replay it:
+
+```
+../env/bin/python prototypes/fake_board_for_generation.py > recordings/fake_board.csv
+../env/bin/python pc/ibuki/server.py --replay recordings/fake_board.csv --loop
+```
+
+The first command takes 5 minutes. The fake data has no noise, so don't use it to set thresholds. Use real recordings for that (see [pc/README.md](../pc/README.md)).
