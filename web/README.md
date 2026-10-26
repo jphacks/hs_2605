@@ -1,126 +1,6 @@
 # IBUKI web dashboard
 
-[English](#english) | [日本語](#日本語)
-
-## English
-
-This is the browser dashboard for IBUKI, built with **React, TypeScript, Vite and Recharts**. It receives the PC Brain's results through WebSocket and shows breathing-related movement, estimated breathing rate, presence and notifications. The web app does not read the radar directly or make medical decisions; the PC server and Brain do that. See [pc/README.md](../pc/README.md) for the server and alerts, and [firmware/README.md](../firmware/README.md) for the radar board.
-
-### Running it
-
-On macOS, the easiest way is to run this from the repository root:
-
-```sh
-./ibuki.command
-```
-
-It prepares the dependencies, builds the dashboard when necessary, starts the PC server and opens **http://localhost:8000**. The page starts in **LIVE** automatically. To replay a recording rather than use a connected board:
-
-```sh
-./ibuki.command --replay recordings/<file>.csv
-```
-
-For frontend development, use Node.js **22.12+** and run:
-
-```sh
-cd web
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173**. This also starts in LIVE, so run the PC server separately to receive data. Vite forwards `/ws` and `/api` to `127.0.0.1:8000`. The server serves the production build from `web/dist` after `npm run build`.
-
-To try the five simulated states **without a board or PC server**, open **http://localhost:5173/?demo=1** in the Vite development server. The DEMO uses simulated data and sends no notifications or device commands. It is unavailable in production: even `?demo=1` starts LIVE there. LIVE never falls back to fake data when a connection fails.
-
-### What's on the screen
-
-- **Connection status:** a small Japanese status strip shows whether the server, board input or incoming data needs attention. Open **接続の詳細** for the WebSocket URL, input source, Brain mode and other diagnostics. An open WebSocket alone does not prove that a physical radar is connected.
-- **Current state:** the state received from the Brain, in the same plain words as the main README and the phone (table below), plus センサーが揺れています while the board shakes. The dashboard does not independently decide whether breathing is safe.
-- **Waveform and breathing rate:** a graph of received chest-displacement samples (last 30 s) and the Brain's breaths per minute. Unavailable values appear as `—`; the frontend does not invent samples. When an update has no wave (shaking, learning, nobody there), the graph keeps what it drew and a grey dashed line marks 測定なし, so it never looks like a restart. It clears only when the board's clock starts again (a reboot).
-- **In bed and movement:** います / いません and 動いています / じっとしています, from the Brain's messages.
-- **Notifications:** the **20 most recent** events as a short list, with the phone's titles and urgency (【緊急】【注意】【お知らせ】). An event that is still going on is shown above the list.
-
-The Brain sends five states:
-
-| State | Shown as | Meaning |
-|---|---|---|
-| `EMPTY` | ベッドにいません | The target is not detected in bed. This state alone does not create a `left_bed` alert. |
-| `OK` | 起きています | Body movement detected; breathing-related small movements cannot be reliably assessed while moving. |
-| `STILL` | 眠っています | The Brain detected breathing-related movement while the target was relatively still. |
-| `CHECK` | 呼吸を確認中 | Breathing-related movement is not currently detected; the Brain is still checking. |
-| `ALERT` | 呼吸が確認できません | The no-breathing-motion condition has persisted long enough for the Brain's warning threshold. |
-
-These are **prototype analysis states, not diagnoses**. In particular, `OK` does not mean breathing has been medically confirmed as normal.
-
-### How LIVE data arrives
-
-The browser uses the existing PC endpoints: **`/ws`** for statuses, board connection events and notifications, and **`/api/health`** for input source and processing information. There is no separate web-side Python gateway.
-
-A status looks like this (example values only):
-
-```json
-{"t":123456,"state":"STILL","bpm":18.2,"disp_mm":[0.12,0.15],"dt_ms":60,"motion":0.8,"present":true}
-```
-
-`t` is the sending device's elapsed time in **milliseconds**, not a wall-clock timestamp. `disp_mm` contains new displacement samples, and `bpm` may be `null`. Optional fields include `source` and `shaking`. The web client validates incoming messages before using them.
-
-- The socket reconnects automatically after a connection failure. If valid status messages stop for **3 seconds**, the data is marked stale and the current measurements are hidden.
-- After connecting, the dashboard waits for timestamps to advance instead of displaying only the server's cached last message.
-- Board connection is tracked separately from WebSocket connection. A disconnected board or shaking sensor makes measurements unavailable rather than producing a made-up waveform.
-- **`BoardLink`** means board input (not verified measurement accuracy). **`FileReplay`** is explicitly labeled **録画再生**: recorded data, **not a live physical reading**. **`placeholder`** means provisional processing; it does not produce a validated breathing rate.
-
-### Notifications
-
-The PC server handles phone (iPhone) push notifications and the board's warning LED. The browser **displays received events**; it does not send pushes or issue commands to the board.
-
-| Event received by the web app | Displayed as (the same as the phone) |
-|---|---|
-| `alert/no_breath` | 【緊急】呼吸が確認できません |
-| `alert/left_bed` | 【注意】ベッドにいません |
-| `info/fast_breathing` | 【注意】呼吸が速い状態が続いています |
-| `info/woke_up` | 【お知らせ】起きました |
-
-`CHECK` is a **Brain status**, not one of these four WebSocket events. The current server does **not** send a phone push for `CHECK` alone.
-
-A current warning is shown only after an alert event was received. Subsequent, newer analysis statuses may change its indication, but this is **not proof of medical recovery**. The recent-event list keeps up to 20 arrivals, newest first. It survives a WebSocket reconnection while the page stays open, but a reload clears it; there is no persistent notification database. A browser receipt does not prove that a phone received the push.
-
-### Files and tests
-
-| File | Purpose |
-|---|---|
-| [src/App.tsx](src/App.tsx) | Dashboard layout and LIVE/DEMO presentation |
-| [src/WaveChart.tsx](src/WaveChart.tsx) | The breathing graph: last 30 s, time axis glides smoothly between updates |
-| [src/ConnectionStatus.tsx](src/ConnectionStatus.tsx) | Compact connection strip and expandable diagnostics |
-| [src/NotificationPanel.tsx](src/NotificationPanel.tsx) | Current warnings and event history |
-| [src/data/](src/data/) | WebSocket, health, source selection, status words, waveform and notification logic |
-| [src/useDashboard.ts](src/useDashboard.ts) | Dashboard data subscription |
-| [tests/](tests/) | Frontend automated tests |
-| [scripts/test_pc_integration.py](scripts/test_pc_integration.py) | Integration check against a temporary copy of the team's actual PC server |
-
-Run the frontend checks from the repository root:
-
-```sh
-cd web
-npm test
-npm run build
-```
-
-For the optional PC integration check, first install the Python dependencies from the root [requirements.txt](../requirements.txt), make sure Node.js 22+ and the web dependencies are available, and run from the repository root:
-
-```sh
-python web/scripts/test_pc_integration.py
-```
-
-This test uses a recording or an explicitly labeled synthetic fixture; it does **not** validate real infant measurements. It disables phone notifications and does not need a connected radar board.
-
-### If something doesn't work
-
-- **Waiting/disconnected:** start the PC server and check **http://localhost:8000/api/health**. The development dashboard at port 5173 is not itself a radar server.
-- **No waveform or BPM:** check **接続の詳細**. The board may be disconnected, the data may be stale, the sensor may be shaking, or the Brain may be running in `placeholder` mode.
-- **Recorded waveform instead of live radar:** if the source says **録画再生**, the server is using `FileReplay`; connect the board and start the server without `--replay` for physical input.
-- **Phone alerts missing:** check the ntfy configuration in [pc/README.md](../pc/README.md). Seeing an event in the browser does not verify push delivery.
-
-**Limit:** IBUKI is a hackathon prototype, **not a medical device**. It has not been validated on infants and cannot diagnose breathing problems, guarantee safety or prevent SIDS.
+[日本語](#日本語) | [English](#english)
 
 ## 日本語
 
@@ -241,3 +121,123 @@ python web/scripts/test_pc_integration.py
 - **スマートフォンに通知が届かない：** [pc/README.md](../pc/README.md) の ntfy 設定を確認してください。ブラウザの通知履歴だけでは、プッシュ通知の到達は確認できません。
 
 **注意：** IBUKI はハッカソンで開発した**試作品であり、医療機器ではありません**。乳児での検証はまだ行っておらず、病気の診断、安全の保証、SIDS（乳幼児突然死症候群）の予防はできません。
+
+## English
+
+This is the browser dashboard for IBUKI, built with **React, TypeScript, Vite and Recharts**. It receives the PC Brain's results through WebSocket and shows breathing-related movement, estimated breathing rate, presence and notifications. The web app does not read the radar directly or make medical decisions; the PC server and Brain do that. See [pc/README.md](../pc/README.md) for the server and alerts, and [firmware/README.md](../firmware/README.md) for the radar board.
+
+### Running it
+
+On macOS, the easiest way is to run this from the repository root:
+
+```sh
+./ibuki.command
+```
+
+It prepares the dependencies, builds the dashboard when necessary, starts the PC server and opens **http://localhost:8000**. The page starts in **LIVE** automatically. To replay a recording rather than use a connected board:
+
+```sh
+./ibuki.command --replay recordings/<file>.csv
+```
+
+For frontend development, use Node.js **22.12+** and run:
+
+```sh
+cd web
+npm install
+npm run dev
+```
+
+Open **http://localhost:5173**. This also starts in LIVE, so run the PC server separately to receive data. Vite forwards `/ws` and `/api` to `127.0.0.1:8000`. The server serves the production build from `web/dist` after `npm run build`.
+
+To try the five simulated states **without a board or PC server**, open **http://localhost:5173/?demo=1** in the Vite development server. The DEMO uses simulated data and sends no notifications or device commands. It is unavailable in production: even `?demo=1` starts LIVE there. LIVE never falls back to fake data when a connection fails.
+
+### What's on the screen
+
+- **Connection status:** a small Japanese status strip shows whether the server, board input or incoming data needs attention. Open **接続の詳細** for the WebSocket URL, input source, Brain mode and other diagnostics. An open WebSocket alone does not prove that a physical radar is connected.
+- **Current state:** the state received from the Brain, in the same plain words as the main README and the phone (table below), plus センサーが揺れています while the board shakes. The dashboard does not independently decide whether breathing is safe.
+- **Waveform and breathing rate:** a graph of received chest-displacement samples (last 30 s) and the Brain's breaths per minute. Unavailable values appear as `—`; the frontend does not invent samples. When an update has no wave (shaking, learning, nobody there), the graph keeps what it drew and a grey dashed line marks 測定なし, so it never looks like a restart. It clears only when the board's clock starts again (a reboot).
+- **In bed and movement:** います / いません and 動いています / じっとしています, from the Brain's messages.
+- **Notifications:** the **20 most recent** events as a short list, with the phone's titles and urgency (【緊急】【注意】【お知らせ】). An event that is still going on is shown above the list.
+
+The Brain sends five states:
+
+| State | Shown as | Meaning |
+|---|---|---|
+| `EMPTY` | ベッドにいません | The target is not detected in bed. This state alone does not create a `left_bed` alert. |
+| `OK` | 起きています | Body movement detected; breathing-related small movements cannot be reliably assessed while moving. |
+| `STILL` | 眠っています | The Brain detected breathing-related movement while the target was relatively still. |
+| `CHECK` | 呼吸を確認中 | Breathing-related movement is not currently detected; the Brain is still checking. |
+| `ALERT` | 呼吸が確認できません | The no-breathing-motion condition has persisted long enough for the Brain's warning threshold. |
+
+These are **prototype analysis states, not diagnoses**. In particular, `OK` does not mean breathing has been medically confirmed as normal.
+
+### How LIVE data arrives
+
+The browser uses the existing PC endpoints: **`/ws`** for statuses, board connection events and notifications, and **`/api/health`** for input source and processing information. There is no separate web-side Python gateway.
+
+A status looks like this (example values only):
+
+```json
+{"t":123456,"state":"STILL","bpm":18.2,"disp_mm":[0.12,0.15],"dt_ms":60,"motion":0.8,"present":true}
+```
+
+`t` is the sending device's elapsed time in **milliseconds**, not a wall-clock timestamp. `disp_mm` contains new displacement samples, and `bpm` may be `null`. Optional fields include `source` and `shaking`. The web client validates incoming messages before using them.
+
+- The socket reconnects automatically after a connection failure. If valid status messages stop for **3 seconds**, the data is marked stale and the current measurements are hidden.
+- After connecting, the dashboard waits for timestamps to advance instead of displaying only the server's cached last message.
+- Board connection is tracked separately from WebSocket connection. A disconnected board or shaking sensor makes measurements unavailable rather than producing a made-up waveform.
+- **`BoardLink`** means board input (not verified measurement accuracy). **`FileReplay`** is explicitly labeled **録画再生**: recorded data, **not a live physical reading**. **`placeholder`** means provisional processing; it does not produce a validated breathing rate.
+
+### Notifications
+
+The PC server handles phone (iPhone) push notifications and the board's warning LED. The browser **displays received events**; it does not send pushes or issue commands to the board.
+
+| Event received by the web app | Displayed as (the same as the phone) |
+|---|---|
+| `alert/no_breath` | 【緊急】呼吸が確認できません |
+| `alert/left_bed` | 【注意】ベッドにいません |
+| `info/fast_breathing` | 【注意】呼吸が速い状態が続いています |
+| `info/woke_up` | 【お知らせ】起きました |
+
+`CHECK` is a **Brain status**, not one of these four WebSocket events. The current server does **not** send a phone push for `CHECK` alone.
+
+A current warning is shown only after an alert event was received. Subsequent, newer analysis statuses may change its indication, but this is **not proof of medical recovery**. The recent-event list keeps up to 20 arrivals, newest first. It survives a WebSocket reconnection while the page stays open, but a reload clears it; there is no persistent notification database. A browser receipt does not prove that a phone received the push.
+
+### Files and tests
+
+| File | Purpose |
+|---|---|
+| [src/App.tsx](src/App.tsx) | Dashboard layout and LIVE/DEMO presentation |
+| [src/WaveChart.tsx](src/WaveChart.tsx) | The breathing graph: last 30 s, time axis glides smoothly between updates |
+| [src/ConnectionStatus.tsx](src/ConnectionStatus.tsx) | Compact connection strip and expandable diagnostics |
+| [src/NotificationPanel.tsx](src/NotificationPanel.tsx) | Current warnings and event history |
+| [src/data/](src/data/) | WebSocket, health, source selection, status words, waveform and notification logic |
+| [src/useDashboard.ts](src/useDashboard.ts) | Dashboard data subscription |
+| [tests/](tests/) | Frontend automated tests |
+| [scripts/test_pc_integration.py](scripts/test_pc_integration.py) | Integration check against a temporary copy of the team's actual PC server |
+
+Run the frontend checks from the repository root:
+
+```sh
+cd web
+npm test
+npm run build
+```
+
+For the optional PC integration check, first install the Python dependencies from the root [requirements.txt](../requirements.txt), make sure Node.js 22+ and the web dependencies are available, and run from the repository root:
+
+```sh
+python web/scripts/test_pc_integration.py
+```
+
+This test uses a recording or an explicitly labeled synthetic fixture; it does **not** validate real infant measurements. It disables phone notifications and does not need a connected radar board.
+
+### If something doesn't work
+
+- **Waiting/disconnected:** start the PC server and check **http://localhost:8000/api/health**. The development dashboard at port 5173 is not itself a radar server.
+- **No waveform or BPM:** check **接続の詳細**. The board may be disconnected, the data may be stale, the sensor may be shaking, or the Brain may be running in `placeholder` mode.
+- **Recorded waveform instead of live radar:** if the source says **録画再生**, the server is using `FileReplay`; connect the board and start the server without `--replay` for physical input.
+- **Phone alerts missing:** check the ntfy configuration in [pc/README.md](../pc/README.md). Seeing an event in the browser does not verify push delivery.
+
+**Limit:** IBUKI is a hackathon prototype, **not a medical device**. It has not been validated on infants and cannot diagnose breathing problems, guarantee safety or prevent SIDS.

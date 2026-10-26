@@ -1,160 +1,6 @@
 # 息吹～IBUKI～ on the PC
 
-[English](#english) | [日本語](#日本語)
-
-## English
-
-This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
-
-### Running it
-
-The easiest way is `./ibuki.command` in the repo folder: it starts the server and opens the dashboard. On its first start it also makes a Python environment in `.venv` and installs the packages; the commands below use it. To run only the server:
-
-```
-.venv/bin/python pc/ibuki/server.py
-```
-
-Then open http://localhost:8000/api/health and check that `board_connected` is `true`. If you don't have the board with you, replay a recording instead:
-
-```
-.venv/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop
-```
-
-Only one program can have the serial port open. While the server runs, start the live viewer and the recorder with `--server` so they read through it:
-
-```
-.venv/bin/python firmware/tools/live_view.py --server
-.venv/bin/python pc/record.py breathing_50cm --seconds 60 --server
-```
-
-### What's in here
-
-[ibuki/serial_reader.py](ibuki/serial_reader.py) parses the board's lines, counts lost lines and reconnects on its own when the USB cable gets pulled.
-
-[ibuki/brain.py](ibuki/brain.py) is the Brain: presence, movement, breathing rate, and the states and alerts described below. The server uses it automatically. The no-breathing alert waits 10 s for demos. For a baby, start the server with `IBUKI_NO_BREATH_S=20`. Its thresholds come from Ramadhan's and lemonwasp's recordings and were checked on Manami's too (24 recordings from 3 people). The comment next to each threshold says what the recordings showed.
-
-[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) is the simple stand-in from before the Brain existed (`--brain placeholder`). It never gives a breathing rate and never raises an alert.
-
-[ibuki/shake.py](ibuki/shake.py) notices when the board itself is moving. Normally the walls and furniture don't move, so if all of their echoes jump at once, it's the board.
-
-[record.py](record.py) saves the raw board lines to `recordings/rec_<name>_<time>.csv`.
-
-[tests/](tests/) has 44 tests, including ones that start the real server. Run them with:
-
-```
-.venv/bin/python -m unittest discover -s pc/tests -t pc
-```
-
-### Notifications
-
-We use ntfy. Install the ntfy app on the iPhone, tap +, and subscribe to the topic in the repo's `.env` file (the line `IBUKI_NTFY_TOPIC=...`). To get the notifications on the Apple Watch too, turn on mirroring for ntfy in the iPhone's Watch app.
-
-To check it, start the server and run:
-
-```
-curl -X POST http://localhost:8000/api/test-notification
-```
-
-The phone should show 「【テスト】息吹～IBUKI～の通知」.
-
-To show the team what every notification looks like, send all four, lowest to highest urgency (no server needed):
-
-```
-.venv/bin/python pc/notify_demo.py
-.venv/bin/python pc/notify_demo.py no_breath    # only this one
-```
-
-Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
-
-### How the Brain plugs in
-
-The server loads the class `Brain` from `pc/ibuki/brain.py` (another class can be chosen with `--brain module:Class`).
-
-```python
-class Brain:
-    def feed(self, line: str) -> list[dict]:
-        ...  # called for every board line; return [] most of the time
-```
-
-About 8 times a second, it returns a status:
-
-```
-{"t": 123456, "state": "OK", "bpm": 34, "disp_mm": [0.12, 0.15], "dt_ms": 60,
- "motion": 12.5, "present": true, "chest_cm": 48.75}
-```
-
-`bpm` is None when the rate isn't known. `disp_mm` holds only the new samples since the last status. `state` follows this table:
-
-| In bed? | Moving? | Breathing? | state |
-|---|---|---|---|
-| no | | | EMPTY |
-| yes | yes | unknown (movement hides it) | OK (awake) |
-| yes | no | yes | STILL (asleep, breathing) |
-| yes | no | none found yet | CHECK (counting) |
-| yes | no | none for 20 s (10 s for the demo) | ALERT |
-
-It tells "in bed" from "empty" by the echo. When the room goes quiet, it checks whether the person's echo is still there: leaving takes it away (2-6% of their usual echo in our recordings), a breath-hold keeps it (59% or more). It doesn't rely on seeing them move first, because someone can move and then stop breathing. When the board shakes, breathing is unknown: a shake never leads to CHECK or ALERT.
-
-Events go out as extra dicts in the same list:
-
-| Event | When | What the server does |
-|---|---|---|
-| `{"type": "alert", "reason": "no_breath", "since_s": 20}` | entering ALERT | LED red, urgent push |
-| `{"type": "alert", "reason": "left_bed"}` | the baby was in bed and is gone | LED red, high push |
-| `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | asleep and above 50 breaths a minute (WHO "fast breathing" at 2 to 12 months) for 5 minutes. One level for every age for now | high push, no LED |
-| `{"type": "info", "reason": "woke_up"}` | moving again after 10 minutes asleep (still), at most every 5 minutes | silent push, no LED |
-
-CHECK alone sends no notification: it flickers on during short pauses, and parents who get too many pings start ignoring them. Every notification title starts with its urgency: 【緊急】, 【注意】 or 【お知らせ】.
-
-For no breathing, the laptop also plays a loud siren. Like a baby monitor, it keeps sounding until a person acknowledges it: the red 「アラームを止める」 button on the dashboard, the board's SW1 button, or Enter in the server window. Breathing coming back alone does not stop it. `IBUKI_SIREN=0` in `.env` turns it off.
-
-The LED goes off when someone presses the button. After "left the bed" it also goes off when a status says OK or STILL again (the baby is back). After no breathing it keeps blinking until the button, like the siren. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
-
-A few things about the data. D lines come every 60 ms (16.6 per second). The Brain filters breathing at 0.1 to 1.5 Hz (6 to 90 a minute), which covers adults and babies (about 30 to 60 a minute). Newborns often pause for 5 to 10 s, which is why the alert for a baby waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, it starts the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
-
-### What the server sends to the dashboard
-
-The server sends four kinds of messages on `ws://<laptop>:8000/ws`. Brain statuses look like the example above, and the placeholder ones also have `"source": "placeholder"` and `"shaking"`. While the board is shaking, `disp_mm` is empty. Alerts are `{"type": "alert", ...}` and info events are `{"type": "info", ...}`, both described in the Brain section. And `{"type": "board", "connected": true}` (or `false`) comes when you connect and whenever the USB board drops out or comes back.
-
-The dashboard shows the states as EMPTY ベッドにいません, OK 起きています, STILL 眠っています, CHECK 呼吸を確認中 and ALERT 呼吸が確認できません, and センサーが揺れています while `shaking` is true.
-
-Sample `i` of `n` belongs at `t - (n - 1 - i) * dt_ms`. A client can send `{"type": "button"}` to cancel an alert, the same as pressing the board's button.
-
-If you build the dashboard (`npm run build` in `web/`), the server also serves it at http://<laptop-ip>:8000, so phones on the same Wi-Fi can open it.
-
-### Recording
-
-The guided session records the set below, one after another. It waits for Enter before each one and tells you out loud when to start, hold your breath, tap the table or walk away:
-
-```
-.venv/bin/python pc/record_session.py
-```
-
-Or record them one at a time, 60 seconds each:
-
-```
-.venv/bin/python pc/record.py <name> --seconds 60
-```
-
-Add `--server` if the server is running.
-
-- `empty`: nobody within 1.2 m of the board
-- `breathing_20cm`: chest 20 cm from the board, sitting still. Breathe with the voice (10 a minute) for 30 s, then normally
-- `breathing_30cm` and `breathing_50cm`: the same at 30 and 50 cm
-- `hold`: breathe for 20 s, hold your breath for 20 s, then breathe for 20 s
-- `moving`: shift around and move your arms
-- `shake`: breathe quietly, then tap or bump the table a few times
-- `leave`: breathe for 20 s, then walk away
-
-The session asks for a name and saves to `recordings/<name>/`; three of us recorded this set on Hack Day. Git ignores the recordings, except small samples ending in `.sample.csv` (three are in [recordings/samples/](../recordings/samples/)).
-
-### If something doesn't work
-
-`board_connected` is false: check the cable. If it's plugged in, another program probably has the port, so close the viewer or start it with `--server`.
-
-The log says "Brain ... FAILED to load": `pc/ibuki/brain.py` has an error. The message names it, and the server falls back to the placeholder.
-
-No notification: check that `/api/health` shows `"ntfy": true`, that the app is subscribed to the right topic, and that the laptop is online.
+[日本語](#日本語) | [English](#english)
 
 ## 日本語
 
@@ -309,3 +155,157 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 ログに「Brain ... FAILED to load」と出る：`pc/ibuki/brain.py` にエラーがあります。メッセージに理由が出て、サーバーは仮の Brain で動き続けます。
 
 通知が来ない：`/api/health` で `"ntfy": true` になっているか、アプリが正しいトピックを購読しているか、PC がインターネットにつながっているかを確認してください。
+
+## English
+
+This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
+
+### Running it
+
+The easiest way is `./ibuki.command` in the repo folder: it starts the server and opens the dashboard. On its first start it also makes a Python environment in `.venv` and installs the packages; the commands below use it. To run only the server:
+
+```
+.venv/bin/python pc/ibuki/server.py
+```
+
+Then open http://localhost:8000/api/health and check that `board_connected` is `true`. If you don't have the board with you, replay a recording instead:
+
+```
+.venv/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop
+```
+
+Only one program can have the serial port open. While the server runs, start the live viewer and the recorder with `--server` so they read through it:
+
+```
+.venv/bin/python firmware/tools/live_view.py --server
+.venv/bin/python pc/record.py breathing_50cm --seconds 60 --server
+```
+
+### What's in here
+
+[ibuki/serial_reader.py](ibuki/serial_reader.py) parses the board's lines, counts lost lines and reconnects on its own when the USB cable gets pulled.
+
+[ibuki/brain.py](ibuki/brain.py) is the Brain: presence, movement, breathing rate, and the states and alerts described below. The server uses it automatically. The no-breathing alert waits 10 s for demos. For a baby, start the server with `IBUKI_NO_BREATH_S=20`. Its thresholds come from Ramadhan's and lemonwasp's recordings and were checked on Manami's too (24 recordings from 3 people). The comment next to each threshold says what the recordings showed.
+
+[ibuki/placeholder_brain.py](ibuki/placeholder_brain.py) is the simple stand-in from before the Brain existed (`--brain placeholder`). It never gives a breathing rate and never raises an alert.
+
+[ibuki/shake.py](ibuki/shake.py) notices when the board itself is moving. Normally the walls and furniture don't move, so if all of their echoes jump at once, it's the board.
+
+[record.py](record.py) saves the raw board lines to `recordings/rec_<name>_<time>.csv`.
+
+[tests/](tests/) has 44 tests, including ones that start the real server. Run them with:
+
+```
+.venv/bin/python -m unittest discover -s pc/tests -t pc
+```
+
+### Notifications
+
+We use ntfy. Install the ntfy app on the iPhone, tap +, and subscribe to the topic in the repo's `.env` file (the line `IBUKI_NTFY_TOPIC=...`). To get the notifications on the Apple Watch too, turn on mirroring for ntfy in the iPhone's Watch app.
+
+To check it, start the server and run:
+
+```
+curl -X POST http://localhost:8000/api/test-notification
+```
+
+The phone should show 「【テスト】息吹～IBUKI～の通知」.
+
+To show the team what every notification looks like, send all four, lowest to highest urgency (no server needed):
+
+```
+.venv/bin/python pc/notify_demo.py
+.venv/bin/python pc/notify_demo.py no_breath    # only this one
+```
+
+Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
+
+### How the Brain plugs in
+
+The server loads the class `Brain` from `pc/ibuki/brain.py` (another class can be chosen with `--brain module:Class`).
+
+```python
+class Brain:
+    def feed(self, line: str) -> list[dict]:
+        ...  # called for every board line; return [] most of the time
+```
+
+About 8 times a second, it returns a status:
+
+```
+{"t": 123456, "state": "OK", "bpm": 34, "disp_mm": [0.12, 0.15], "dt_ms": 60,
+ "motion": 12.5, "present": true, "chest_cm": 48.75}
+```
+
+`bpm` is None when the rate isn't known. `disp_mm` holds only the new samples since the last status. `state` follows this table:
+
+| In bed? | Moving? | Breathing? | state |
+|---|---|---|---|
+| no | | | EMPTY |
+| yes | yes | unknown (movement hides it) | OK (awake) |
+| yes | no | yes | STILL (asleep, breathing) |
+| yes | no | none found yet | CHECK (counting) |
+| yes | no | none for 20 s (10 s for the demo) | ALERT |
+
+It tells "in bed" from "empty" by the echo. When the room goes quiet, it checks whether the person's echo is still there: leaving takes it away (2-6% of their usual echo in our recordings), a breath-hold keeps it (59% or more). It doesn't rely on seeing them move first, because someone can move and then stop breathing. When the board shakes, breathing is unknown: a shake never leads to CHECK or ALERT.
+
+Events go out as extra dicts in the same list:
+
+| Event | When | What the server does |
+|---|---|---|
+| `{"type": "alert", "reason": "no_breath", "since_s": 20}` | entering ALERT | LED red, urgent push |
+| `{"type": "alert", "reason": "left_bed"}` | the baby was in bed and is gone | LED red, high push |
+| `{"type": "info", "reason": "fast_breathing", "bpm": 62}` | asleep and above 50 breaths a minute (WHO "fast breathing" at 2 to 12 months) for 5 minutes. One level for every age for now | high push, no LED |
+| `{"type": "info", "reason": "woke_up"}` | moving again after 10 minutes asleep (still), at most every 5 minutes | silent push, no LED |
+
+CHECK alone sends no notification: it flickers on during short pauses, and parents who get too many pings start ignoring them. Every notification title starts with its urgency: 【緊急】, 【注意】 or 【お知らせ】.
+
+For no breathing, the laptop also plays a loud siren. Like a baby monitor, it keeps sounding until a person acknowledges it: the red 「アラームを止める」 button on the dashboard, the board's SW1 button, or Enter in the server window. Breathing coming back alone does not stop it. `IBUKI_SIREN=0` in `.env` turns it off.
+
+The LED goes off when someone presses the button. After "left the bed" it also goes off when a status says OK or STILL again (the baby is back). After no breathing it keeps blinking until the button, like the siren. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
+
+A few things about the data. D lines come every 60 ms (16.6 per second). The Brain filters breathing at 0.1 to 1.5 Hz (6 to 90 a minute), which covers adults and babies (about 30 to 60 a minute). Newborns often pause for 5 to 10 s, which is why the alert for a baby waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, it starts the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
+
+### What the server sends to the dashboard
+
+The server sends four kinds of messages on `ws://<laptop>:8000/ws`. Brain statuses look like the example above, and the placeholder ones also have `"source": "placeholder"` and `"shaking"`. While the board is shaking, `disp_mm` is empty. Alerts are `{"type": "alert", ...}` and info events are `{"type": "info", ...}`, both described in the Brain section. And `{"type": "board", "connected": true}` (or `false`) comes when you connect and whenever the USB board drops out or comes back.
+
+The dashboard shows the states as EMPTY ベッドにいません, OK 起きています, STILL 眠っています, CHECK 呼吸を確認中 and ALERT 呼吸が確認できません, and センサーが揺れています while `shaking` is true.
+
+Sample `i` of `n` belongs at `t - (n - 1 - i) * dt_ms`. A client can send `{"type": "button"}` to cancel an alert, the same as pressing the board's button.
+
+If you build the dashboard (`npm run build` in `web/`), the server also serves it at http://<laptop-ip>:8000, so phones on the same Wi-Fi can open it.
+
+### Recording
+
+The guided session records the set below, one after another. It waits for Enter before each one and tells you out loud when to start, hold your breath, tap the table or walk away:
+
+```
+.venv/bin/python pc/record_session.py
+```
+
+Or record them one at a time, 60 seconds each:
+
+```
+.venv/bin/python pc/record.py <name> --seconds 60
+```
+
+Add `--server` if the server is running.
+
+- `empty`: nobody within 1.2 m of the board
+- `breathing_20cm`: chest 20 cm from the board, sitting still. Breathe with the voice (10 a minute) for 30 s, then normally
+- `breathing_30cm` and `breathing_50cm`: the same at 30 and 50 cm
+- `hold`: breathe for 20 s, hold your breath for 20 s, then breathe for 20 s
+- `moving`: shift around and move your arms
+- `shake`: breathe quietly, then tap or bump the table a few times
+- `leave`: breathe for 20 s, then walk away
+
+The session asks for a name and saves to `recordings/<name>/`; three of us recorded this set on Hack Day. Git ignores the recordings, except small samples ending in `.sample.csv` (three are in [recordings/samples/](../recordings/samples/)).
+
+### If something doesn't work
+
+`board_connected` is false: check the cable. If it's plugged in, another program probably has the port, so close the viewer or start it with `--server`.
+
+The log says "Brain ... FAILED to load": `pc/ibuki/brain.py` has an error. The message names it, and the server falls back to the placeholder.
+
+No notification: check that `/api/health` shows `"ntfy": true`, that the app is subscribed to the right topic, and that the laptop is online.
