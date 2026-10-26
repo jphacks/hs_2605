@@ -4,13 +4,30 @@ import sys
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np  # noqa: E402
 
 from ibuki.serial_reader import (Button, Config, Data, FileReplay, SeqTracker,  # noqa: E402
-                                 Status, parse_line)
+                                 Status, find_port, parse_line)
+
+
+class WindowsPortTest(unittest.TestCase):
+    def test_only_one_kitprog_is_selected_and_unrelated_com_ports_are_ignored(self):
+        kit = SimpleNamespace(device="COM7", description="KitProg3 USB-UART", product=None)
+        unrelated = SimpleNamespace(device="COM2", description="Bluetooth Serial", product=None)
+        with patch("ibuki.serial_reader.sys.platform", "win32"), patch("serial.tools.list_ports.comports", return_value=[unrelated, kit]):
+            self.assertEqual(find_port(), "COM7")
+        for ports in [[], [unrelated], [kit, kit]]:
+            with patch("ibuki.serial_reader.sys.platform", "win32"), patch("serial.tools.list_ports.comports", return_value=ports):
+                self.assertIsNone(find_port())
+
+    def test_macos_detection_is_unchanged(self):
+        with patch("ibuki.serial_reader.sys.platform", "darwin"), patch("ibuki.serial_reader.glob.glob", return_value=["/dev/cu.usbmodem2", "/dev/cu.usbmodem1"]):
+            self.assertEqual(find_port(), "/dev/cu.usbmodem1")
 
 
 class ParseTest(unittest.TestCase):

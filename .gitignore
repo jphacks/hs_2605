@@ -9,6 +9,7 @@ CLAUDE.md
 __pycache__/
 *.pyc
 .venv/
+.venv-windows/
 venv/
 env/
 .pytest_cache/

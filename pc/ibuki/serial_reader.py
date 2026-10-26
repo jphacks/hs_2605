@@ -11,6 +11,7 @@ Any other line is ignored.
 from __future__ import annotations
 
 import glob
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -100,6 +101,14 @@ class SeqTracker:
 
 
 def find_port() -> Optional[str]:
+    if sys.platform == "win32":
+        from serial.tools import list_ports
+
+        # The team's board exposes KitProg3 USB UART. Do not select unrelated
+        # Bluetooth/USB serial devices, or guess when several boards are attached.
+        ports = [p.device for p in list_ports.comports()
+                 if "kitprog" in f"{p.description} {p.product}".lower()]
+        return ports[0] if len(ports) == 1 else None
     ports = sorted(glob.glob("/dev/cu.usbmodem*"))
     return ports[0] if ports else None
 
