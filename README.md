@@ -111,14 +111,9 @@
 
 <table>
   <tr>
-    <td><img src="docs/images/dashboard_breathing.png" width="260" alt="今のダッシュボード：眠っています。胸の動きの波が出ている"></td>
-    <td><img src="docs/images/dashboard_alarm.png" width="260" alt="今のダッシュボード：呼吸が確認できません。アラームを止めるボタンと【緊急】の通知"></td>
-    <td><img src="docs/images/dashboard_left_bed.png" width="260" alt="今のダッシュボード：ベッドにいません。グラフは灰色の点線（測定なし）になり、【注意】の通知"></td>
-  </tr>
-  <tr>
-    <td>ふつうに呼吸：眠っています。胸の動きの波</td>
-    <td>息を止める：呼吸が確認できません。アラームの停止ボタンと【緊急】の通知</td>
-    <td>ベッドから離れる：ベッドにいません。グラフは灰色の点線（測定なし）になり、【注意】の通知</td>
+    <td width="33%" valign="top"><img src="docs/images/dashboard_breathing.png" alt="今のダッシュボード：眠っています。胸の動きの波が出ている"><br>ふつうに呼吸：眠っています。胸の動きの波</td>
+    <td width="33%" valign="top"><img src="docs/images/dashboard_alarm.png" alt="今のダッシュボード：呼吸が確認できません。アラームを止めるボタンと【緊急】の通知"><br>息を止める：呼吸が確認できません。アラームの停止ボタンと【緊急】の通知</td>
+    <td width="33%" valign="top"><img src="docs/images/dashboard_left_bed.png" alt="今のダッシュボード：ベッドにいません。グラフは灰色の点線（測定なし）になり、【注意】の通知"><br>ベッドから離れる：ベッドにいません。グラフは灰色の点線（測定なし）になり、【注意】の通知</td>
   </tr>
 </table>
 
