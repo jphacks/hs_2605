@@ -181,34 +181,78 @@ class Siren:
     or Enter in the server window. Breathing coming back alone does not stop it."""
 
     def __init__(self, enabled: bool):
-        self.enabled = enabled and sys.platform == "darwin" and shutil.which("afplay") is not None
+        self._winsound = importlib.import_module("winsound") if enabled and sys.platform == "win32" else None
+        self.enabled = enabled and (self._winsound is not None or
+                                    sys.platform == "darwin" and shutil.which("afplay") is not None)
         self.on = False
         self._proc = None
         self._wav = None
+        self._lock = threading.RLock()
+        self._stop_event = threading.Event()
+        self._thread = None
 
     def start(self):
-        if self.on:
-            return
-        self.on = True
-        log("SIREN on (stop it with the dashboard's stop button, the board's SW1, or Enter here)")
-        if self.enabled:
-            threading.Thread(target=self._loop, daemon=True).start()
+        with self._lock:
+            if self.on:
+                return
+            self.on = True
+            self._stop_event = threading.Event()
+            log("SIREN on (stop it with the dashboard's stop button, the board's SW1, or Enter here)")
+            if not self.enabled:
+                return
+            try:
+                self._wav = self._make_wav()
+                if self._winsound is not None:
+                    self._winsound.PlaySound(self._wav, self._winsound.SND_FILENAME |
+                                             self._winsound.SND_ASYNC | self._winsound.SND_LOOP)
+                else:
+                    self._thread = threading.Thread(target=self._loop,
+                                                    args=(self._stop_event, self._wav), daemon=True)
+                    self._thread.start()
+            except (OSError, RuntimeError) as error:
+                log(f"SIREN audio unavailable: {error}")
 
     def stop(self):
-        if not self.on:
-            return
-        self.on = False
-        log("SIREN off")
-        proc = self._proc
-        if proc and proc.poll() is None:
-            proc.terminate()
+        with self._lock:
+            if not self.on:
+                return
+            self.on = False
+            self._stop_event.set()
+            log("SIREN off")
+            if self._winsound is not None:
+                try:
+                    self._winsound.PlaySound(None, 0)
+                except RuntimeError as error:
+                    log(f"SIREN audio stop failed: {error}")
+            proc, thread, wav = self._proc, self._thread, self._wav
+            self._wav = None
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=2)
+        if wav:
+            try:
+                os.unlink(wav)
+            except OSError:
+                pass
 
-    def _loop(self):
-        self._wav = self._wav or self._make_wav()
-        while self.on:
-            self._proc = subprocess.Popen(["afplay", self._wav],
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self._proc.wait()
+    def _loop(self, stopped, wav):
+        try:
+            while not stopped.is_set():
+                with self._lock:
+                    if stopped.is_set():
+                        return
+                    proc = subprocess.Popen(["afplay", wav], stdout=subprocess.DEVNULL,
+                                            stderr=subprocess.DEVNULL)
+                    self._proc = proc
+                proc.wait()
+        except OSError as error:
+            log(f"SIREN audio unavailable: {error}")
 
     @staticmethod
     def _make_wav() -> str:
@@ -217,7 +261,8 @@ class Siren:
         fade = np.minimum(1.0, np.minimum(t, t[::-1]) / 0.005)  # no clicks between the tones
         tones = [np.sin(2 * np.pi * f * t) * fade for f in (960, 720, 960, 720)]
         pcm = (np.concatenate(tones) * 0.8 * 32767).astype("<i2")
-        path = os.path.join(tempfile.gettempdir(), "ibuki_siren.wav")
+        descriptor, path = tempfile.mkstemp(prefix="ibuki_siren_", suffix=".wav")
+        os.close(descriptor)
         with wave.open(path, "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
@@ -398,10 +443,12 @@ def create_app(args) -> FastAPI:
         hub.source.start()
         if sys.stdin and sys.stdin.isatty():
             threading.Thread(target=enter_acknowledges, args=(hub,), daemon=True).start()
-        yield
-        hub.siren.stop()
-        hub.source.stop()
-        task.cancel()
+        try:
+            yield
+        finally:
+            hub.siren.stop()
+            hub.source.stop()
+            task.cancel()
 
     app = FastAPI(title="IBUKI", lifespan=lifespan)
     app.state.hub = hub

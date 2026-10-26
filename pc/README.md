@@ -8,6 +8,8 @@
 
 ### 動かし方
 
+**Windows 10/11** ではリポジトリの `ibuki.cmd` をダブルクリックするか、PowerShell / CMD から `.\ibuki.cmd` を実行します。**macOS** はこれまでどおり `./ibuki.command` です。Windows の初回準備・録画の起動例はルートの [動かし方](../README.md#動かし方) にあります。
+
 いちばん簡単なのは、リポジトリのフォルダで `./ibuki.command` を動かすことです。サーバーを起動して、ダッシュボードを開きます。最初の起動では `.venv` に Python の環境を作り、パッケージも入れます。下のコマンドはそれを使います。サーバーだけを動かすときは：
 
 ```
@@ -20,6 +22,10 @@ http://localhost:8000/api/health を開いて、`board_connected` が `true` に
 .venv/bin/python pc/ibuki/server.py --replay recordings/<ファイル>.csv --loop
 ```
 
+Windows のサーバー単独起動は `.\.venv\Scripts\python.exe pc/ibuki/server.py --port COM5` です。KitProg3 が 1 つなら自動検出し、それ以外は `--port` で明示します。ポート一覧は `.\.venv\Scripts\python.exe -m serial.tools.list_ports` で確認できます。再生時は health の `source` が `FileReplay` なので、`board_connected: true` でも物理ボードがつながっている意味ではありません。実機は `source: BoardLink` も確認してください。
+
+Windows 実行器は利用可能な既存環境を再利用し、依存関係や Web ソース・設定・公開アセットの変更を記録して必要なときだけ準備し直します。壊れた既存環境を自動削除しません。エラー時は非 0 の終了コードと原因を表示します。`--http-port` / `--host` を指定した場合、ブラウザもその接続先の health 応答を待ちます。自動でブラウザを開かない場合は環境変数 `IBUKI_OPEN_BROWSER=0` を指定できます。
+
 シリアルポートは 1 つのプログラムしか開けません。サーバーを動かしているあいだは、ライブ表示と録画に `--server` を付けて、サーバー経由で読みます：
 
 ```
@@ -28,6 +34,8 @@ http://localhost:8000/api/health を開いて、`board_connected` が `true` に
 ```
 
 ### 中身
+
+別の PC からコピーした `.venv` が起動できない場合も元のファイルは残し、Windows 用の `.venv-windows` を作って使います。Python のバージョンと NumPy などのバイナリが合わない場合は、パッケージを再インストールして import を確認します。使う環境は起動ログに表示します。Windows の Ctrl+C 後に `Terminate batch job (Y/N)?` と表示されたら Y を押してください。サーバーと音はその前に停止します。
 
 [ibuki/serial_reader.py](ibuki/serial_reader.py) はボードの行を読み取り、抜けた行を数えます。USB が抜けても自分でつなぎ直します。
 
@@ -114,6 +122,8 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 
 ### ダッシュボードに送るもの
 
+アラーム音は macOS の `afplay`、Windows の標準 `winsound` で同じ 2 音の WAV を繰り返します。画面の停止・サーバーの Enter・SW1 は既存の同じ解除処理を使い、サーバー終了時にも停止します。音を使わないテストは PowerShell で `$env:IBUKI_SIREN="0"`、CMD で `set IBUKI_SIREN=0` を指定してから起動してください。`IBUKI_SIREN=0` は音だけを無効にし、画面の警告や既存の解除処理は変えません。
+
 サーバーは `ws://<PC>:8000/ws` に 4 種類のメッセージを送ります。Brain の状態は上の例と同じ形で、仮の Brain のものには `"source": "placeholder"` と `"shaking"` も付きます。ボードが揺れているあいだ `disp_mm` は空です。警告は `{"type": "alert", ...}`、お知らせは `{"type": "info", ...}` で、どちらも Brain の章に書いてあります。`{"type": "board", "connected": true}`（または `false`）は、接続したときと、USB のボードが外れたり戻ったりしたときに届きます。
 
 ダッシュボードは状態を、EMPTY ベッドにいません、OK 起きています、STILL 眠っています、CHECK 呼吸を確認中、ALERT 呼吸が確認できません と表示し、`shaking` が true のあいだは「センサーが揺れています」と表示します。
@@ -161,6 +171,8 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
 
 ### Running it
+
+On **Windows 10/11**, run `.\ibuki.cmd` from PowerShell or CMD (or double-click it). **macOS** continues to use `./ibuki.command`. Both prepare Python and the dashboard and open the browser after health is ready; stop with Ctrl+C. See the root [run instructions](../README.md#動かし方) for all three hardware-free sample replays. Windows detects a single KitProg3 UART; use `--port COM5` if detection is ambiguous or unavailable. For server-only commands below, replace `.venv/bin/python` with `.\.venv\Scripts\python.exe` on Windows. `IBUKI_OPEN_BROWSER=0` disables the Windows launcher's browser opening for headless runs.
 
 The easiest way is `./ibuki.command` in the repo folder: it starts the server and opens the dashboard. On its first start it also makes a Python environment in `.venv` and installs the packages; the commands below use it. To run only the server:
 

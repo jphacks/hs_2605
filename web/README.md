@@ -8,6 +8,8 @@ IBUKI のブラウザ用ダッシュボードです。**React、TypeScript、Vit
 
 ### 動かし方
 
+Windows 10/11 はリポジトリのルートで `.\ibuki.cmd` を実行します（PowerShell / CMD 共通）。macOS の `./ibuki.command` と同じく、Python 環境・Web ビルドを準備し、health 応答後に画面を開きます。`.\ibuki.cmd --replay recordings/samples/hold.sample.csv` のように、3 種類の [サンプル録画](../README.md#動かし方) をボードなしで再生できます。Vite の開発手順と LIVE/DEMO の動作は変わりません。
+
 macOS では、リポジトリのルートから次を実行するのが簡単です：
 
 ```sh

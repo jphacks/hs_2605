@@ -154,9 +154,12 @@ class ServerTest(unittest.TestCase):
 
     def test_woke_up_is_info_left_bed_is_alert(self):
         env = {"IBUKI_NTFY_TOPIC": "ibuki-test", "IBUKI_NTFY_URL": "http://127.0.0.1:9"}
-        s = ServerRun(self.recording, "tests.fake_brains:StoryBrain", env)
+        # At x4 the one-shot info event occurs after only 0.3 s, before a
+        # Windows cold-start WebSocket handshake can finish. Keep the story at
+        # real-time speed and collect through the return-to-bed status instead.
+        s = ServerRun(self.recording, "tests.fake_brains:StoryBrain", env, speed=1.0)
         try:
-            msgs = s.messages(2.5)
+            msgs = s.messages(5.0)
         finally:
             s.stop()
         out = s.output

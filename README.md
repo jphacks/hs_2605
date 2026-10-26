@@ -156,19 +156,34 @@ flowchart LR
 Brain は機械学習ではなく、録画から決めたルールで判断します。くわしくは [pc/README.md](pc/README.md) に記載されています。
 
 ## 動かし方
-ボードを USB でつなぎ、`ibuki.command` をダブルクリックします（ターミナルなら `./ibuki.command`）。ブラウザで LIVE 監視画面が自動的に開きます。
+ボードを USB でつなぎ、Mac では `ibuki.command`、Windows 10/11 では `ibuki.cmd` をダブルクリックします。ターミナルからも起動できます。準備ができるとブラウザで LIVE 監視画面が自動的に開きます。
 
-- 初回は Python のパッケージ（[requirements.txt](requirements.txt)）を入れて、ダッシュボードをビルドします。Python 3 と Node.js が必要です。
+```sh
+# macOS
+./ibuki.command
+```
+
+```powershell
+# Windows（PowerShell / CMD）
+.\ibuki.cmd
+# ポートを指定する場合
+.\ibuki.cmd --port COM5
+```
+
+- 初回は Python のパッケージ（[requirements.txt](requirements.txt)）を入れて、ダッシュボードをビルドします。Python 3.10+ と Node.js 22.12+（npm を含む）が必要です。
+- Windows は `..\env\Scripts\python.exe`、次に `.venv\Scripts\python.exe` を再利用し、なければ `.venv` を作ります。通常は KitProg3 のポートを自動検出します。複数ある場合や検出できない場合は `--port COM5` のように指定してください。終了は Ctrl+C です。
 - 通知を使うときは、[.env.example](.env.example) を `.env` にコピーして、ntfy のトピックを書きます。
 - 録画を再生するときは `./ibuki.command --replay recordings/<ファイル名>.csv` です。
 
 **ボードがなくても試せます。** Hack Day に実機で録った録画（各 1 分）を [recordings/samples/](recordings/samples/) に入れています。
 
-| コマンド | 見られること |
-|---|---|
-| `./ibuki.command --replay recordings/samples/breathing.sample.csv` | ふつうの呼吸：「眠っています」と呼吸の波 |
-| `./ibuki.command --replay recordings/samples/hold.sample.csv` | 息止め：「呼吸を確認中」から「呼吸が確認できません」の警告 |
-| `./ibuki.command --replay recordings/samples/leave.sample.csv` | 立ち去り：「ベッドにいません」の通知 |
+| macOS | Windows（PowerShell / CMD） | 見られること |
+|---|---|---|
+| `./ibuki.command --replay recordings/samples/breathing.sample.csv` | `.\ibuki.cmd --replay recordings/samples/breathing.sample.csv` | ふつうの呼吸：「眠っています」と呼吸の波 |
+| `./ibuki.command --replay recordings/samples/hold.sample.csv` | `.\ibuki.cmd --replay recordings/samples/hold.sample.csv` | 息止め：「呼吸を確認中」から「呼吸が確認できません」の警告 |
+| `./ibuki.command --replay recordings/samples/leave.sample.csv` | `.\ibuki.cmd --replay recordings/samples/leave.sample.csv` | 立ち去り：「ベッドにいません」の通知 |
+
+録画再生は実機の現在の測定ではありません。`--loop` で繰り返し、`--brain placeholder` など既存のサーバーオプションもそのまま使えます。1 回のテストを終えたら Ctrl+C で止め、次の録画を起動してください。ホールドの警告音は Mac / Windows とも、画面の停止ボタン・サーバーの Enter・ボードの SW1 で止めるまで繰り返します。`IBUKI_SIREN=0` で音を無効にできます。録画でも `.env` の ntfy 設定は有効です。
 
 ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md) にくわしく書いてあります。
 
