@@ -39,7 +39,7 @@ Only one program can have the serial port open. While the server runs, start the
 
 [record.py](record.py) saves the raw board lines to `recordings/rec_<name>_<time>.csv`.
 
-[tests/](tests/) has 19 tests, including ones that start the real server. Run them with:
+[tests/](tests/) has 44 tests, including ones that start the real server. Run them with:
 
 ```
 ../env/bin/python -m unittest discover -s pc/tests -t pc
@@ -193,7 +193,7 @@ http://localhost:8000/api/health を開いて、`board_connected` が `true` に
 
 [record.py](record.py) はボードの生データを `recordings/rec_<名前>_<時刻>.csv` に保存します。
 
-[tests/](tests/) にはテストが 19 個あり、実際にサーバーを起動するものも含まれます：
+[tests/](tests/) にはテストが 44 個あり、実際にサーバーを起動するものも含まれます：
 
 ```
 ../env/bin/python -m unittest discover -s pc/tests -t pc
