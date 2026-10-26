@@ -8,23 +8,23 @@ This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py)
 
 ### Running it
 
-The easiest way is `./ibuki.command` in the repo folder: it starts the server and opens the dashboard. To run only the server:
+The easiest way is `./ibuki.command` in the repo folder: it starts the server and opens the dashboard. On its first start it also makes a Python environment in `.venv` and installs the packages; the commands below use it. To run only the server:
 
 ```
-../env/bin/python pc/ibuki/server.py
+.venv/bin/python pc/ibuki/server.py
 ```
 
 Then open http://localhost:8000/api/health and check that `board_connected` is `true`. If you don't have the board with you, replay a recording instead:
 
 ```
-../env/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop
+.venv/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop
 ```
 
 Only one program can have the serial port open. While the server runs, start the live viewer and the recorder with `--server` so they read through it:
 
 ```
-../env/bin/python firmware/tools/live_view.py --server
-../env/bin/python pc/record.py breathing_50cm --seconds 60 --server
+.venv/bin/python firmware/tools/live_view.py --server
+.venv/bin/python pc/record.py breathing_50cm --seconds 60 --server
 ```
 
 ### What's in here
@@ -42,7 +42,7 @@ Only one program can have the serial port open. While the server runs, start the
 [tests/](tests/) has 44 tests, including ones that start the real server. Run them with:
 
 ```
-../env/bin/python -m unittest discover -s pc/tests -t pc
+.venv/bin/python -m unittest discover -s pc/tests -t pc
 ```
 
 ### Notifications
@@ -60,8 +60,8 @@ The phone should show 「【テスト】息吹～IBUKI～の通知」.
 To show the team what every notification looks like, send all four, lowest to highest urgency (no server needed):
 
 ```
-../env/bin/python pc/notify_demo.py
-../env/bin/python pc/notify_demo.py no_breath    # only this one
+.venv/bin/python pc/notify_demo.py
+.venv/bin/python pc/notify_demo.py no_breath    # only this one
 ```
 
 Treat the topic like a password, because anyone who knows it can read and send. `.env` is ignored by git, so it won't get committed by accident. If there's no internet the notification fails, but the LED and the dashboard warning still work.
@@ -127,13 +127,13 @@ If you build the dashboard (`npm run build` in `web/`), the server also serves i
 The easiest way is the guided session. It goes through the whole list below, waits for Enter before each one, and tells you out loud when to start, hold your breath, tap the table or walk away:
 
 ```
-../env/bin/python pc/record_session.py
+.venv/bin/python pc/record_session.py
 ```
 
 Or record them one at a time, 60 seconds each:
 
 ```
-../env/bin/python pc/record.py <name> --seconds 60
+.venv/bin/python pc/record.py <name> --seconds 60
 ```
 
 Add `--server` if the server is running.
@@ -162,23 +162,23 @@ No notification: check that `/api/health` shows `"ntfy": true`, that the app is 
 
 ### 動かし方
 
-いちばん簡単なのは、リポジトリのフォルダで `./ibuki.command` を動かすことです。サーバーを起動して、ダッシュボードを開きます。サーバーだけを動かすときは：
+いちばん簡単なのは、リポジトリのフォルダで `./ibuki.command` を動かすことです。サーバーを起動して、ダッシュボードを開きます。最初の起動では `.venv` に Python の環境を作り、パッケージも入れます。下のコマンドはそれを使います。サーバーだけを動かすときは：
 
 ```
-../env/bin/python pc/ibuki/server.py
+.venv/bin/python pc/ibuki/server.py
 ```
 
 http://localhost:8000/api/health を開いて、`board_connected` が `true` になっていれば大丈夫です。ボードが手元にないときは、録画を再生できます：
 
 ```
-../env/bin/python pc/ibuki/server.py --replay recordings/<ファイル>.csv --loop
+.venv/bin/python pc/ibuki/server.py --replay recordings/<ファイル>.csv --loop
 ```
 
 シリアルポートは 1 つのプログラムしか開けません。サーバーを動かしているあいだは、ライブ表示と録画に `--server` を付けて、サーバー経由で読みます：
 
 ```
-../env/bin/python firmware/tools/live_view.py --server
-../env/bin/python pc/record.py breathing_50cm --seconds 60 --server
+.venv/bin/python firmware/tools/live_view.py --server
+.venv/bin/python pc/record.py breathing_50cm --seconds 60 --server
 ```
 
 ### 中身
@@ -196,7 +196,7 @@ http://localhost:8000/api/health を開いて、`board_connected` が `true` に
 [tests/](tests/) にはテストが 44 個あり、実際にサーバーを起動するものも含まれます：
 
 ```
-../env/bin/python -m unittest discover -s pc/tests -t pc
+.venv/bin/python -m unittest discover -s pc/tests -t pc
 ```
 
 ### 通知
@@ -214,8 +214,8 @@ curl -X POST http://localhost:8000/api/test-notification
 チームにすべての通知の見た目を見せるときは、緊急度の低い順に 4 つ送ります（サーバーは不要です）：
 
 ```
-../env/bin/python pc/notify_demo.py
-../env/bin/python pc/notify_demo.py no_breath    # これだけ送る
+.venv/bin/python pc/notify_demo.py
+.venv/bin/python pc/notify_demo.py no_breath    # これだけ送る
 ```
 
 トピックはパスワードのようなものです。知っている人なら誰でも読めて送れます。`.env` は git の対象外なので、うっかりコミットされることはありません。インターネットがないと通知は届きませんが、LED とダッシュボードの警告はそのまま動きます。
@@ -281,13 +281,13 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 いちばん簡単なのはガイド付きの録画です。下のリストを順番に進め、毎回 Enter を待ってから始めます。始める・息を止める・机をたたく・離れるタイミングは、Mac が声で教えてくれます：
 
 ```
-../env/bin/python pc/record_session.py
+.venv/bin/python pc/record_session.py
 ```
 
 1 つずつ録る場合は、それぞれ 60 秒ずつ：
 
 ```
-../env/bin/python pc/record.py <名前> --seconds 60
+.venv/bin/python pc/record.py <名前> --seconds 60
 ```
 
 サーバーを動かしているときは `--server` を付けてください。
