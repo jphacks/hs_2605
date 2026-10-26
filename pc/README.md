@@ -68,7 +68,7 @@ Treat the topic like a password, because anyone who knows it can read and send. 
 
 ### How the Brain plugs in
 
-Put a class called `Brain` in `pc/ibuki/brain.py` and the server picks it up automatically. You can also point to another class with `--brain module:Class`.
+The server loads the class `Brain` from `pc/ibuki/brain.py` (another class can be chosen with `--brain module:Class`).
 
 ```python
 class Brain:
@@ -76,14 +76,14 @@ class Brain:
         ...  # called for every board line; return [] most of the time
 ```
 
-About 5 to 10 times a second, return a status:
+About 8 times a second, it returns a status:
 
 ```
 {"t": 123456, "state": "OK", "bpm": 34, "disp_mm": [0.12, 0.15], "dt_ms": 60,
  "motion": 12.5, "present": true, "chest_cm": 48.75}
 ```
 
-`bpm` is None when you don't know it. `disp_mm` holds only the new samples since the last status. `state` follows this table:
+`bpm` is None when the rate isn't known. `disp_mm` holds only the new samples since the last status. `state` follows this table:
 
 | In bed? | Moving? | Breathing? | state |
 |---|---|---|---|
@@ -93,7 +93,7 @@ About 5 to 10 times a second, return a status:
 | yes | no | none found yet | CHECK (counting) |
 | yes | no | none for 20 s (10 s for the demo) | ALERT |
 
-Tell "in bed" from "empty" by the echo. When the room goes quiet, check whether the person's echo is still there: leaving takes it away (2-6% of their usual echo in our recordings), a breath-hold keeps it (59% or more). Don't rely on seeing them move first: someone can move and then stop breathing. When the board shakes, breathing is unknown: never go to CHECK or ALERT because of a shake.
+It tells "in bed" from "empty" by the echo. When the room goes quiet, it checks whether the person's echo is still there: leaving takes it away (2-6% of their usual echo in our recordings), a breath-hold keeps it (59% or more). It doesn't rely on seeing them move first, because someone can move and then stop breathing. When the board shakes, breathing is unknown: a shake never leads to CHECK or ALERT.
 
 Events go out as extra dicts in the same list:
 
@@ -110,21 +110,21 @@ For no breathing, the laptop also plays a loud siren. Like a baby monitor, it ke
 
 The LED goes off when someone presses the button. After "left the bed" it also goes off when a status says OK or STILL again (the baby is back). After no breathing it keeps blinking until the button, like the siren. The board's button and the dashboard's cancel both arrive as a normal `B,1` line. If `feed()` throws, the server logs it and keeps going.
 
-A few things about the data. D lines come every 60 ms (16.6 per second, not 20). Babies breathe about 30 to 60 times a minute, so filter breathing with about 0.3 to 1.5 Hz (18 to 90 a minute), not the adult 0.15 to 0.6 Hz. Newborns often pause for 5 to 10 s, which is why the alert waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, start the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
+A few things about the data. D lines come every 60 ms (16.6 per second). The Brain filters breathing at 0.1 to 1.5 Hz (6 to 90 a minute), which covers adults and babies (about 30 to 60 a minute). Newborns often pause for 5 to 10 s, which is why the alert for a baby waits 20 s. After an `S` line that says `radar restart`, or when `t_ms` jumps by more than half a second, it starts the phase tracking over. The full data format is in [firmware/README.md](../firmware/README.md).
 
-### For the dashboard
+### What the server sends to the dashboard
 
 The server sends four kinds of messages on `ws://<laptop>:8000/ws`. Brain statuses look like the example above, and the placeholder ones also have `"source": "placeholder"` and `"shaking"`. While the board is shaking, `disp_mm` is empty. Alerts are `{"type": "alert", ...}` and info events are `{"type": "info", ...}`, both described in the Brain section. And `{"type": "board", "connected": true}` (or `false`) comes when you connect and whenever the USB board drops out or comes back.
 
-Suggested labels: EMPTY ベッドにいません, OK 起きています, STILL 眠っています（呼吸あり）, CHECK 呼吸を確認中, ALERT 呼吸が確認できません. When `shaking` is true, show 不明 instead of the breathing state.
+The dashboard shows the states as EMPTY ベッドにいません, OK 起きています, STILL 眠っています, CHECK 呼吸を確認中 and ALERT 呼吸が確認できません, and センサーが揺れています while `shaking` is true.
 
-Use `dt_ms` to place the samples: sample `i` of `n` belongs at `t - (n - 1 - i) * dt_ms`. Send `{"type": "button"}` to cancel an alert, the same as pressing the board's button.
+Sample `i` of `n` belongs at `t - (n - 1 - i) * dt_ms`. A client can send `{"type": "button"}` to cancel an alert, the same as pressing the board's button.
 
 If you build the dashboard (`npm run build` in `web/`), the server also serves it at http://<laptop-ip>:8000, so phones on the same Wi-Fi can open it.
 
-### Recordings we need
+### Recording
 
-The easiest way is the guided session. It goes through the whole list below, waits for Enter before each one, and tells you out loud when to start, hold your breath, tap the table or walk away:
+The guided session records the set below, one after another. It waits for Enter before each one and tells you out loud when to start, hold your breath, tap the table or walk away:
 
 ```
 .venv/bin/python pc/record_session.py
@@ -146,7 +146,7 @@ Add `--server` if the server is running.
 - `shake`: breathe quietly, then tap or bump the table a few times
 - `leave`: breathe for 20 s, then walk away
 
-The session asks for your name, so each person gets their own folder, `recordings/<your name>/`. More people make the thresholds more reliable, so everyone on the team can record a session. Git ignores the recordings. To share one, copy it to a name ending in `.sample.csv`.
+The session asks for a name and saves to `recordings/<name>/`; three of us recorded this set on Hack Day. Git ignores the recordings, except small samples ending in `.sample.csv` (three are in [recordings/samples/](../recordings/samples/)).
 
 ### If something doesn't work
 
@@ -222,7 +222,7 @@ curl -X POST http://localhost:8000/api/test-notification
 
 ### Brain のつなぎ方
 
-`pc/ibuki/brain.py` に `Brain` というクラスを置くと、サーバーが自動で使います。別のクラスを使うときは `--brain モジュール:クラス` で指定できます。
+サーバーは `pc/ibuki/brain.py` の `Brain` というクラスを使います（別のクラスは `--brain モジュール:クラス` で指定できます）。
 
 ```python
 class Brain:
@@ -230,7 +230,7 @@ class Brain:
         ...  # ボードの行ごとに呼ばれる。ほとんどは [] を返す
 ```
 
-1 秒に 5〜10 回くらい、状態を返してください：
+1 秒に約 8 回、状態を返します：
 
 ```
 {"t": 123456, "state": "OK", "bpm": 34, "disp_mm": [0.12, 0.15], "dt_ms": 60,
@@ -247,7 +247,7 @@ class Brain:
 | いる | 静止 | まだ見つからない | CHECK（数えている） |
 | いる | 静止 | 20 秒なし（デモは 10 秒） | ALERT |
 
-「ベッドにいる」と「空」は反射で見分けます。静かになったら、その人の反射が残っているかを確かめてください。いなくなれば反射は消え（録画ではふだんの 2〜6%）、息を止めているだけなら残ります（59% 以上）。「先に動いたから、いなくなった」とは決めないでください。動いたあとに息が止まることもあります。ボードが揺れたときは呼吸を「不明」にして、揺れが原因で CHECK や ALERT にしないでください。
+「ベッドにいる」と「空」は反射で見分けます。静かになったら、その人の反射が残っているかを確かめます。いなくなれば反射は消え（録画ではふだんの 2〜6%）、息を止めているだけなら残ります（59% 以上）。動いたあとに息が止まることもあるので、「先に動いたから、いなくなった」とは決めません。ボードが揺れたときは呼吸を「不明」にし、揺れが原因で CHECK や ALERT にはしません。
 
 イベントは、同じリストに別の dict として入れます：
 
@@ -264,21 +264,21 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 
 ボタンが押されると LED は消えます。「ベッドにいません」のあとは、状態が OK か STILL に戻ったとき（赤ちゃんが戻ったとき）にも消えます。「呼吸が確認できません」のあとは、アラーム音と同じく、ボタンが押されるまで点滅し続けます。ボードのボタンとダッシュボードの取り消しは、どちらも普通の `B,1` の行として届きます。`feed()` の中で例外が出ても、サーバーはログに残して動き続けます。
 
-データについて少し。D 行は 60 ms ごと（1 秒に 16.6 本、20 本ではありません）に来ます。赤ちゃんの呼吸は 1 分に 30〜60 回くらいなので、呼吸のフィルタは大人用の 0.15〜0.6 Hz ではなく、0.3〜1.5 Hz（1 分に 18〜90 回）くらいにしてください。新生児は 5〜10 秒息が止まることがよくあるので、警告は 20 秒待ちます。`radar restart` と書かれた `S` 行が来たときや、`t_ms` が 0.5 秒以上飛んだときは、位相の追跡をやり直してください。データの形は [firmware/README.md](../firmware/README.md) に全部書いてあります。
+データについて少し。D 行は 60 ms ごと（1 秒に 16.6 本）に来ます。Brain は呼吸を 0.1〜1.5 Hz（1 分に 6〜90 回）で取り出すので、大人にも赤ちゃん（1 分に 30〜60 回くらい）にも合います。新生児は 5〜10 秒息が止まることがよくあるので、赤ちゃん向けの警告は 20 秒待ちます。`radar restart` と書かれた `S` 行が来たときや、`t_ms` が 0.5 秒以上飛んだときは、位相の追跡をやり直します。データの形は [firmware/README.md](../firmware/README.md) に全部書いてあります。
 
-### ダッシュボードの担当の人へ
+### ダッシュボードに送るもの
 
 サーバーは `ws://<PC>:8000/ws` に 4 種類のメッセージを送ります。Brain の状態は上の例と同じ形で、仮の Brain のものには `"source": "placeholder"` と `"shaking"` も付きます。ボードが揺れているあいだ `disp_mm` は空です。警告は `{"type": "alert", ...}`、お知らせは `{"type": "info", ...}` で、どちらも Brain の章に書いてあります。`{"type": "board", "connected": true}`（または `false`）は、接続したときと、USB のボードが外れたり戻ったりしたときに届きます。
 
-表示の例：EMPTY ベッドにいません、OK 起きています、STILL 眠っています（呼吸あり）、CHECK 呼吸を確認中、ALERT 呼吸が確認できません。`shaking` が true のときは、呼吸の状態の代わりに「不明」と表示してください。
+ダッシュボードは状態を、EMPTY ベッドにいません、OK 起きています、STILL 眠っています、CHECK 呼吸を確認中、ALERT 呼吸が確認できません と表示し、`shaking` が true のあいだは「センサーが揺れています」と表示します。
 
-サンプルの時刻は `dt_ms` で決めてください。`n` 個のうち `i` 番目は `t - (n - 1 - i) * dt_ms` です。`{"type": "button"}` を送ると、ボードのボタンを押したのと同じく警告を取り消せます。
+サンプルの時刻は `dt_ms` で決まります。`n` 個のうち `i` 番目は `t - (n - 1 - i) * dt_ms` です。`{"type": "button"}` を送ると、ボードのボタンを押したのと同じく警告を取り消せます。
 
 ダッシュボードをビルドしておけば（`web/` で `npm run build`）、サーバーが http://<PCのIP>:8000 でも表示するので、同じ Wi-Fi のスマホから開けます。
 
-### 必要な録画
+### 録画のしかた
 
-いちばん簡単なのはガイド付きの録画です。下のリストを順番に進め、毎回 Enter を待ってから始めます。始める・息を止める・机をたたく・離れるタイミングは、Mac が声で教えてくれます：
+ガイド付きの録画で、下の一式を順番に録れます。毎回 Enter を待ってから始めます。始める・息を止める・机をたたく・離れるタイミングは、Mac が声で教えてくれます：
 
 ```
 .venv/bin/python pc/record_session.py
@@ -300,7 +300,7 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 - `shake`：静かに呼吸して、途中で机を何回かたたく・揺らす
 - `leave`：20 秒呼吸してから、その場を離れる
 
-ガイド付きの録画は最初に名前を聞くので、一人ひとりのフォルダ `recordings/<名前>/` に保存されます。人数が多いほどしきい値が正確になるので、チーム全員で録ってください。録画は git には入りません。共有したいときは、名前の最後が `.sample.csv` になるようにコピーしてください。
+最初に名前を聞き、`recordings/<名前>/` に保存します。Hack Day に 3 人がこの一式を録りました。録画は git には入りません。ただし、名前の最後が `.sample.csv` の小さな録画は入ります（[recordings/samples/](../recordings/samples/) に 3 本）。
 
 ### うまく動かないとき
 
