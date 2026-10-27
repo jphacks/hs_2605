@@ -37,6 +37,15 @@ static bool btn_stable_pressed;
 static bool btn_last_raw;
 static uint32_t btn_change_ms;
 
+/* CPU load, counted in core clock cycles (the DWT cycle counter) and reported every
+ * IBUKI_LOAD_PERIOD_MS as "S,t_ms,load dsp 0.9% out 1.2%":
+ *   dsp  the range FFTs of every chirp
+ *   out  making and sending lines, including any time spent waiting for the UART
+ * The rest of the time the main loop only polls. */
+static uint32_t cyc_dsp;
+static uint32_t cyc_out;
+static uint32_t load_start_ms;
+
 /* time */
 static volatile uint32_t ms_ticks;
 
@@ -88,10 +97,49 @@ static char* put_tenths(char* p, uint32_t tenths)
 
 static void send_line(char* end)
 {
+    uint32_t t0 = DWT->CYCCNT;
     *end++ = '\n';
     *end = '\0';
     fputs(line, stdout);
     fflush(stdout);
+    cyc_out += DWT->CYCCNT - t0;
+}
+
+/* load */
+static void load_init(void)
+{
+    DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk; /* enable the debug blocks, then the cycle counter */
+    DWT->CYCCNT = 0U;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    cyc_dsp = 0U;
+    cyc_out = 0U;
+    load_start_ms = ibuki_millis();
+}
+
+/* "S,t_ms,load dsp X% out Y%": cycles used / cycles available since the last report. The
+ * available cycles come from the millisecond clock, as the cycle counter wraps every ~10 s. */
+static void send_load(uint32_t now)
+{
+    uint64_t avail = (uint64_t)(now - load_start_ms) * (SystemCoreClock / 1000U);
+    if (avail == 0U)
+    {
+        return;
+    }
+    uint32_t dsp = (uint32_t)(((uint64_t)cyc_dsp * 1000U) / avail); /* tenths of a percent */
+    uint32_t out = (uint32_t)(((uint64_t)cyc_out * 1000U) / avail);
+    char* p = line;
+    *p++ = 'S';
+    *p++ = ',';
+    p = put_u32(p, now);
+    memcpy(p, ",load dsp ", 10U);
+    p = put_tenths(p + 10, dsp);
+    memcpy(p, "% out ", 6U);
+    p = put_tenths(p + 6, out);
+    *p++ = '%';
+    send_line(p);
+    cyc_dsp = 0U;
+    cyc_out = 0U;
+    load_start_ms = now;
 }
 
 void ibuki_status(const char* text)
@@ -136,6 +184,7 @@ static void send_config(void)
 /* D,seq,t_ms,I0,Q0,...,In-1,Qn-1 */
 static void send_data(void)
 {
+    uint32_t t0 = DWT->CYCCNT;
     const float k = (float)IBUKI_SCALE / (float)(frames_in_acc * IBUKI_CHIRPS_PER_FRAME);
     char* p = line;
     *p++ = 'D';
@@ -150,6 +199,7 @@ static void send_data(void)
         *p++ = ',';
         p = put_i32(p, (int32_t)lrintf(acc_im[b] * k));
     }
+    cyc_out += DWT->CYCCNT - t0; /* making the line; send_line counts the sending */
     send_line(p);
 }
 
@@ -295,11 +345,13 @@ void ibuki_init(void)
     ibuki_status("ibuki fw start");
     send_config();
     last_config_ms = ibuki_millis();
+    load_init();
 }
 
 void ibuki_on_frame(const float* frame)
 {
     const uint32_t stride = IBUKI_SAMPLES_PER_CHIRP * IBUKI_RX_ANTENNAS;
+    uint32_t t0 = DWT->CYCCNT;
 
     for (uint32_t c = 0U; c < IBUKI_CHIRPS_PER_FRAME; c++)
     {
@@ -328,6 +380,7 @@ void ibuki_on_frame(const float* frame)
             acc_im[b] += spec_buf[(2U * k) + 1U];
         }
     }
+    cyc_dsp += DWT->CYCCNT - t0;
 
     frames_in_acc++;
     if (frames_in_acc >= IBUKI_FRAMES_PER_LINE)
@@ -353,6 +406,10 @@ void ibuki_poll(void)
     {
         send_config();
         last_config_ms = now;
+    }
+    if ((now - load_start_ms) >= IBUKI_LOAD_PERIOD_MS)
+    {
+        send_load(now);
     }
     poll_uart_rx();
     poll_button(now);

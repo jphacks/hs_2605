@@ -23,6 +23,7 @@
 #define IBUKI_FRAMES_PER_LINE   (2U)    /* 2 frames averaged per D line: ~16.6 lines/s */
 #define IBUKI_SCALE             (10)    /* D line integer = value * IBUKI_SCALE */
 #define IBUKI_CONFIG_PERIOD_MS  (5000U) /* C line period */
+#define IBUKI_LOAD_PERIOD_MS    (60000U) /* "S,t_ms,load ..." period: how busy the CPU was */
 
 void     ibuki_init(void);                 /* call after the debug UART is up */
 void     ibuki_on_frame(const float* frame); /* one full radar frame of raw samples */
