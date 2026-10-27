@@ -1,8 +1,9 @@
 /* IBUKI firmware: per-chirp range FFT and the C/D/S/B/L line protocol over the debug UART.
  *
  * Per frame: for each chirp of one RX antenna, subtract the chirp mean (DC), apply a Hann
- * window, take a 64-point real FFT, and add the complex bins 8..31 to an accumulator.
- * Every IBUKI_FRAMES_PER_LINE frames the accumulator is averaged and sent as one D line.
+ * window, take a 64-point real FFT, and add the complex bins IBUKI_FIRST_BIN.. (24 of them)
+ * to an accumulator. Every IBUKI_FRAMES_PER_LINE frames the accumulator is averaged and sent
+ * as one D line. Lines go out through a queue, so the radar work never waits for the UART.
  */
 #include "ibuki.h"
 
@@ -25,8 +26,7 @@ static arm_rfft_fast_instance_f32 rfft;
 static float hann[IBUKI_SAMPLES_PER_CHIRP];
 static float chirp_buf[IBUKI_SAMPLES_PER_CHIRP];
 static float spec_buf[IBUKI_SAMPLES_PER_CHIRP];
-static float acc_re[IBUKI_NUM_BINS];
-static float acc_im[IBUKI_NUM_BINS];
+static float acc[2U * IBUKI_NUM_BINS]; /* Re, Im of each bin from IBUKI_FIRST_BIN, summed */
 static uint32_t frames_in_acc;
 static uint32_t d_seq;
 static uint32_t last_config_ms;
@@ -259,9 +259,9 @@ static void send_data(void)
     for (uint32_t b = 0U; b < IBUKI_NUM_BINS; b++)
     {
         *p++ = ',';
-        p = put_i32(p, (int32_t)lrintf(acc_re[b] * k));
+        p = put_i32(p, (int32_t)lrintf(acc[2U * b] * k));
         *p++ = ',';
-        p = put_i32(p, (int32_t)lrintf(acc_im[b] * k));
+        p = put_i32(p, (int32_t)lrintf(acc[(2U * b) + 1U] * k));
     }
     cyc_out += DWT->CYCCNT - t0; /* making the line; send_line counts the sending */
     send_line(p);
@@ -396,8 +396,7 @@ void ibuki_init(void)
         ibuki_status("rfft init failed");
     }
 
-    memset(acc_re, 0, sizeof(acc_re));
-    memset(acc_im, 0, sizeof(acc_im));
+    memset(acc, 0, sizeof(acc));
     frames_in_acc = 0U;
     d_seq = 0U;
     rx_len = 0U;
@@ -421,28 +420,23 @@ void ibuki_on_frame(const float* frame)
     {
         const float* chirp = frame + (c * stride) + IBUKI_RX_USED;
 
-        float mean = 0.0f;
+        /* this antenna's samples sit every IBUKI_RX_ANTENNAS values: gather them first, so
+         * the steps below run on one contiguous block (CMSIS-DSP, 4 floats per Helium op) */
         for (uint32_t s = 0U; s < IBUKI_SAMPLES_PER_CHIRP; s++)
         {
-            mean += chirp[s * IBUKI_RX_ANTENNAS];
+            chirp_buf[s] = chirp[s * IBUKI_RX_ANTENNAS];
         }
-        mean /= (float)IBUKI_SAMPLES_PER_CHIRP;
-
-        for (uint32_t s = 0U; s < IBUKI_SAMPLES_PER_CHIRP; s++)
-        {
-            chirp_buf[s] = (chirp[s * IBUKI_RX_ANTENNAS] - mean) * hann[s];
-        }
+        float mean;
+        arm_mean_f32(chirp_buf, IBUKI_SAMPLES_PER_CHIRP, &mean);
+        arm_offset_f32(chirp_buf, -mean, chirp_buf, IBUKI_SAMPLES_PER_CHIRP); /* remove DC */
+        arm_mult_f32(chirp_buf, hann, chirp_buf, IBUKI_SAMPLES_PER_CHIRP);    /* Hann window */
 
         /* Output packing: [Re0, Re(N/2), Re1, Im1, Re2, Im2, ...]. arm_rfft_fast_f32 uses
          * chirp_buf as scratch, which is fine because it is refilled for every chirp. */
         arm_rfft_fast_f32(&rfft, chirp_buf, spec_buf, 0U);
 
-        for (uint32_t b = 0U; b < IBUKI_NUM_BINS; b++)
-        {
-            uint32_t k = IBUKI_FIRST_BIN + b;
-            acc_re[b] += spec_buf[2U * k];
-            acc_im[b] += spec_buf[(2U * k) + 1U];
-        }
+        /* bins from IBUKI_FIRST_BIN (>= 1) are plain Re, Im pairs, in the same order as acc */
+        arm_add_f32(acc, &spec_buf[2U * IBUKI_FIRST_BIN], acc, 2U * IBUKI_NUM_BINS);
     }
     cyc_dsp += DWT->CYCCNT - t0;
 
@@ -450,16 +444,14 @@ void ibuki_on_frame(const float* frame)
     if (frames_in_acc >= IBUKI_FRAMES_PER_LINE)
     {
         send_data();
-        memset(acc_re, 0, sizeof(acc_re));
-        memset(acc_im, 0, sizeof(acc_im));
+        memset(acc, 0, sizeof(acc));
         frames_in_acc = 0U;
     }
 }
 
 void ibuki_reset_frames(void)
 {
-    memset(acc_re, 0, sizeof(acc_re));
-    memset(acc_im, 0, sizeof(acc_im));
+    memset(acc, 0, sizeof(acc));
     frames_in_acc = 0U;
 }
 
