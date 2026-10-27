@@ -139,7 +139,7 @@ async function verifyScene(fixture, width, state) {
     const selectors = [
       '.brand', '.brand small', '.connection-copy strong', '.connection-copy p>span',
       '.status-banner h2', '.status-banner p', '.chart-description', '.chart-footer',
-      '.bpm .muted', '.bpm-value', '.metric-row strong', '.notification-heading span',
+      '.bpm .muted', '.bpm-value', '.presence', '.metric-tag', '.metrics-note', '.notification-heading span',
       '.notice time', '.notice-level', '.notice strong', '.notice small',
       '.current-warning', '.siren-stop', 'footer p',
     ];
@@ -159,26 +159,55 @@ async function verifyScene(fixture, width, state) {
   assert.deepEqual(contrasts.filter(sample => sample.ratio < 4.5), [], 'text contrast');
   metrics.minTextContrast = Math.min(...contrasts.map(sample => sample.ratio));
   // #70 changes appearance, not existing navigation, API fields or content order.
-  assert.equal(await page.locator('header button').count(), 0);
+  assert.equal(await page.locator('.menu-toggle').count(), 1);
+  assert.equal(await page.locator('.menu-toggle').isVisible(), width <= 800);
   assert.equal(await page.getByText('ペアリング', { exact: true }).count(), 0);
   const order = await page.locator('main').evaluate(element => [...element.children]
-    .filter(child => child.matches('header,.connection-status,.siren-stop,.status-banner,.dashboard-grid,.notification-panel'))
+    .filter(child => child.matches('header,.status-overview,.dashboard-grid,.notification-panel'))
     .map(child => child.tagName === 'HEADER' ? 'header' : child.classList[0]));
-  assert.deepEqual(order, ['header', 'connection-status', ...(state === 'ALERT' ? ['siren-stop'] : []),
-    'status-banner', 'dashboard-grid', 'notification-panel']);
+  assert.deepEqual(order, ['header', 'status-overview', 'dashboard-grid', 'notification-panel']);
+  const chartBox = await page.locator('.waveform').boundingBox();
+  const metricBox = await page.locator('.metrics').boundingBox();
+  if (width <= 800) {
+    assert.ok(metricBox.y + metricBox.height <= chartBox.y, 'mobile metrics precede waveform');
+    const cards = await page.locator('.metric-card').all();
+    const positions = await Promise.all(cards.map(card => card.boundingBox()));
+    assert.equal(positions.length, 3);
+    assert.ok(positions.every(box => Math.abs(box.y - positions[0].y) < 1), 'three mobile metrics share a row');
+  } else assert.ok(chartBox.x + chartBox.width <= metricBox.x, 'desktop metrics sit beside waveform');
+  if (['ALERT', 'EMPTY', 'unavailable', 'shaking', 'disconnected', 'stale', 'sensor-disconnected'].includes(state)) {
+    assert.equal(await page.locator('.recharts-area-curve').count(), 0, 'unavailable data never fabricates a wave');
+  }
   return metrics;
 }
 
 async function verifyInteractions(browser) {
   const alarm = await fixture(browser, 390, 'dark', 'ALERT');
   try {
-    const summary = alarm.page.locator('summary');
+    const summary = alarm.page.locator('.connection-details summary');
     await summary.focus();
     await alarm.page.keyboard.press('Enter');
-    assert.equal(await alarm.page.locator('details').getAttribute('open'), '');
+    assert.equal(await alarm.page.locator('.connection-details').getAttribute('open'), '');
     assert.equal(await summary.evaluate(element => getComputedStyle(element).outlineStyle), 'solid');
     await alarm.page.keyboard.press('Space');
-    assert.equal(await alarm.page.locator('details').getAttribute('open'), null);
+    assert.equal(await alarm.page.locator('.connection-details').getAttribute('open'), null);
+    const menu = alarm.page.getByRole('button', { name: 'メニュー', exact: true });
+    await menu.click();
+    assert.equal(await menu.getAttribute('aria-expanded'), 'true');
+    await alarm.page.getByRole('link', { name: '通知履歴', exact: true }).focus();
+    await alarm.page.keyboard.press('Escape');
+    assert.equal(await menu.getAttribute('aria-expanded'), 'false');
+    assert.equal(await menu.evaluate(element => element === document.activeElement), true);
+    await menu.click();
+    await alarm.page.getByRole('button', { name: '接続詳細', exact: true }).click();
+    assert.equal(await alarm.page.locator('.connection-details').getAttribute('open'), '');
+    assert.equal(await menu.getAttribute('aria-expanded'), 'false');
+    await summary.press('Space');
+    const help = alarm.page.getByLabel('波形の説明', { exact: true });
+    await help.focus();
+    await alarm.page.keyboard.press('Enter');
+    assert.equal(await alarm.page.locator('.chart-help').getAttribute('open'), '');
+    await alarm.page.keyboard.press('Enter');
     await alarm.page.locator('.siren-stop').click();
     await until(async () => await alarm.page.locator('.siren-stop').count() === 0, 'acknowledged siren');
     assert.equal(alarm.getPosts(), 1);
