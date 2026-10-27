@@ -57,6 +57,14 @@ REL_MOVE = 0.3       # ...and at least 30% as much as the strongest breathing sl
                      # a curtain?): next to a real baby (30-300) that is never a body. A baby
                      # beside a parent moves about as much as the parent, so it still counts.
 
+# Moving: the Brain's own check (pc/ibuki/brain.py), unchanged. While a body moves, breathing
+# can't be read, so nothing counts towards an alarm (state OK, "awake"). Without it, an adult
+# working beside the board gave 9 false alarms in 17 minutes: typing hid their breathing.
+MOVE_ON = 1.6        # echo-strength change / the body's echo level; breathing 0.7-1.0, moving ~2.6
+MOVE_OFF = 1.25
+MOVE_SPAN_SLOTS = 6  # only within 22 cm of the body counts
+MIN_LEVEL = 100.0    # the body's echo level is never taken below this
+
 
 class Decider:
     """The rules above, fed one model result (24 probabilities) at a time."""
@@ -66,12 +74,25 @@ class Decider:
         self.recent = [[] for _ in range(NUM_BINS)]  # last STEADY_N yes/no per slot
         self.baby = None          # the baby's slot, once found
         self.baby_recent = []     # last runs: did the baby's slot (or a neighbour) say "breathing"?
+        self.levels = []          # the body's echo level over the last ~5 s (one value per run)
+        self.moving = False
         self.last_breath_t = None
         self.state = "EMPTY"
         self.alerted = False
 
-    def feed(self, t: float, p: np.ndarray, move: np.ndarray) -> list[dict]:
-        """t: time (s); p: the model's P(breathing) per slot; move: each slot's echo movement."""
+    def _is_moving(self, move: np.ndarray, change: np.ndarray) -> bool:
+        """The Brain's movement check around the baby's slot, with the same hysteresis."""
+        k = np.arange(NUM_BINS)
+        near = np.abs(k - self.baby) <= MOVE_SPAN_SLOTS
+        self.levels = (self.levels + [float(move[near].max())])[-10:]
+        level = max(max(self.levels), MIN_LEVEL)
+        rel = float(change[near].sum()) / level
+        self.moving = rel > (MOVE_OFF if self.moving else MOVE_ON)
+        return self.moving
+
+    def feed(self, t: float, p: np.ndarray, move: np.ndarray, change: np.ndarray) -> list[dict]:
+        """t: time (s); p: the model's P(breathing) per slot; move: each slot's echo movement
+        over 3 s; change: each slot's echo-strength change per line (mean of the last ~1 s)."""
         events = []
         for k in range(NUM_BINS):
             self.recent[k] = (self.recent[k] + [bool(p[k] >= P_ON)])[-STEADY_N:]
@@ -86,6 +107,13 @@ class Decider:
             self.baby = min(steady)
         if self.baby is None:
             self.state = "EMPTY"
+            return events
+        if self._is_moving(move, change):
+            # awake and moving: breathing can't be read, and nothing counts towards an alarm.
+            # Counting restarts after the movement, as in the Brain
+            self.state = "OK"
+            self.last_breath_t = t
+            self.baby_recent = []
             return events
         near = p[max(0, self.baby - 1):self.baby + 2]  # the baby's slot and its neighbours
         need, of = CONFIRM
@@ -110,17 +138,20 @@ class Decider:
 def run_session(model, csv: Path, no_breath_s: float) -> dict:
     """The model on every window of one session, then the rules; results per D line like evaluate.replay."""
     t_ms, z = read_csv(csv)
-    ends, feats, moves = [], [], []
+    # each slot's echo-strength change from one line to the next (the Brain's movement signal)
+    step = np.vstack([np.zeros((1, NUM_BINS)), np.abs(np.diff(np.abs(z), axis=0))])
+    ends, feats, moves, changes = [], [], [], []
     for end, f in windows(t_ms, z, hop=HOP):
         ends.append(end)
         feats.append(f)
         last3 = z[max(0, end - 49):end + 1]  # ~3 s of lines
         moves.append(np.abs(last3 - last3.mean(axis=0)).mean(axis=0))
+        changes.append(step[max(0, end - 16):end + 1].mean(axis=0))  # ~1 s, the Brain's 17 lines
     probs = model.predict(np.concatenate(feats), batch_size=4096, verbose=0)[:, 0].reshape(len(ends), NUM_BINS)
     d = Decider(no_breath_s)
     states, chests, events = ["EMPTY"] * len(t_ms), [None] * len(t_ms), []
     for n, (end, p) in enumerate(zip(ends, probs)):
-        for ev in d.feed(t_ms[end] / 1000.0, p, moves[n]):
+        for ev in d.feed(t_ms[end] / 1000.0, p, moves[n], changes[n]):
             events.append({"t_ms": int(t_ms[end]), **ev})
         stop = ends[n + 1] if n + 1 < len(ends) else len(t_ms)
         for i in range(end, stop):  # hold the state until the next model run
