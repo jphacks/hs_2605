@@ -6,13 +6,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const before = process.argv.includes('--before');
-const quick = before || process.argv.includes('--quick');
+const polish = process.argv.includes('--polish');
+const polishStage = process.argv.find(argument => argument.startsWith('--stage='))?.slice(8) || 'final';
+if (!/^[a-z0-9-]+$/.test(polishStage)) throw Error('Invalid screenshot stage');
+const quick = before || process.argv.includes('--quick') || polish;
 const publish = process.argv.includes('--publish');
 const phase = before ? 'before' : 'after';
 const root = path.resolve(__dirname, '../..');
 const baseUrl = process.env.IBUKI_DESIGN_BASE_URL || 'http://127.0.0.1:5178';
-const output = path.join(root, '.venv/ibuki-browser-qa/design-70', phase);
-const published = path.join(root, 'web/docs/design/issue-70');
+const output = polish ? path.join(root, '.venv/ibuki-browser-qa/polish-70', polishStage) : path.join(root, '.venv/ibuki-browser-qa/design-70', phase);
+const published = path.join(root, 'web/docs/design/issue-70', ...(polish ? ['polish', polishStage] : []));
 fs.mkdirSync(output, { recursive: true });
 if (publish) fs.mkdirSync(published, { recursive: true });
 
@@ -138,10 +141,11 @@ async function verifyScene(fixture, width, state) {
   const samples = await page.evaluate(() => {
     const selectors = [
       '.brand', '.brand small', '.connection-copy strong', '.connection-copy p>span',
+      '.connection-provenance', '.connection-meta', '.connection-details summary',
       '.status-banner h2', '.status-banner p', '.chart-description', '.chart-footer',
       '.bpm .muted', '.bpm-value', '.presence', '.metric-tag', '.metrics-note', '.notification-heading span',
       '.notice time', '.notice-level', '.notice strong', '.notice small',
-      '.current-warning', '.siren-stop', 'footer p',
+      '.current-warning', '.siren-stop', '.chart-empty span', 'footer p',
     ];
     const rgb = value => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
     const background = element => {
@@ -177,6 +181,18 @@ async function verifyScene(fixture, width, state) {
   } else assert.ok(chartBox.x + chartBox.width <= metricBox.x, 'desktop metrics sit beside waveform');
   if (['ALERT', 'EMPTY', 'unavailable', 'shaking', 'disconnected', 'stale', 'sensor-disconnected'].includes(state)) {
     assert.equal(await page.locator('.recharts-area-curve').count(), 0, 'unavailable data never fabricates a wave');
+  }
+  if (state === 'ALERT') {
+    const summary = page.locator('.connection-details summary');
+    await summary.focus();
+    const focus = await summary.evaluate(element => {
+      const rgb = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
+      let background = element;
+      while (background && getComputedStyle(background).backgroundColor === 'rgba(0, 0, 0, 0)') background = background.parentElement;
+      return { foreground: rgb(getComputedStyle(element).outlineColor), background: rgb(getComputedStyle(background).backgroundColor) };
+    });
+    assert.ok(contrast(focus.foreground, focus.background) >= 3, 'connection focus remains visible outside mobile alert banner');
+    await summary.evaluate(element => element.blur());
   }
   return metrics;
 }
@@ -248,7 +264,7 @@ async function verifyInteractions(browser) {
   });
   try {
     report.browser = browser.version();
-    const matrix = quick
+    const matrix = polish ? [[1440, 'light', 'STILL'], [390, 'light', 'STILL'], [390, 'dark', 'ALERT']] : quick
       ? [[1440, 'light', 'STILL'], [1440, 'dark', 'STILL'], [390, 'light', 'STILL'], [390, 'dark', 'ALERT']]
       : [1440, 390].flatMap(width => ['light', 'dark'].flatMap(scheme =>
         ['STILL', 'OK', 'CHECK', 'ALERT', 'EMPTY', 'disconnected', 'unavailable'].map(state => [width, scheme, state])))
@@ -265,11 +281,11 @@ async function verifyInteractions(browser) {
         if (publish && selected.has(name)) {
           // Keep full-page evidence above, and publish the requested exact viewport size.
           await scene.page.screenshot({
-            path: path.join(published, `${phase}-${name.toLowerCase()}.png`),
+            path: path.join(published, `${polish ? '' : phase + '-'}${name.toLowerCase()}.png`),
             fullPage: false, animations: 'disabled',
           });
-          if (name === '1440-light-STILL' || name === '390-dark-ALERT') {
-            fs.copyFileSync(file, path.join(published, `${phase}-${name.toLowerCase()}-full.png`));
+          if ((!polish || polishStage === 'final') && (name === '1440-light-STILL' || name === '390-dark-ALERT')) {
+            fs.copyFileSync(file, path.join(published, `${polish ? '' : phase + '-'}${name.toLowerCase()}-full.png`));
           }
         }
         assert.deepEqual(scene.errors, []);

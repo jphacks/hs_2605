@@ -1,5 +1,7 @@
 # Issue #70 — Warm dashboard theme
 
+最新の余白・文字・チャート・夜間の調整と2回以上の比較記録は [PR #77 Visual refinement](polish/README.md) を参照してください。
+
 [Issue #70](https://github.com/jphacks/hs_2605/issues/70) の外観変更とブラウザー検証記録です。
 
 ## デザイン
