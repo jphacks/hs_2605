@@ -244,8 +244,8 @@ h2 { margin: 0; font-size: var(--text-heading); font-weight: 650; line-height: 1
 .chart-help > div { position: absolute; z-index: 4; top: 34px; left: -120px; width: min(300px, 75vw); padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-raised); box-shadow: var(--shadow-shell); color: var(--text); font-size: 12px; line-height: 1.8; }
 .chart-help p { margin: 4px 0; }
 .chart-range { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
-.chart-description { margin: 12px 0 0; color: var(--text-subtle); font-size: 12px; }
 .chart { position: relative; width: 100%; min-height: 0; height: 252px; margin-top: 0; }
+.chart-scale { position: absolute; top: 1px; left: 46px; z-index: 1; color: var(--text-subtle); font-size: 11px; line-height: 16px; pointer-events: none; }
 .chart-empty {
   position: absolute;
   inset: 30px 20px 30px 46px;
@@ -399,7 +399,6 @@ footer div { margin-top: 6px; font-size: 11px; letter-spacing: .08em; }
   .waveform { padding: 12px 12px 0; }
   .panel-heading h2 { font-size: 19px; }
   .chart-range { font-size: 12px; }
-  .chart-description { margin-top: 4px; font-size: 11px; }
   .chart { height: 132px; }
   .chart-empty { font-size: 12px; }
   .chart-note { font-size: 10px; }

@@ -135,8 +135,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
     </section>
     <section className="dashboard-grid">
       <article className="panel waveform">
-        <div className="panel-heading"><div className="waveform-heading"><h2>呼吸の動き</h2><details className="chart-help"><summary aria-label="波形の説明"><DashboardIcon name="info" /></summary><div><p>受信した胸の動き（mm）を直近30秒分表示します。破線は測定なしの区間です。</p>{chartNote && <p>{chartNote}</p>}<p>波形だけで呼吸や安全を確認するものではありません。</p></div></details></div><span className="chart-range">直近30秒</span></div>
-        <p className="chart-description">胸の動き（mm）</p>
+        <div className="panel-heading"><div className="waveform-heading"><h2>呼吸の動き</h2><details className="chart-help"><summary aria-label="波形の説明"><DashboardIcon name="info" /></summary><div><p>受信した胸の動き（mm）を直近30秒分表示します。破線は測定なしの区間です。</p><p>横軸の0秒は30秒前、30秒は最新です。表示範囲は±2mmから、大きな値に合わせて2倍ずつ広がります。測定値は変更しません。</p>{chartNote && <p>{chartNote}</p>}<p>波形だけで呼吸や安全を確認するものではありません。</p></div></details></div><span className="chart-range">直近30秒</span></div>
         <WaveChart points={points} t={status?.t ?? null} alert={current === 'ALERT'} demo={demo} label={`胸の動きの波形。${statusView.title}`}/>
         <div className="chart-footer"><span><i/>胸の動き<span className="chart-source"> · {sourceTag}</span></span><span><i className="idle-key"/>測定なし</span></div>
       </article>
