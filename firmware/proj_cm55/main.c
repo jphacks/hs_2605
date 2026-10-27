@@ -640,6 +640,7 @@ static void cm55_ml_deepcraft_task(void)
         for (;;)
         {
             ibuki_status_code("system init failed", (uint32_t)result);
+            ibuki_flush(); /* nothing else runs here to send the queued output */
             Cy_SysLib_Delay(2000U);
         }
     }

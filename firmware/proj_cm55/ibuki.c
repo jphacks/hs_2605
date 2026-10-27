@@ -15,6 +15,7 @@
 #include "arm_math.h"
 
 #define TX_LINE_MAX    (512U)
+#define TX_QUEUE_SIZE  (8192U) /* bytes waiting for the UART, ~0.7 s of output; a power of 2 */
 #define RX_LINE_MAX (16U)
 #define BTN_DEBOUNCE_MS (30U)
 #define TEST_STALL_MAX_MS (2000U)
@@ -45,6 +46,17 @@ static uint32_t btn_change_ms;
 static uint32_t cyc_dsp;
 static uint32_t cyc_out;
 static uint32_t load_start_ms;
+
+/* Output queue. At 115200 baud a D line takes ~26 ms on the wire and one goes out every 60 ms:
+ * written with a blocking call (fputs), the CPU waited for the UART ~40% of the time. Lines
+ * now go into this queue, and tx_pump() moves bytes into the UART's hardware FIFO whenever
+ * there is room, from the main loop, so nothing waits. The counters only ever grow (and wrap
+ * at 2^32, which TX_QUEUE_SIZE divides): queued = tx_head - tx_tail. */
+static uint8_t tx_queue[TX_QUEUE_SIZE];
+static uint32_t tx_head;    /* bytes ever queued */
+static uint32_t tx_tail;    /* bytes ever handed to the UART */
+static uint32_t tx_peak;    /* most bytes waiting since the last load report */
+static uint32_t tx_dropped; /* lines dropped because the queue was full: the PC sees a seq gap */
 
 /* time */
 static volatile uint32_t ms_ticks;
@@ -95,14 +107,61 @@ static char* put_tenths(char* p, uint32_t tenths)
     return p;
 }
 
+/* Hand queued bytes to the UART's hardware FIFO, as many as fit right now. Never waits. */
+static void tx_pump(void)
+{
+    while (tx_tail != tx_head)
+    {
+        uint32_t start = tx_tail % TX_QUEUE_SIZE;
+        uint32_t n = tx_head - tx_tail;
+        if (n > (TX_QUEUE_SIZE - start))
+        {
+            n = TX_QUEUE_SIZE - start; /* up to the end of the buffer; the rest on the next turn */
+        }
+        uint32_t put = Cy_SCB_UART_PutArray(CYBSP_DEBUG_UART_HW, &tx_queue[start], n);
+        tx_tail += put;
+        if (put < n)
+        {
+            break; /* the FIFO is full */
+        }
+    }
+}
+
+/* Queue the line in `line`, which ends at `end`. A full queue drops the whole line rather than
+ * waiting: radar frames must keep being read, and the PC notices the missing seq number. */
 static void send_line(char* end)
 {
     uint32_t t0 = DWT->CYCCNT;
+    *end++ = '\r'; /* the same "\r\n" ending as before, when retarget-io added the '\r' */
     *end++ = '\n';
-    *end = '\0';
-    fputs(line, stdout);
-    fflush(stdout);
+    uint32_t len = (uint32_t)(end - line);
+    uint32_t waiting = tx_head - tx_tail;
+    if ((TX_QUEUE_SIZE - waiting) < len)
+    {
+        tx_dropped++;
+    }
+    else
+    {
+        for (uint32_t i = 0U; i < len; i++)
+        {
+            tx_queue[(tx_head + i) % TX_QUEUE_SIZE] = (uint8_t)line[i];
+        }
+        tx_head += len;
+        if ((waiting + len) > tx_peak)
+        {
+            tx_peak = waiting + len;
+        }
+        tx_pump();
+    }
     cyc_out += DWT->CYCCNT - t0;
+}
+
+void ibuki_flush(void)
+{
+    while (tx_tail != tx_head)
+    {
+        tx_pump();
+    }
 }
 
 /* load */
@@ -116,8 +175,9 @@ static void load_init(void)
     load_start_ms = ibuki_millis();
 }
 
-/* "S,t_ms,load dsp X% out Y%": cycles used / cycles available since the last report. The
- * available cycles come from the millisecond clock, as the cycle counter wraps every ~10 s. */
+/* "S,t_ms,load dsp X% out Y% queue Q dropped N": cycles used / cycles available since the last
+ * report (the available cycles come from the millisecond clock, as the cycle counter wraps
+ * every ~10 s), the most bytes that waited in the output queue, and lines dropped so far. */
 static void send_load(uint32_t now)
 {
     uint64_t avail = (uint64_t)(now - load_start_ms) * (SystemCoreClock / 1000U);
@@ -135,10 +195,14 @@ static void send_load(uint32_t now)
     p = put_tenths(p + 10, dsp);
     memcpy(p, "% out ", 6U);
     p = put_tenths(p + 6, out);
-    *p++ = '%';
+    memcpy(p, "% queue ", 8U);
+    p = put_u32(p + 8, tx_peak);
+    memcpy(p, " dropped ", 9U);
+    p = put_u32(p + 9, tx_dropped);
     send_line(p);
     cyc_dsp = 0U;
     cyc_out = 0U;
+    tx_peak = tx_head - tx_tail;
     load_start_ms = now;
 }
 
@@ -411,6 +475,7 @@ void ibuki_poll(void)
     {
         send_load(now);
     }
+    tx_pump();
     poll_uart_rx();
     poll_button(now);
     poll_blink(now);
