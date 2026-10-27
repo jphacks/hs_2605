@@ -1,5 +1,7 @@
 # IBUKI web dashboard
 
+Issue #70 のテーマ・昼夜の比較画像・ブラウザー検証 / Theme, before/after screenshots and browser verification: [Design notes](docs/design/issue-70/README.md).
+
 [日本語](#日本語) | [English](#english)
 
 ## 日本語
