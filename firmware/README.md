@@ -6,7 +6,7 @@
 
 Infineon PSOC Edge E84 AI Kit（KIT_PSE84_AI）用のファームウェアです。60 GHz レーダーを読み、ボードの上でレンジ FFT まで計算して、その結果を KitProg3 の USB シリアルでノート PC に送ります。呼吸や動きの判定、警告などはすべて PC 側で行います。
 
-Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` をもとに、ジェスチャーのモデルを自分たちの処理（[proj_cm55/ibuki.c](proj_cm55/ibuki.c)）に置き換えました。Infineon の元の README は [README_infineon.md](README_infineon.md) にあります。
+Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` をもとに、ジェスチャーのモデルを自分たちの処理（[proj_cm55/ibuki/](proj_cm55/ibuki/README.md)）に置き換えました。Infineon の元の README は [README_infineon.md](README_infineon.md) にあります。
 
 ### ボードでやっていること
 
@@ -35,9 +35,9 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 |---|---|---|
 | `C,first_cm,step_mm,n,scale` | ボードから PC | 起動したときと 5 秒ごと。いまは `C,15.0,37.5,24,10`。 |
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | ボードから PC | データ本体。`seq` は 1 行ごとに 1 ずつ増え、`t_ms` は起動からの時間、ビンは近い順、値は整数を `scale` で割ったもの。 |
-| `S,t_ms,text` | ボードから PC | 状態やエラー。例：`S,0,ibuki fw start` |
+| `S,t_ms,text` | ボードから PC | 状態やエラー。例：`S,0,ibuki fw start`。1 分ごとに CPU の使用率も送ります：`S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` |
 | `B,1` | ボードから PC | ユーザーボタンが押された |
-| `L,1` / `L,0` | PC からボード | 警告：赤 LED が 1 秒に 2 回点滅（ボードの他の赤いランプと区別するため）、または消灯 |
+| `L,1` / `L,0` | PC からボード | 警告：LED が青く 1 秒に 2 回点滅（ボードの電源などの赤いランプはいつも点いているため、青にしました）、または消灯 |
 | `R,1` | PC からボード | レーダーを再起動する |
 | `T,<ms>` | PC からボード | テスト用。ボードを最大 2000 ms 止める |
 
@@ -86,13 +86,13 @@ VS Code では `main.c` の一部が「undefined」と赤く表示されます�
 
 D 行が来ない：`S` 行を見てください。ドライバのエラーはエラーコード付きでそこに出ます。
 
-`seq` が飛ぶ：途中で行が失われています。[proj_cm55/ibuki.h](proj_cm55/ibuki.h) の `IBUKI_NUM_BINS` を減らすか、`IBUKI_FRAMES_PER_LINE` を増やしてください。
+`seq` が飛ぶ：途中で行が失われています。[proj_cm55/ibuki/ibuki.h](proj_cm55/ibuki/ibuki.h) の `IBUKI_NUM_BINS` を減らすか、`IBUKI_FRAMES_PER_LINE` を増やしてください。
 
 ## English
 
 This is the firmware for the Infineon PSOC Edge E84 AI Kit (KIT_PSE84_AI). It reads the 60 GHz radar, does the range FFT on the board, and streams the result to the laptop over the KitProg3 USB serial port. Everything after that, like breathing, movement and alerts, happens on the PC.
 
-We started from Infineon's `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` and replaced their gesture model with our own processing in [proj_cm55/ibuki.c](proj_cm55/ibuki.c). Infineon's original README is in [README_infineon.md](README_infineon.md).
+We started from Infineon's `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` and replaced their gesture model with our own processing in [proj_cm55/ibuki/](proj_cm55/ibuki/README.md). Infineon's original README is in [README_infineon.md](README_infineon.md).
 
 ### What the board does
 
@@ -121,9 +121,9 @@ We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). 
 |---|---|---|
 | `C,first_cm,step_mm,n,scale` | board to PC | Sent at boot and every 5 s. Right now it's `C,15.0,37.5,24,10`. |
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
-| `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. |
+| `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. Once a minute also the CPU use: `S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0`. |
 | `B,1` | board to PC | The user button was pressed. |
-| `L,1` / `L,0` | PC to board | Alert: the red LED blinks twice a second (so it stands out from the board's other red lights), or off. |
+| `L,1` / `L,0` | PC to board | Alert: the LED blinks blue twice a second (the board's power and other red lights are always on, so red was easy to miss), or off. |
 | `R,1` | PC to board | Restart the radar. |
 | `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
 
@@ -172,4 +172,4 @@ No serial port: run `ls /dev/cu.usbmodem*`. Use the KitProg3 USB-C port with a c
 
 No D lines: look at the `S` lines. Driver errors show up there with their error code.
 
-Gaps in `seq`: lines are getting lost on the way. Send fewer bins or average more frames with `IBUKI_NUM_BINS` and `IBUKI_FRAMES_PER_LINE` in [proj_cm55/ibuki.h](proj_cm55/ibuki.h).
+Gaps in `seq`: lines are getting lost on the way. Send fewer bins or average more frames with `IBUKI_NUM_BINS` and `IBUKI_FRAMES_PER_LINE` in [proj_cm55/ibuki/ibuki.h](proj_cm55/ibuki/ibuki.h).

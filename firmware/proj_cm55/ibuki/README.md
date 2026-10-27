@@ -8,7 +8,7 @@
 | [range.h](range.h) / [range.c](range.c) | 距離の FFT：チャープごとに直流成分を引き、ハン窓をかけ、64 点の実数 FFT。使う 24 個のビンを足し合わせます（CMSIS-DSP） |
 | [lines.h](lines.h) / [lines.c](lines.c) | PC への行。キューに入れて、UART のハードウェア FIFO に空きがあるときに送るので、CPU が UART を待ちません |
 | [board_io.h](board_io.h) / [board_io.c](board_io.c) | 警告 LED（青く点滅）、ユーザーボタン（`B,1` を送る）、PC からのコマンド（`L,1` / `L,0` / `R,1` / `T,<ms>`） |
-| [load.h](load.h) / [load.c](load.c) | CPU がどれだけ忙しいか。1 分ごとに `S,<時刻>,load dsp 1.5% out 0.0% queue 246 dropped 0` を送ります |
+| [load.h](load.h) / [load.c](load.c) | CPU がどれだけ忙しいか。1 分ごとに `S,<時刻>,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` を送ります |
 
 ## 1 フレームの流れ
 
@@ -23,6 +23,8 @@
 |---|---|---|
 | 以前（行を送り終わるまで待つ） | 1.5% | 15.7% |
 | 今（キュー） | 1.5% | 0.0%（行の欠落 0） |
+
+何もすることがないとき（レーダーのデータ待ち、SPI の転送待ち）は、次の割り込みまで CPU を眠らせます（Infineon の `Cy_SysPm_CpuEnterSleep`）。以前は 98.5% の時間、何もせずにループしていました。今は **95% の時間眠っています**（1 秒に約 7,000 回、割り込みで起きます）。
 
 Helium（M55 のベクトル命令）版の CMSIS-DSP は、この GCC 14 ではコンパイルできないため使っていません（理由は [../Makefile](../Makefile) に書いてあります）。計算は CPU の 1.5% です。
 
@@ -46,7 +48,7 @@ This turns raw radar data into the lines sent to the PC (C / D / S / B). Infineo
 | [range.h](range.h) / [range.c](range.c) | Range FFT: for each chirp, remove DC, apply a Hann window, 64-point real FFT, and sum the 24 bins we use (CMSIS-DSP) |
 | [lines.h](lines.h) / [lines.c](lines.c) | Lines to the PC, through a queue that is emptied into the UART's hardware FIFO whenever it has room, so the CPU never waits for the UART |
 | [board_io.h](board_io.h) / [board_io.c](board_io.c) | Alert LED (blinks blue), user button (sends `B,1`), commands from the PC (`L,1` / `L,0` / `R,1` / `T,<ms>`) |
-| [load.h](load.h) / [load.c](load.c) | How busy the CPU is: `S,<time>,load dsp 1.5% out 0.0% queue 246 dropped 0` once a minute |
+| [load.h](load.h) / [load.c](load.c) | How busy the CPU is: `S,<time>,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` once a minute |
 
 ## One frame
 
@@ -61,6 +63,8 @@ This turns raw radar data into the lines sent to the PC (C / D / S / B). Infineo
 |---|---|---|
 | Before (waiting for each line to be sent) | 1.5% | 15.7% |
 | Now (queue) | 1.5% | 0.0% (0 lines lost) |
+
+When there is nothing to do (waiting for radar data or for an SPI transfer), the CPU sleeps until the next interrupt (Infineon's `Cy_SysPm_CpuEnterSleep`). Before, it spun in the loop doing nothing 98.5% of the time. Now it **sleeps 95% of the time** (woken about 7,000 times a second by interrupts).
 
 The Helium (the M55's vector instructions) version of CMSIS-DSP doesn't compile with this GCC 14, so it isn't used (the reason is in [../Makefile](../Makefile)). The maths takes 1.5% of the CPU.
 

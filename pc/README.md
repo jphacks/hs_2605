@@ -4,7 +4,7 @@
 
 ## 日本語
 
-息吹～IBUKI～のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB でレーダーのボードを読み、すべての行を Brain に渡して、その結果を WebSocket でダッシュボードに送ります。警告のときはボードの赤 LED をつけて、スマホに通知も送ります。
+息吹～IBUKI～のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB でレーダーのボードを読み、すべての行を Brain に渡して、その結果を WebSocket でダッシュボードに送ります。警告のときはボードの LED を青く点滅させて、スマホに通知も送ります。
 
 ### 動かし方
 
@@ -168,7 +168,7 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 
 ## English
 
-This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also turns the board's red LED on during an alert and sends the notification to the phone.
+This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also makes the board's LED blink blue during an alert and sends the notification to the phone.
 
 ### Running it
 
