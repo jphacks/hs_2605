@@ -1,4 +1,5 @@
-"""Both models in plain numpy, so the app (Python 3.14, no TensorFlow) can run them.
+"""How the app runs the two trained models: the 8-bit .tflite files with TensorFlow Lite
+(LiteRT), the same files the board's AI chip runs; or, without LiteRT, the weights in numpy.
 
 After training, export the weights once with the AI environment:
     ../ml-env/bin/python -m ml.runtime --export
@@ -87,6 +88,44 @@ class Model:
             else:
                 raise ValueError(f"layer {kind} not supported")
         return x
+
+
+class TFLiteModel:
+    """The 8-bit .tflite file of a model (the same one the board's AI chip runs, before Vela),
+    run with Google's TensorFlow Lite runtime (LiteRT, package ai-edge-litert).
+
+    run(x) takes a float batch like Model.run: inputs are quantized with the file's own scale
+    and zero point, outputs turned back into floats.
+    """
+
+    def __init__(self, name: str, folder: Path = MODELS):
+        from ai_edge_litert.interpreter import Interpreter
+        self.it = Interpreter(model_path=str(folder / f"{name}_int8.tflite"))
+        self.it.allocate_tensors()
+        self.inp, self.out = self.it.get_input_details()[0], self.it.get_output_details()[0]
+        self.batch = 1
+
+    def run(self, x: np.ndarray) -> np.ndarray:
+        x = np.asarray(x, np.float32)
+        if len(x) != self.batch:  # the file is made for 1 example; set it to the batch size
+            self.it.resize_tensor_input(self.inp["index"], list(x.shape))
+            self.it.allocate_tensors()
+            self.inp, self.out = self.it.get_input_details()[0], self.it.get_output_details()[0]
+            self.batch = len(x)
+        si, zi = self.inp["quantization"]
+        so, zo = self.out["quantization"]
+        self.it.set_tensor(self.inp["index"], np.clip(np.round(x / si + zi), -128, 127).astype(np.int8))
+        self.it.invoke()
+        return (self.it.get_tensor(self.out["index"]).astype(np.float32) - zo) * so
+
+
+def load(name: str):
+    """The model as the app runs it: the 8-bit file with LiteRT when that is installed,
+    otherwise the full-precision weights in numpy."""
+    try:
+        return TFLiteModel(name)
+    except ImportError:
+        return Model(name)
 
 
 def export(name: str) -> float:

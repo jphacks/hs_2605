@@ -8,3 +8,4 @@ pyserial>=3.5
 python-dotenv>=1.0
 requests>=2.31
 matplotlib>=3.8
+ai-edge-litert>=2.3   # TensorFlow Lite runtime for the trained models (pc/ibuki/model_brain.py)
