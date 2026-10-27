@@ -6,6 +6,7 @@
 
 #include "cybsp.h"
 #include "ibuki.h"
+#include "ai.h"
 #include "lines.h"
 
 #define RX_LINE_MAX       (16U)
@@ -129,6 +130,8 @@ static void poll_button(uint32_t now)
         btn_stable_pressed = raw;
         if (raw)
         {
+            set_alert(false); /* a parent is at the board: the alarm is seen */
+            ai_acknowledge();
             char* p = line_start();
             *p++ = 'B';
             *p++ = ',';
@@ -153,6 +156,14 @@ void board_io_poll(uint32_t now_ms)
     poll_uart_rx();
     poll_button(now_ms);
     poll_blink(now_ms);
+}
+
+void board_io_alarm(void)
+{
+    if (!alert_on)
+    {
+        set_alert(true);
+    }
 }
 
 bool board_io_take_restart_request(void)

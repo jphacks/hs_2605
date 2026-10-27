@@ -17,7 +17,8 @@ typedef enum
 {
     LOAD_DSP,
     LOAD_OUT,
-    LOAD_SLEEP /* inside the sleep call (main.c) */
+    LOAD_SLEEP, /* inside the sleep call (main.c) */
+    LOAD_AI     /* both models and their inputs (ai.c), reported at the end as "ai X%" */
 } load_part_t;
 
 void     load_init(void);

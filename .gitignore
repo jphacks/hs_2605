@@ -37,3 +37,6 @@ ml/data/
 
 # Datasets downloaded by ml/ scripts (AIR-400 has no stated license: never commit it)
 ml/data/
+
+# the trained models as C arrays for the board (ml/board_models.py); weights partly from AIR-400
+firmware/proj_cm55/ibuki/models/

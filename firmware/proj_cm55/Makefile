@@ -41,7 +41,10 @@ VERBOSE=
 # Neural Network Configuration. Options include
 #
 # int8x8   -- 8-bit fixed-point for the input data and weights
-NN_TYPE=float
+# IBUKI: our two models (ibuki/ai.c) are 8-bit
+NN_TYPE=int8x8
+# IBUKI: the example's DEEPCRAFT gesture model (model/) is not used and only builds as float
+CY_IGNORE+=model
 
 # Choose the inference engine
 # tflm      -- TensorFlow Lite for Microcontrollers inference engine with interpreter
