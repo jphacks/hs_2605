@@ -188,7 +188,7 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 
 録画再生は実機の現在の測定ではありません。`--loop` で繰り返し、`--brain placeholder` など既存のサーバーオプションもそのまま使えます。1 回のテストを終えたら Ctrl+C で止め、次の録画を起動してください。ホールドの警告音は Mac / Windows とも、画面の停止ボタン・サーバーの Enter・ボードの SW1 で止めるまで繰り返します。`IBUKI_SIREN=0` で音を無効にできます。録画でも `.env` の ntfy 設定は有効です。
 
-ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md) にくわしく書いてあります。
+ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md)、赤ちゃんの呼吸データと開発中の AI モデルは [ml/README.md](ml/README.md) にくわしく書いてあります。
 
 ## 開発技術
 ### 活用した技術

@@ -47,7 +47,7 @@ from .shake import ShakeDetector
 
 LAMBDA_MM = 5.0
 
-# --- thresholds (from the recordings; see the docstring) ---------------------------------
+# Thresholds, set from the recordings (see the docstring).
 PRESENT_ON = 25.0       # 3 s echo activity; empty room 1-5, a person 100+
 PRESENT_OFF = 15.0
 ABSENT_S = 3.0          # seconds below PRESENT_OFF before EMPTY
@@ -115,7 +115,6 @@ class Brain:
         self.dt_ms = 60.0
         self.events: list[dict] = []
 
-    # ------------------------------------------------------------------ helpers
     def _filters(self):
         nyq = self.fs / 2
         self.b, self.a = butter(2, [0.1 / nyq, 1.5 / nyq], btype="band")
@@ -215,7 +214,6 @@ class Brain:
             return None  # the two methods disagree: say unknown, never guess
         return round(fft_bpm, 1)
 
-    # ------------------------------------------------------------------ main entry
     def feed(self, line: str) -> list[dict]:
         m = parse_line(line)
         if isinstance(m, Config):
@@ -301,7 +299,6 @@ class Brain:
         out = [self._status(m.t_ms, shaking)] + self._take_events()
         return out
 
-    # ------------------------------------------------------------------ state machine
     def _presence(self, t, activity):
         if activity >= PRESENT_ON:
             if not self.present:
