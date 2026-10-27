@@ -5,7 +5,7 @@
 1. **呼吸モデル**：距離ごとに「いま呼吸しているか」を判定します（12 秒分の反射の動きから）
 2. **状態モデル**：呼吸モデルの 30 秒分の答えから、赤ちゃんがいま「呼吸している・止まった・動いている・いない」のどれかを決めます。手で書いたアラームのルールの代わりです。残るルールは「止まった」が設定の秒数続いたら警告、の 1 つだけです
 
-まだ開発中です。サーバー（[pc/](../pc/README.md)）が使っているのは今も Brain のルールで、このモデルはまだ組み込んでいません。
+サーバー（[pc/](../pc/README.md)）が標準で使うのは Brain のルールです。
 
 ## ファイル
 
@@ -82,16 +82,15 @@ IBUKI_SIREN=0 ./ibuki.command --replay ml/data/synth/alone/<ファイル名>.csv
 
 最初に試した手書きのルール（[decide.py](decide.py)）は、人が作業している同じ 20 分で誤報 5 回、Manami が離れる場面でも誤報を出しました。
 
-わかっている弱点と次にやること：
+わかっている弱点：
 
-- とても浅い呼吸で誤報が出ます。浅い呼吸の例を増やして学習し直します。
+- とても浅い呼吸で誤報が出ます。
 - 警告は設定の秒数より約 2 秒遅れます。誤報を半分にするために選んだ設定です（検証用データで決めました）。
-- サーバーにはまだ組み込んでいません。次は 2 つのモデルをボードの AI チップ（Ethos-U55）で動かします。
 
 ## 注意
 
-- 赤ちゃんの胸の反射の強さ（同じ距離の大人の 0.2〜0.5 倍）と呼吸の深さ（0.5〜2.0 mm）は仮定です。仮定は [synth.py](synth.py) の先頭に書いてあり、実際の赤ちゃんや呼吸のダミーで確かめる予定です。
-- AIR-400 のデータにはライセンスの記載がありません。そのため、ダウンロードしたデータと作ったデータ（`ml/data/`）は git に入れません。公開で使う前に作者に確認します。論文：Song et al., "Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation", WACV 2026（[arXiv](https://arxiv.org/abs/2512.06888)、[データ](https://coe.northeastern.edu/Research/AClab/AIR-400/)）
+- 赤ちゃんの胸の反射の強さ（同じ距離の大人の 0.2〜0.5 倍）と呼吸の深さ（0.5〜2.0 mm）は仮定です。仮定は [synth.py](synth.py) の先頭に書いてあります。
+- AIR-400 のデータにはライセンスの記載がありません。そのため、ダウンロードしたデータと作ったデータ（`ml/data/`）は git に入れません。論文：Song et al., "Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation", WACV 2026（[arXiv](https://arxiv.org/abs/2512.06888)、[データ](https://coe.northeastern.edu/Research/AClab/AIR-400/)）
 - 医療機器ではありません。
 
 ---
@@ -103,7 +102,7 @@ We can't record a baby that stops breathing. So this folder combines **real babi
 1. **Breathing model**: for each distance, "is something breathing here right now?" (from 12 s of echo movement)
 2. **State model**: from the breathing model's last 30 s of answers, is the baby breathing, stopped, moving, or not there? It replaces hand-written alarm rules. The one rule left: "stopped" for the set number of seconds means an alert
 
-This is work in progress. The server ([pc/](../pc/README.md)) still uses the Brain's rules; the model isn't built in yet.
+By default the server ([pc/](../pc/README.md)) uses the Brain's rules.
 
 ## Files
 
@@ -180,14 +179,13 @@ Real recordings never used for training:
 
 The hand-written rules we tried first ([decide.py](decide.py)) gave 5 false alarms in the same 20 minutes of a person working, and a false alarm when Manami walked away.
 
-Known weak points and what's next:
+Known weak points:
 
-- Very light breathing causes false alarms. Next: retrain with more examples of light breathing.
+- Very light breathing causes false alarms.
 - The alert comes about 2 s after the setting. That setting halves the false alarms (chosen on the validation set).
-- Not built into the server yet. Next: run both models on the board's AI chip (Ethos-U55).
 
 ## Notes
 
-- The baby's echo strength (0.2-0.5 times an adult's at the same distance) and breath depth (0.5-2.0 mm) are assumptions, listed at the top of [synth.py](synth.py), to be checked with real babies or a breathing dummy.
-- AIR-400's data has no stated license, so the downloaded and generated data (`ml/data/`) is never committed. We'll ask the authors before any public use. Paper: Song et al., "Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation", WACV 2026 ([arXiv](https://arxiv.org/abs/2512.06888), [data](https://coe.northeastern.edu/Research/AClab/AIR-400/))
+- The baby's echo strength (0.2-0.5 times an adult's at the same distance) and breath depth (0.5-2.0 mm) are assumptions, listed at the top of [synth.py](synth.py).
+- AIR-400's data has no stated license, so the downloaded and generated data (`ml/data/`) is never committed. Paper: Song et al., "Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation", WACV 2026 ([arXiv](https://arxiv.org/abs/2512.06888), [data](https://coe.northeastern.edu/Research/AClab/AIR-400/))
 - Not a medical device.
