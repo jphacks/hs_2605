@@ -3,7 +3,7 @@ type IconName = 'brand' | 'moon' | 'movement' | 'breathing' | 'bed' | 'bell' | '
 // Decorative, code-native marks. Existing Japanese text supplies every meaning.
 const paths: Record<IconName, string[]> = {
   brand: ['M3 11C7 4 11 4 16 11S25 18 29 11', 'M3 21C7 14 11 14 16 21S25 28 29 21'],
-  moon: ['M24 21A12 12 0 0 1 12 5a12 12 0 1 0 12 16Z'],
+  moon: ['M14.64 3.8A12.23 12 0 1 0 27.32 21.89A12.23 12 0 0 1 14.64 3.8Z'],
   movement: ['M2 17h5l3-11 5 22 5-18 3 7h7'],
   breathing: ['M14 5v10l-5-5c-3 0-6 10-6 15 0 3 5 4 9 1l2-2', 'M18 5v10l5-5c3 0 6 10 6 15 0 3-5 4-9 1l-2-2', 'M16 3v10'],
   bed: ['M3 10v18M29 14v14M3 23h26M3 18h26v-5H12v5', 'M6 13h4v5H6Z'],
