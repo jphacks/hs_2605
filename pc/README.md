@@ -6,6 +6,8 @@
 
 息吹～IBUKI～のノート PC 側です。[ibuki/server.py](ibuki/server.py) が USB でレーダーのボードを読み、すべての行を Brain に渡して、その結果を WebSocket でダッシュボードに送ります。警告のときはボードの LED を点滅させて、スマホに通知も送ります。
 
+学習済みの AI モデルに判定させるには `./ibuki.command --brain ibuki.model_brain:Brain` で起動します（[model_brain.py](ibuki/model_brain.py)。先に [ml/README.md](../ml/README.md) の手順でモデルを作り、`../ml-env/bin/python -m ml.runtime --export` で書き出します）。波形と呼吸数の表示は今の Brain のままで、状態と警告をモデルが決めます。
+
 ### 動かし方
 
 **Windows 10/11** ではリポジトリの `ibuki.cmd` をダブルクリックするか、PowerShell / CMD から `.\ibuki.cmd` を実行します。**macOS** はこれまでどおり `./ibuki.command` です。Windows の初回準備・録画の起動例はルートの [動かし方](../README.md#動かし方) にあります。
@@ -171,6 +173,8 @@ CHECK だけでは通知を送りません。短い間だけ CHECK になるこ�
 ## English
 
 This is the laptop side of 息吹～IBUKI～. [ibuki/server.py](ibuki/server.py) reads the radar board over USB, hands every line to the Brain, and sends the Brain's results to the dashboard over a WebSocket. It also makes the board's LED blink during an alert and sends the notification to the phone.
+
+To let the trained AI models decide, start with `./ibuki.command --brain ibuki.model_brain:Brain` ([model_brain.py](ibuki/model_brain.py); build the models first as in [ml/README.md](../ml/README.md), then export them with `../ml-env/bin/python -m ml.runtime --export`). The wave and the breathing rate still come from today's Brain; the models decide the state and the alerts.
 
 ### Running it
 
