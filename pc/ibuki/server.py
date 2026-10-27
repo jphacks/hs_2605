@@ -8,6 +8,7 @@ Run from the repo root:
 Endpoints (port 8000, also reachable from phones on the same Wi-Fi at http://<laptop-ip>:8000):
   WS   /ws                     Brain statuses and events as JSON, one message per text frame
   WS   /ws/raw                 every raw board line (live viewer / recorder use it via --server)
+  POST /api/pair               a phone pairs with the code in this window (IBUKI_PAIRING=1)
   GET  /api/health             board connection, lost lines, board health, Brain name, clients, ntfy on/off
   GET  /api/status             latest Brain status
   POST /api/test-notification  sends a test push to the phone
@@ -33,8 +34,10 @@ import asyncio
 import importlib
 import importlib.util
 import json
+import hmac
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -54,7 +57,8 @@ import numpy as np  # noqa: E402
 import requests  # noqa: E402
 import uvicorn  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from ibuki.placeholder_brain import PlaceholderBrain  # noqa: E402
@@ -127,6 +131,51 @@ class BoardHealth:
 
     def as_dict(self) -> dict:
         return {"load": self.load, "restarts": self.restarts, "last_restart": self.last_restart}
+
+
+class Pairing:
+    """Who may stop the alarm over the network. On with IBUKI_PAIRING=1; off by default.
+
+    The server window shows a 6-digit code. A phone sends it once to POST /api/pair and gets a
+    token back; after that, a stop request (POST /api/button, or {"type": "button"} on /ws) only
+    counts with that token ("Authorization: Bearer <token>", or "token" in the message).
+    Five wrong codes make a new code, so it can't be guessed by trying them all. Tokens live in
+    memory: after a server restart, phones pair again. The board's SW1 and Enter in the server
+    window always stop the alarm.
+    """
+
+    MAX_TRIES = 5
+
+    def __init__(self, enabled: bool):
+        self.enabled = enabled
+        self.tokens: set[str] = set()
+        self.new_code()
+
+    def new_code(self):
+        self.code = f"{secrets.randbelow(10 ** 6):06d}"
+        self.wrong = 0
+        if self.enabled:
+            log(f"pairing code: {self.code} (enter it once on each phone)")
+
+    def pair(self, code: str) -> str | None:
+        if hmac.compare_digest(str(code), self.code):
+            token = secrets.token_urlsafe(24)
+            self.tokens.add(token)
+            log(f"a device paired ({len(self.tokens)} paired)")
+            return token
+        self.wrong += 1
+        if self.wrong >= self.MAX_TRIES:
+            log("pairing: too many wrong codes, made a new code")
+            self.new_code()
+        return None
+
+    def allowed(self, token: str | None) -> bool:
+        return not self.enabled or (token is not None and token in self.tokens)
+
+
+def bearer(request: Request) -> str | None:
+    h = request.headers.get("authorization", "")
+    return h[7:] if h.lower().startswith("bearer ") else None
 
 
 class Notifier:
@@ -455,6 +504,7 @@ class Hub:
             "seq": {"lost": self.seq.lost, "gaps": self.seq.gaps, "resets": self.seq.resets},
             "last_board_status": self.last_board_status,
             "board_health": self.board_health.as_dict(),
+            "pairing": getattr(self, "pairing_enabled", False),
             "brain_errors": self.brain_errors,
             "led_on": self.led_on,
             "siren": self.siren.on,
@@ -467,6 +517,8 @@ def create_app(args) -> FastAPI:
                         os.environ.get("IBUKI_NTFY_URL", "https://ntfy.sh"),
                         token=os.environ.get("IBUKI_NTFY_TOKEN"))
     hub = Hub(load_brain(args.brain), notifier, Siren(os.environ.get("IBUKI_SIREN", "1") != "0"))
+    pairing = Pairing(os.environ.get("IBUKI_PAIRING", "0") == "1")
+    hub.pairing_enabled = pairing.enabled
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -503,9 +555,23 @@ def create_app(args) -> FastAPI:
     def status():
         return hub.latest or {}
 
+    @app.post("/api/pair")
+    async def pair(request: Request):
+        """A phone sends the code from the server window and gets a token (see Pairing)."""
+        try:
+            code = (await request.json()).get("code", "")
+        except Exception:
+            code = ""
+        token = pairing.pair(code)
+        if token is None:
+            return JSONResponse({"ok": False, "reason": "wrong code"}, status_code=403)
+        return {"ok": True, "token": token}
+
     @app.post("/api/button")
-    def button():
+    def button(request: Request):
         """The dashboard's stop button: the same as the board's SW1 (stops the siren)."""
+        if not pairing.allowed(bearer(request)):
+            return JSONResponse({"ok": False, "reason": "not paired"}, status_code=403)
         hub.press_button()
         return {"ok": True}
 
@@ -530,7 +596,7 @@ def create_app(args) -> FastAPI:
                     msg = json.loads(text)
                 except json.JSONDecodeError:
                     continue
-                if isinstance(msg, dict) and msg.get("type") == "button":
+                if isinstance(msg, dict) and msg.get("type") == "button" and pairing.allowed(msg.get("token")):
                     hub.press_button()
         except WebSocketDisconnect:
             pass
