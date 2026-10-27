@@ -1,0 +1,105 @@
+# PR #77 — Visual refinement
+
+Issue #70 の既存画面を、添付の IBUKI 参考画像と比較して調整した記録です。PR 全体の変更前は main `6e9dc032d29a0cf41231e8c3845f4aa8168b5106`、変更後は最新の実ブラウザーキャプチャです。最新の実測・月の形・表示尺度・モバイル余白は [実測に基づく最終調整](../pixel/README.md) を参照してください。`ce9c6881869e65cb595cfecc267b55906cdbde1d` とレビュー時点 `8f06f58` は PR 内の中間版で、PR 全体の変更前ではありません。
+
+## 比較と調整
+
+主な視覚基準は `IBUKI 3パネル 呼吸検知 UI-2`（提供された1枚目）の構成です。2枚目の同じ配色・余白も参照しましたが、「正常」「仰向け」など未対応の判定は採用していません。
+
+| 段階 | 比較で見えた差 | 調整 |
+|---|---|---|
+| PR内中間版 → 1次 | 状態タイトルと指標が相対的に小さい。バナーと円形記号が平面的。指標内の位置が不統一 | タイトル・数値・ラベルの文字階層、セージのグラデーションと円形記号の深み、均等な指標カードを調整 |
+| 1次 → 2次 | 接続表示の中に小さい文字が集中。格子が強い。通知が細かすぎる。モバイル停止ボタンが本文幅に制限される | 出所を独立した読める行に移動。格子・線・塗りを弱め、通知の文字と区切りを調整。停止ボタンを警告パネル幅に拡大。夜間の面に控えめな明暗を追加 |
+| 2次 → 最終 | 接続詳細とチャート下部の余白が、モバイルの通知を押し下げる | 説明を隠さず余白とチャートの高さを縮小。明るい ALERT 画面で、バナー外の接続詳細にも適切なフォーカス色を適用 |
+
+各段階で実ブラウザーを撮影し、参考・前段階・更新後を並べて確認しました。最終段階まで受信 fixture の波形生成式・サンプル時刻・数値・イベントは共通です。時計の進行による位相と受信表示時刻の差はあります。
+
+## 実ブラウザーのキャプチャ
+
+**すべて合成データによるテスト画面です。** 既存の `/ws`・`/api/health`・`/api/button` を Playwright が横取りしています。画像の `FileReplay` 表示は実機ライブ測定ではありません。実録画や赤ちゃんの測定結果ではなく、電話通知も送信していません。
+
+PR 全体の Before / After：
+
+| シーン | 変更前：main `6e9dc03` | 変更後：最新の最終画像 |
+|---|---|---|
+| Desktop light・1440×900 | [画像](../before-1440-light-still.png) | [画像](final/1440-light-still.png) |
+| Desktop light ALERT・1440×900 | [画像](../before-1440-light-alert.png) | [画像](final/1440-light-alert.png) |
+| Desktop dark ALERT・1440×900 | [画像](../before-1440-dark-alert.png) | [画像](final/1440-dark-alert.png) |
+| Mobile light・390×844 | [画像](../before-390-light-still.png) | [画像](final/390-light-still.png) |
+| Mobile dark ALERT・390×844 | [画像](../before-390-dark-alert.png) | [画像](final/390-dark-alert.png) |
+
+デスクトップのアラーム画面は、`alert/no_breath`、進行する `ALERT` ステータス、模擬のサイレン状態を同じ条件で受信した画面です。PR 前の main はダークテーマに対応していないため、夜間条件の変更前も明るい画面になります。
+
+アラーム画面の全ページ画像：
+
+| シーン | PR前 main | 変更後 |
+|---|---|---|
+| Desktop light ALERT | [全体](../before-1440-light-alert-full.png) | [全体](final/1440-light-alert-full.png) |
+| Desktop dark ALERT | [全体](../before-1440-dark-alert-full.png) | [全体](final/1440-dark-alert-full.png) |
+
+PR 内の調整記録（中間版を変更前の main と混同しないための別表）：
+
+| シーン | PR内中間版 `ce9c688` | 1次 | 2次 | 最終 |
+|---|---|---|---|---|
+| Desktop light・1440×900 | [画像](baseline/1440-light-still.png) | [画像](pass-1/1440-light-still.png) | [画像](pass-2/1440-light-still.png) | [画像](final/1440-light-still.png) |
+| Mobile light・390×844 | [画像](baseline/390-light-still.png) | [画像](pass-1/390-light-still.png) | [画像](pass-2/390-light-still.png) | [画像](final/390-light-still.png) |
+| Mobile dark ALERT・390×844 | [画像](baseline/390-dark-alert.png) | [画像](pass-1/390-dark-alert.png) | [画像](pass-2/390-dark-alert.png) | [画像](final/390-dark-alert.png) |
+
+参考との横並び比較：
+
+| シーン | PR内の1次比較 | PR内の2次比較 | PR前 main → 最終 |
+|---|---|---|---|
+| Desktop light | [比較](pass-1/compare-1440-light-still.jpg) | [比較](pass-2/compare-1440-light-still.jpg) | [比較](final/compare-1440-light-still.jpg) |
+| Mobile light | [比較](pass-1/compare-390-light-still.jpg) | [比較](pass-2/compare-390-light-still.jpg) | [比較](final/compare-390-light-still.jpg) |
+| Mobile dark ALERT | [比較](pass-1/compare-390-dark-alert.jpg) | [比較](pass-2/compare-390-dark-alert.jpg) | [比較](final/compare-390-dark-alert.jpg) |
+
+全ページ：[Desktop light](final/1440-light-still-full.png) / [Mobile dark ALERT](final/390-dark-alert-full.png)。スクロール先の履歴と医療機器ではない旨の説明も確認できます。
+
+比較図の参考画像は端末枠・OS 表示を除いた箇所をブラウザー内の CSS で切り出し、縦横比を保って配置しています。比較図は容量を抑えた JPEG、実アプリの指定ビューポートの原本は PNG です。比較図は同一ピクセル座標の差分テストではありません。
+
+## 維持した境界と残る違い
+
+- `disp_mm`、`t`、`dt_ms`、BPM、30秒の時間窓、単位、欠測区間は変更していません。波形は直線のままで、欠測をつなぎません。最新調整では縦軸の表示範囲を明示した±2mm以上の段階尺度に変更し、横軸を同じ絶対時間窓の0〜30秒表記にしています。[尺度とデータの境界](../pixel/README.md#表示範囲とデータの境界) を参照してください。
+- 参考画像の曲線は説明用です。山の数や形を似せる目的でデータを作り替えていません。既存 fixture の32回/分と30秒の波形を維持しています。
+- 通知の理由・緊急度・現在の警告・保持件数・並び順は同じです。参考画像の短い例示履歴に置き換えていません。長い通知は折り返します。
+- `LIVE` は接続先モード、`録画再生中` と出所表示は実測ライブではないことを示します。実機入力・暫定処理・切断の既存判定を変更していません。
+- 現在の警告、出所、呼吸数の説明、プロトタイプの注意書きを維持するため、特にモバイル ALERT では参考画像より内容が縦に長くなります。履歴は通常のスクロールで読めます。
+- 生成画像にある姿勢推定・「正常」判定・未実装の設定画面・端末 OS のステータスバーは再現していません。承認済みの2本の波形ロゴも維持しています。
+- #75 のペアリング・認証・新しいボード情報・新規 API には手を加えていません。`pc/`、firmware、ML、通知バックエンドにも変更はありません。
+- システムの日本語フォントを使用します。検証環境では Yu Gothic UI が実際に使われていました。macOS / iOS のフォント描画は同一ではありません。
+
+## 検証と再現
+
+Windows の Edge / Chromium 156.0.4314.42 と Playwright で検証しました。
+
+| 検証 | 結果 |
+|---|---|
+| `npm test` | 66件成功 |
+| `npm run build` | 成功 |
+| 全状態・昼夜・1440/390px、320px追加、切断・欠測・揺れ・停滞 | 33画面条件成功、ページ・コンソールエラー0 |
+| 接続詳細、波形説明、メニューのキーボード操作と模擬アラーム停止 | 成功 |
+| 実行中の昼夜変更・動きを減らす設定 | 再接続やBPM変更なし |
+| 表示範囲の拡大・履歴内保持・縮小、0mmの描画、ブランド固定 | 成功 |
+| 本文・状態・出所・通知の描画色、明るい/暗い ALERT の詳細フォーカス | 文字4.5:1以上、フォーカス3:1以上 |
+| 参考との比較 | PR前 main と最終の比較、PR内中間版・1次・2次の3シーンを撮影・目視比較 |
+
+これは全面的なアクセシビリティ監査ではありません。
+
+通常の検証は `web/` で `npm test` と `npm run build`、リポジトリルートで `git diff --check` を実行します。任意の Playwright 準備は [既存の手順](../README.md#再実行) を参照してください。依存ライブラリーは追加していません。
+
+Vite を5178番で起動した後、リポジトリルートで次を実行します。PowerShell では既存の `IBUKI_PLAYWRIGHT_MODULE` と `IBUKI_BROWSER_PATH` の指定も使えます。
+
+```sh
+# 指定された3画面。--publish を省けば Git 対象外の出力だけを作成
+node web/scripts/check_design.cjs --polish --stage=final --publish
+
+# デスクトップの昼夜アラーム画面だけを撮影
+node web/scripts/check_design.cjs --polish --stage=final --alerts --publish
+
+# 全状態・接続・キーボード・動きを減らす設定の回帰検証
+node web/scripts/check_design.cjs
+```
+
+`--stage=` は画像の記録先を分けるだけです。以前の実装に自動で戻す指定ではありません。PR前 main・PR内中間版・1次・2次の記録はそれぞれ当時の実装で撮影しています。
+
+実機・Safari・スクリーンリーダー・医療的な精度の検証は今回の範囲外です。既存の大きな JavaScript チャンクに対する Vite の警告も残っています。
