@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { WINDOW_S, glideEnd } from './data/waveform';
 import type { WavePoint } from './data/waveform';
 import { useReducedMotion } from './useReducedMotion';
@@ -34,14 +34,19 @@ export default function WaveChart({ points, t, alert, demo, label }:
   { points: WavePoint[]; t: number | null; alert: boolean; demo: boolean; label: string }) {
   const reducedMotion = useReducedMotion();
   const end = Math.max(WINDOW_S, useGlidingEnd(t, reducedMotion));
+  const gradientId = useId();
+  const waveColor = alert ? 'var(--chart-alert)' : 'var(--chart-wave)';
+  const hasWaveform = points.some(point => point.displacement !== null);
   return <div className="chart" role="img" aria-label={label} data-end={end.toFixed(3)}>
-    <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 0 }} accessibilityLayer>
-      <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 6" vertical={false}/>
+    <ResponsiveContainer width="100%" height="100%"><ComposedChart data={points} margin={{ top: 12, right: 12, bottom: 4, left: 0 }} accessibilityLayer>
+      <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={waveColor} stopOpacity={0.23}/><stop offset="100%" stopColor={waveColor} stopOpacity={0.02}/></linearGradient></defs>
+      <CartesianGrid stroke="var(--chart-grid)" vertical={true}/>
       {/* allowDataOverflow: the window is fixed; samples just outside it are clipped, not allowed to stretch the axis */}
       <XAxis type="number" dataKey="time" allowDataOverflow domain={[end - WINDOW_S, end]} ticks={[end - 30, end - 20, end - 10, end]} tickFormatter={v => Math.round(v - end) === 0 ? '今' : `${Math.round(v - end)}秒`} tickLine={false} axisLine={false} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}/>
-      <YAxis type="number" domain={demo ? [-2, 2] : ['auto', 'auto']} tickFormatter={v => `${Number(Number(v).toFixed(2))}`} tickLine={false} axisLine={false} width={46} tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}/>
+      <YAxis type="number" domain={demo ? [-2, 2] : ['auto', 'auto']} tickFormatter={v => `${Number(Number(v).toFixed(2))}`} tickLine={false} axisLine={false} width={46} tick={hasWaveform ? { fill: 'var(--chart-axis)', fontSize: 12 } : false}/>
+      {hasWaveform && <Area type="linear" dataKey="displacement" baseValue="dataMin" fill={`url(#${gradientId})`} stroke={waveColor} strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false}/>}
       <Line type="linear" dataKey="idle" stroke="var(--chart-idle)" strokeWidth={2} strokeDasharray="6 5" dot={false} isAnimationActive={false}/>
-      <Line type="linear" dataKey="displacement" stroke={alert ? 'var(--chart-alert)' : 'var(--chart-wave)'} strokeWidth={2.5} dot={false} isAnimationActive={false}/>
-    </LineChart></ResponsiveContainer>
+    </ComposedChart></ResponsiveContainer>
+    {!hasWaveform && <div className="chart-empty"><span>波形データがありません</span></div>}
   </div>;
 }
