@@ -6,10 +6,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const before = process.argv.includes('--before');
+const alarms = process.argv.includes('--alerts');
 const polish = process.argv.includes('--polish');
 const polishStage = process.argv.find(argument => argument.startsWith('--stage='))?.slice(8) || 'final';
 if (!/^[a-z0-9-]+$/.test(polishStage)) throw Error('Invalid screenshot stage');
-const quick = before || process.argv.includes('--quick') || polish;
+const quick = before || process.argv.includes('--quick') || polish || alarms;
 const publish = process.argv.includes('--publish');
 const phase = before ? 'before' : 'after';
 const root = path.resolve(__dirname, '../..');
@@ -20,6 +21,7 @@ fs.mkdirSync(output, { recursive: true });
 if (publish) fs.mkdirSync(published, { recursive: true });
 
 const selected = new Set(['1440-light-STILL', '1440-dark-STILL', '390-light-STILL', '390-dark-ALERT']);
+if (alarms) { selected.add('1440-light-ALERT'); selected.add('1440-dark-ALERT'); }
 const titles = {
   STILL: '眠っています', OK: '起きています', CHECK: '呼吸を確認中',
   ALERT: '呼吸が確認できません', EMPTY: 'ベッドにいません',
@@ -264,7 +266,7 @@ async function verifyInteractions(browser) {
   });
   try {
     report.browser = browser.version();
-    const matrix = polish ? [[1440, 'light', 'STILL'], [390, 'light', 'STILL'], [390, 'dark', 'ALERT']] : quick
+    const matrix = alarms ? [[1440, 'light', 'ALERT'], [1440, 'dark', 'ALERT']] : polish ? [[1440, 'light', 'STILL'], [390, 'light', 'STILL'], [390, 'dark', 'ALERT']] : quick
       ? [[1440, 'light', 'STILL'], [1440, 'dark', 'STILL'], [390, 'light', 'STILL'], [390, 'dark', 'ALERT']]
       : [1440, 390].flatMap(width => ['light', 'dark'].flatMap(scheme =>
         ['STILL', 'OK', 'CHECK', 'ALERT', 'EMPTY', 'disconnected', 'unavailable'].map(state => [width, scheme, state])))
@@ -284,7 +286,7 @@ async function verifyInteractions(browser) {
             path: path.join(published, `${polish ? '' : phase + '-'}${name.toLowerCase()}.png`),
             fullPage: false, animations: 'disabled',
           });
-          if ((!polish || polishStage === 'final') && (name === '1440-light-STILL' || name === '390-dark-ALERT')) {
+          if ((!polish || polishStage === 'final') && (alarms || name === '1440-light-STILL' || name === '390-dark-ALERT')) {
             fs.copyFileSync(file, path.join(published, `${polish ? '' : phase + '-'}${name.toLowerCase()}-full.png`));
           }
         }

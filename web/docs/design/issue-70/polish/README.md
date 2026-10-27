@@ -23,8 +23,19 @@ PR 全体の Before / After：
 | シーン | 変更前：main `6e9dc03` | 変更後：最終画像を維持 |
 |---|---|---|
 | Desktop light・1440×900 | [画像](../before-1440-light-still.png) | [画像](final/1440-light-still.png) |
+| Desktop light ALERT・1440×900 | [画像](../before-1440-light-alert.png) | [画像](final/1440-light-alert.png) |
+| Desktop dark ALERT・1440×900 | [画像](../before-1440-dark-alert.png) | [画像](final/1440-dark-alert.png) |
 | Mobile light・390×844 | [画像](../before-390-light-still.png) | [画像](final/390-light-still.png) |
 | Mobile dark ALERT・390×844 | [画像](../before-390-dark-alert.png) | [画像](final/390-dark-alert.png) |
+
+デスクトップのアラーム画面は、`alert/no_breath`、進行する `ALERT` ステータス、模擬のサイレン状態を同じ条件で受信した画面です。PR 前の main はダークテーマに対応していないため、夜間条件の変更前も明るい画面になります。
+
+アラーム画面の全ページ画像：
+
+| シーン | PR前 main | 変更後 |
+|---|---|---|
+| Desktop light ALERT | [全体](../before-1440-light-alert-full.png) | [全体](final/1440-light-alert-full.png) |
+| Desktop dark ALERT | [全体](../before-1440-dark-alert-full.png) | [全体](final/1440-dark-alert-full.png) |
 
 PR 内の調整記録（中間版を変更前の main と混同しないための別表）：
 
@@ -80,6 +91,9 @@ Vite を5178番で起動した後、リポジトリルートで次を実行し�
 ```sh
 # 指定された3画面。--publish を省けば Git 対象外の出力だけを作成
 node web/scripts/check_design.cjs --polish --stage=final --publish
+
+# デスクトップの昼夜アラーム画面だけを撮影
+node web/scripts/check_design.cjs --polish --stage=final --alerts --publish
 
 # 全状態・接続・キーボード・動きを減らす設定の回帰検証
 node web/scripts/check_design.cjs
