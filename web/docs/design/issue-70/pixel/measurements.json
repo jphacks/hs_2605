@@ -1,0 +1,893 @@
+{
+  "note": "All application screenshots use synthetic browser-intercepted input. Raster reference bounds are approximate (+/- 2px); DOM/SVG bounds are measured in CSS pixels. Brand positions are excluded from the equality check; geometry, styles, paths and text are compared.",
+  "reference": {
+    "source": {
+      "name": "IBUKI 3패널 호흡 감지 UI-2.png",
+      "width": 1774,
+      "height": 887,
+      "note": "Reference layout rectangles picked from raster edges; circle and white crescent masks measured within isolated crops."
+    },
+    "desktop": {
+      "contentWidth": 902,
+      "banner": {
+        "x": 68,
+        "y": 170,
+        "width": 902,
+        "height": 158
+      },
+      "circle": {
+        "x": 93,
+        "y": 200,
+        "width": 99,
+        "height": 102,
+        "pixels": 7060,
+        "centroid": {
+          "x": 142.80694050991502,
+          "y": 250.05552407932012
+        }
+      },
+      "moon": {
+        "x": 122,
+        "y": 229,
+        "width": 40,
+        "height": 42,
+        "pixels": 721,
+        "centroid": {
+          "x": 136.30790568654646,
+          "y": 254.6643550624133
+        }
+      },
+      "statusTextX": 230,
+      "metrics": {
+        "x": 631,
+        "y": 347,
+        "width": 338,
+        "height": 331
+      },
+      "metricHeight": 101,
+      "waveform": {
+        "x": 68,
+        "y": 347,
+        "width": 548,
+        "height": 332
+      },
+      "plot": {
+        "x": 132,
+        "y": 433,
+        "width": 455,
+        "height": 170
+      },
+      "notifications": {
+        "x": 68,
+        "y": 694,
+        "width": 902,
+        "height": 137
+      }
+    },
+    "mobile": {
+      "contentWidth": 310,
+      "banner": {
+        "x": 1042,
+        "y": 173,
+        "width": 310,
+        "height": 104
+      },
+      "circle": {
+        "x": 1063,
+        "y": 196,
+        "width": 56,
+        "height": 56,
+        "pixels": 2163,
+        "centroid": {
+          "x": 1090.8363384188626,
+          "y": 223.2214516874711
+        }
+      },
+      "moon": {
+        "x": 1080,
+        "y": 212,
+        "width": 21,
+        "height": 23,
+        "pixels": 211,
+        "centroid": {
+          "x": 1087.478672985782,
+          "y": 225.90521327014218
+        }
+      },
+      "statusTextX": 1138,
+      "metrics": {
+        "x": 1043,
+        "y": 333,
+        "width": 309,
+        "height": 155
+      },
+      "metricHeight": 155,
+      "waveform": {
+        "x": 1043,
+        "y": 500,
+        "width": 309,
+        "height": 175
+      },
+      "plot": {
+        "x": 1092,
+        "y": 560,
+        "width": 247,
+        "height": 80
+      },
+      "notifications": {
+        "x": 1043,
+        "y": 686,
+        "width": 309,
+        "height": 145
+      }
+    },
+    "mobileAlert": {
+      "contentWidth": 312,
+      "banner": {
+        "x": 1413,
+        "y": 173,
+        "width": 312,
+        "height": 155
+      },
+      "metrics": {
+        "x": 1413,
+        "y": 384,
+        "width": 312,
+        "height": 137
+      },
+      "waveform": {
+        "x": 1413,
+        "y": 534,
+        "width": 312,
+        "height": 145
+      },
+      "notifications": {
+        "x": 1413,
+        "y": 692,
+        "width": 312,
+        "height": 139
+      }
+    }
+  },
+  "baselineCommit": "8f06f58a52e1cbfae65c26ac3446290f184788f6",
+  "reviewedCommit": "f158aa7",
+  "baselineNote": "These commits render identical application code. This is a reviewed PR intermediate, not the main-before-PR baseline.",
+  "results": [
+    {
+      "scene": "1440-light-STILL",
+      "contentWidth": 1246,
+      "referenceScaleFactor": 1.38,
+      "referenceCrop": [
+        68,
+        66,
+        902,
+        766
+      ],
+      "normalizedReference": {
+        "bannerHeight": 218.26,
+        "circleDiameter": 136.76,
+        "moonWidth": 55.25,
+        "moonHeight": 58.02,
+        "circleTextGap": 52.49,
+        "waveformHeight": 458.62,
+        "plotHeight": 234.83,
+        "notificationTop": 896.5
+      },
+      "before": {
+        "boxes": {
+          "header": {
+            "x": 97,
+            "y": 29,
+            "width": 1246,
+            "height": 104
+          },
+          "banner": {
+            "x": 130,
+            "y": 164,
+            "width": 860,
+            "height": 128.34
+          },
+          "overview": {
+            "x": 97,
+            "y": 133,
+            "width": 1246,
+            "height": 190.34
+          },
+          "medallion": {
+            "x": 130,
+            "y": 166.17,
+            "width": 124,
+            "height": 124
+          },
+          "moon": {
+            "x": 160.43,
+            "y": 205.48,
+            "width": 48.07,
+            "height": 49.46
+          },
+          "statusText": {
+            "x": 286,
+            "y": 164,
+            "width": 259.28,
+            "height": 128.34
+          },
+          "connection": {
+            "x": 1010,
+            "y": 165.78,
+            "width": 300,
+            "height": 124.77
+          },
+          "metrics": {
+            "x": 870.69,
+            "y": 345.34,
+            "width": 472.31,
+            "height": 403.75
+          },
+          "waveform": {
+            "x": 97,
+            "y": 345.34,
+            "width": 755.69,
+            "height": 403.75
+          },
+          "chart": {
+            "x": 118,
+            "y": 427.34,
+            "width": 713.69,
+            "height": 252
+          },
+          "plot": {
+            "x": 164,
+            "y": 443.34,
+            "width": 656,
+            "height": 198
+          },
+          "curve": {
+            "x": 164,
+            "y": 453.34,
+            "width": 656,
+            "height": 177.98
+          },
+          "notifications": {
+            "x": 97,
+            "y": 765.09,
+            "width": 1246,
+            "height": 139.69
+          },
+          "firstNotice": {
+            "x": 118,
+            "y": 811.59,
+            "width": 1204,
+            "height": 46.09
+          },
+          "metricCards": [
+            {
+              "x": 870.69,
+              "y": 345.34,
+              "width": 472.31,
+              "height": 125.25
+            },
+            {
+              "x": 870.69,
+              "y": 484.59,
+              "width": 472.31,
+              "height": 125.25
+            },
+            {
+              "x": 870.69,
+              "y": 623.84,
+              "width": 472.31,
+              "height": 125.25
+            }
+          ]
+        },
+        "moonToCircle": {
+          "width": 0.39,
+          "height": 0.4,
+          "offsetX": 0.44,
+          "offsetY": 0.52
+        },
+        "circleTextGap": 32,
+        "plotOccupancyPercent": 89.89
+      },
+      "after": {
+        "boxes": {
+          "header": {
+            "x": 97,
+            "y": 29,
+            "width": 1246,
+            "height": 104
+          },
+          "banner": {
+            "x": 130,
+            "y": 172,
+            "width": 860,
+            "height": 136
+          },
+          "overview": {
+            "x": 97,
+            "y": 133,
+            "width": 1246,
+            "height": 214
+          },
+          "medallion": {
+            "x": 130,
+            "y": 172,
+            "width": 136,
+            "height": 136
+          },
+          "moon": {
+            "x": 170.41,
+            "y": 210.26,
+            "width": 55.18,
+            "height": 57.99
+          },
+          "statusText": {
+            "x": 318,
+            "y": 175.83,
+            "width": 259.28,
+            "height": 128.34
+          },
+          "connection": {
+            "x": 1010,
+            "y": 177.61,
+            "width": 300,
+            "height": 124.77
+          },
+          "metrics": {
+            "x": 870.69,
+            "y": 369,
+            "width": 472.31,
+            "height": 424
+          },
+          "waveform": {
+            "x": 97,
+            "y": 369,
+            "width": 755.69,
+            "height": 424
+          },
+          "chart": {
+            "x": 118,
+            "y": 447,
+            "width": 713.69,
+            "height": 292
+          },
+          "plot": {
+            "x": 164,
+            "y": 467,
+            "width": 656,
+            "height": 234
+          },
+          "curve": {
+            "x": 164,
+            "y": 533.15,
+            "width": 656,
+            "height": 101.69
+          },
+          "notifications": {
+            "x": 97,
+            "y": 809,
+            "width": 1246,
+            "height": 139.69
+          },
+          "firstNotice": {
+            "x": 118,
+            "y": 855.5,
+            "width": 1204,
+            "height": 46.09
+          },
+          "metricCards": [
+            {
+              "x": 870.69,
+              "y": 369,
+              "width": 472.31,
+              "height": 132
+            },
+            {
+              "x": 870.69,
+              "y": 515,
+              "width": 472.31,
+              "height": 132
+            },
+            {
+              "x": 870.69,
+              "y": 661,
+              "width": 472.31,
+              "height": 132
+            }
+          ]
+        },
+        "moonToCircle": {
+          "width": 0.41,
+          "height": 0.43,
+          "offsetX": 0.5,
+          "offsetY": 0.49
+        },
+        "circleTextGap": 52,
+        "plotOccupancyPercent": 43.46
+      },
+      "brandUnchanged": true
+    },
+    {
+      "scene": "390-light-STILL",
+      "contentWidth": 354,
+      "referenceScaleFactor": 1.14,
+      "referenceCrop": [
+        1042,
+        112,
+        310,
+        720
+      ],
+      "normalizedReference": {
+        "bannerHeight": 118.76,
+        "circleDiameter": 63.95,
+        "moonWidth": 23.98,
+        "moonHeight": 26.26,
+        "circleTextGap": 21.7,
+        "waveformHeight": 199.84,
+        "plotHeight": 91.35,
+        "notificationTop": 655.47
+      },
+      "before": {
+        "boxes": {
+          "header": {
+            "x": 18,
+            "y": 0,
+            "width": 354,
+            "height": 82
+          },
+          "banner": {
+            "x": 18,
+            "y": 82,
+            "width": 354,
+            "height": 126
+          },
+          "overview": {
+            "x": 18,
+            "y": 82,
+            "width": 354,
+            "height": 195.59
+          },
+          "medallion": {
+            "x": 37,
+            "y": 114,
+            "width": 62,
+            "height": 62
+          },
+          "moon": {
+            "x": 50.3,
+            "y": 132.28,
+            "width": 26.95,
+            "height": 27.73
+          },
+          "statusText": {
+            "x": 115,
+            "y": 112.59,
+            "width": 238,
+            "height": 64.8
+          },
+          "connection": {
+            "x": 18,
+            "y": 208,
+            "width": 354,
+            "height": 69.59
+          },
+          "metrics": {
+            "x": 18,
+            "y": 289.59,
+            "width": 354,
+            "height": 180
+          },
+          "waveform": {
+            "x": 18,
+            "y": 481.59,
+            "width": 354,
+            "height": 226
+          },
+          "chart": {
+            "x": 31,
+            "y": 542.09,
+            "width": 328,
+            "height": 132
+          },
+          "plot": {
+            "x": 77,
+            "y": 558.09,
+            "width": 270,
+            "height": 78
+          },
+          "curve": {
+            "x": 77,
+            "y": 568.09,
+            "width": 270,
+            "height": 57.99
+          },
+          "notifications": {
+            "x": 18,
+            "y": 719.59,
+            "width": 354,
+            "height": 150.73
+          },
+          "firstNotice": {
+            "x": 31,
+            "y": 760.59,
+            "width": 328,
+            "height": 66.94
+          },
+          "metricCards": [
+            {
+              "x": 18,
+              "y": 289.59,
+              "width": 112,
+              "height": 156
+            },
+            {
+              "x": 139,
+              "y": 289.59,
+              "width": 112,
+              "height": 156
+            },
+            {
+              "x": 260,
+              "y": 289.59,
+              "width": 112,
+              "height": 156
+            }
+          ]
+        },
+        "moonToCircle": {
+          "width": 0.43,
+          "height": 0.45,
+          "offsetX": 0.43,
+          "offsetY": 0.52
+        },
+        "circleTextGap": 16,
+        "plotOccupancyPercent": 74.35
+      },
+      "after": {
+        "boxes": {
+          "header": {
+            "x": 18,
+            "y": 0,
+            "width": 354,
+            "height": 72
+          },
+          "banner": {
+            "x": 18,
+            "y": 72,
+            "width": 354,
+            "height": 120
+          },
+          "overview": {
+            "x": 18,
+            "y": 72,
+            "width": 354,
+            "height": 175.59
+          },
+          "medallion": {
+            "x": 37,
+            "y": 100,
+            "width": 64,
+            "height": 64
+          },
+          "moon": {
+            "x": 56.62,
+            "y": 118.66,
+            "width": 24.76,
+            "height": 26.02
+          },
+          "statusText": {
+            "x": 123,
+            "y": 99.59,
+            "width": 230,
+            "height": 64.8
+          },
+          "connection": {
+            "x": 18,
+            "y": 192,
+            "width": 354,
+            "height": 55.59
+          },
+          "metrics": {
+            "x": 18,
+            "y": 259.59,
+            "width": 354,
+            "height": 166.5
+          },
+          "waveform": {
+            "x": 18,
+            "y": 438.09,
+            "width": 354,
+            "height": 207
+          },
+          "chart": {
+            "x": 31,
+            "y": 479.59,
+            "width": 328,
+            "height": 132
+          },
+          "plot": {
+            "x": 77,
+            "y": 499.59,
+            "width": 270,
+            "height": 74
+          },
+          "curve": {
+            "x": 77,
+            "y": 521.74,
+            "width": 270,
+            "height": 29.7
+          },
+          "notifications": {
+            "x": 18,
+            "y": 657.09,
+            "width": 354,
+            "height": 150.73
+          },
+          "firstNotice": {
+            "x": 31,
+            "y": 698.09,
+            "width": 328,
+            "height": 66.94
+          },
+          "metricCards": [
+            {
+              "x": 18,
+              "y": 259.59,
+              "width": 112,
+              "height": 148
+            },
+            {
+              "x": 139,
+              "y": 259.59,
+              "width": 112,
+              "height": 148
+            },
+            {
+              "x": 260,
+              "y": 259.59,
+              "width": 112,
+              "height": 148
+            }
+          ]
+        },
+        "moonToCircle": {
+          "width": 0.39,
+          "height": 0.41,
+          "offsetX": 0.5,
+          "offsetY": 0.49
+        },
+        "circleTextGap": 22,
+        "plotOccupancyPercent": 40.14
+      },
+      "brandUnchanged": true
+    },
+    {
+      "scene": "390-dark-ALERT",
+      "contentWidth": 354,
+      "referenceScaleFactor": 1.13,
+      "referenceCrop": [
+        1413,
+        112,
+        312,
+        720
+      ],
+      "normalizedReference": {
+        "bannerHeight": 175.87,
+        "waveformHeight": 164.52,
+        "notificationTop": 658.08
+      },
+      "before": {
+        "boxes": {
+          "header": {
+            "x": 18,
+            "y": 0,
+            "width": 354,
+            "height": 82
+          },
+          "banner": {
+            "x": 18,
+            "y": 82,
+            "width": 354,
+            "height": 165.19
+          },
+          "overview": {
+            "x": 18,
+            "y": 82,
+            "width": 354,
+            "height": 234.78
+          },
+          "medallion": {
+            "x": 37,
+            "y": 105,
+            "width": 46,
+            "height": 46
+          },
+          "moon": null,
+          "statusText": {
+            "x": 99,
+            "y": 105,
+            "width": 254,
+            "height": 59.19
+          },
+          "connection": {
+            "x": 18,
+            "y": 247.19,
+            "width": 354,
+            "height": 69.59
+          },
+          "metrics": {
+            "x": 18,
+            "y": 328.78,
+            "width": 354,
+            "height": 180
+          },
+          "waveform": {
+            "x": 18,
+            "y": 520.78,
+            "width": 354,
+            "height": 226
+          },
+          "chart": {
+            "x": 31,
+            "y": 581.28,
+            "width": 328,
+            "height": 132
+          },
+          "plot": {
+            "x": 77,
+            "y": 597.28,
+            "width": 270,
+            "height": 78
+          },
+          "curve": null,
+          "notifications": {
+            "x": 18,
+            "y": 758.78,
+            "width": 354,
+            "height": 158.53
+          },
+          "firstNotice": {
+            "x": 31,
+            "y": 849.38,
+            "width": 328,
+            "height": 66.94
+          },
+          "metricCards": [
+            {
+              "x": 18,
+              "y": 328.78,
+              "width": 112,
+              "height": 156
+            },
+            {
+              "x": 139,
+              "y": 328.78,
+              "width": 112,
+              "height": 156
+            },
+            {
+              "x": 260,
+              "y": 328.78,
+              "width": 112,
+              "height": 156
+            }
+          ]
+        },
+        "moonToCircle": null,
+        "circleTextGap": 16,
+        "plotOccupancyPercent": null
+      },
+      "after": {
+        "boxes": {
+          "header": {
+            "x": 18,
+            "y": 0,
+            "width": 354,
+            "height": 72
+          },
+          "banner": {
+            "x": 18,
+            "y": 72,
+            "width": 354,
+            "height": 165.19
+          },
+          "overview": {
+            "x": 18,
+            "y": 72,
+            "width": 354,
+            "height": 220.78
+          },
+          "medallion": {
+            "x": 37,
+            "y": 95,
+            "width": 46,
+            "height": 46
+          },
+          "moon": null,
+          "statusText": {
+            "x": 99,
+            "y": 95,
+            "width": 254,
+            "height": 59.19
+          },
+          "connection": {
+            "x": 18,
+            "y": 237.19,
+            "width": 354,
+            "height": 55.59
+          },
+          "metrics": {
+            "x": 18,
+            "y": 304.78,
+            "width": 354,
+            "height": 166.5
+          },
+          "waveform": {
+            "x": 18,
+            "y": 483.28,
+            "width": 354,
+            "height": 167
+          },
+          "chart": {
+            "x": 31,
+            "y": 524.78,
+            "width": 328,
+            "height": 92
+          },
+          "plot": {
+            "x": 77,
+            "y": 544.78,
+            "width": 270,
+            "height": 34
+          },
+          "curve": null,
+          "notifications": {
+            "x": 18,
+            "y": 662.28,
+            "width": 354,
+            "height": 158.53
+          },
+          "firstNotice": {
+            "x": 31,
+            "y": 752.88,
+            "width": 328,
+            "height": 66.94
+          },
+          "metricCards": [
+            {
+              "x": 18,
+              "y": 304.78,
+              "width": 112,
+              "height": 148
+            },
+            {
+              "x": 139,
+              "y": 304.78,
+              "width": 112,
+              "height": 148
+            },
+            {
+              "x": 260,
+              "y": 304.78,
+              "width": 112,
+              "height": 148
+            }
+          ]
+        },
+        "moonToCircle": null,
+        "circleTextGap": 16,
+        "plotOccupancyPercent": null
+      },
+      "brandUnchanged": true
+    }
+  ],
+  "verification": {
+    "browser": "156.0.4314.42",
+    "scenarios": 33,
+    "passed": 33,
+    "errors": [],
+    "interactions": "PASS",
+    "motionAndThemeChanges": "PASS",
+    "displayScaleIntegrity": "PASS"
+  }
+}

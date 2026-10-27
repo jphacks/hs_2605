@@ -1,6 +1,6 @@
 # Issue #70 — Warm dashboard theme
 
-最新の余白・文字・チャート・夜間の調整と2回以上の比較記録は [PR #77 Visual refinement](polish/README.md) を参照してください。
+最新の月・表示尺度・余白の実測比較は [実測に基づく最終調整](pixel/README.md)、PR 全体の Before / After は [PR #77 Visual refinement](polish/README.md) を参照してください。
 
 [Issue #70](https://github.com/jphacks/hs_2605/issues/70) の外観変更とブラウザー検証記録です。
 
@@ -54,7 +54,7 @@ Windows 上の Microsoft Edge / Chromium `156.0.4314.42` と Playwright で検�
 
 | 検証 | 結果 |
 |---|---|
-| `npm test` | 60 件成功（既存 56 件 + テーマの 4 件） |
+| `npm test` | 66 件成功（既存56件 + テーマ4件 + 表示尺度6件） |
 | `npm run build` | 成功 |
 | `git diff --check` | 成功 |
 | 1440×900 / 390×844 × 昼夜 × STILL・OK・CHECK・ALERT・EMPTY・切断・サンプルなし | 28 シーン成功 |

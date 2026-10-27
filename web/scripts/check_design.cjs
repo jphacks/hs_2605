@@ -27,6 +27,42 @@ const titles = {
   ALERT: '呼吸が確認できません', EMPTY: 'ベッドにいません',
 };
 const report = { phase, scenarios: [], errors: [], screenshots: [] };
+const brandBaseline = process.env.IBUKI_BRAND_BASELINE_REPORT
+  ? JSON.parse(fs.readFileSync(process.env.IBUKI_BRAND_BASELINE_REPORT, 'utf8')) : null;
+
+async function measurePresentation(page) {
+  return page.evaluate(() => {
+    const round = number => Math.round(number * 100) / 100;
+    const rect = element => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return Object.fromEntries(['x', 'y', 'width', 'height'].map(key => [key, round(box[key])]));
+    };
+    const selectors = {
+      header: '.app-header', banner: '.status-banner', overview: '.status-overview',
+      medallion: '.status-icon', moon: '.status-icon .icon-moon path', statusText: '.status-copy',
+      connection: '.connection-status', metrics: '.metrics', waveform: '.waveform',
+      chart: '.chart', plot: '.recharts-cartesian-grid', curve: '.recharts-area-curve',
+      notifications: '.notification-panel', firstNotice: '.notification-history .notice',
+    };
+    const boxes = Object.fromEntries(Object.entries(selectors).map(([key, selector]) => [key, rect(document.querySelector(selector))]));
+    boxes.metricCards = [...document.querySelectorAll('.metric-card')].map(rect);
+    const properties = ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color', 'strokeWidth'];
+    const brand = [...document.querySelectorAll('.brand, .brand-symbol, .brand-symbol svg, .brand > span:last-child, .brand small')].map(element => {
+      const styles = getComputedStyle(element), box = element.getBoundingClientRect();
+      return { tag: element.tagName, width: round(box.width), height: round(box.height),
+        styles: Object.fromEntries(properties.map(key => [key, styles[key]])) };
+    });
+    return {
+      boxes, brand: { elements: brand, text: document.querySelector('.brand').textContent,
+        paths: [...document.querySelectorAll('.brand-symbol path')].map(path => path.getAttribute('d')) },
+      moonToCircle: boxes.moon ? { width: round(boxes.moon.width / boxes.medallion.width), height: round(boxes.moon.height / boxes.medallion.height),
+        offsetX: round((boxes.moon.x + boxes.moon.width / 2 - boxes.medallion.x) / boxes.medallion.width),
+        offsetY: round((boxes.moon.y + boxes.moon.height / 2 - boxes.medallion.y) / boxes.medallion.height) } : null,
+      circleTextGap: boxes.medallion && boxes.statusText ? round(boxes.statusText.x - boxes.medallion.x - boxes.medallion.width) : null,
+    };
+  });
+}
 
 async function until(predicate, label) {
   for (let i = 0; i < 100; i++) {
@@ -106,6 +142,7 @@ async function fixture(browser, width, scheme, state) {
   return {
     page, errors, sockets, getPosts: () => posts, pause: () => clearInterval(timer),
     advance: () => { t += 240; send(status()); return t; },
+    sendStatus: (overrides, elapsed = 240) => { t += elapsed; send({ ...status(), ...overrides, t }); return t; },
     stop: async () => { clearInterval(timer); await page.close(); },
   };
 }
@@ -137,6 +174,12 @@ async function verifyScene(fixture, width, state) {
         return rect.left < -1 || rect.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 2;
       }).map(element => element.className),
   }));
+  metrics.presentation = await measurePresentation(page);
+  if (brandBaseline) {
+    const name = `${width}-${await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')}-${state}`;
+    const baseline = brandBaseline.scenarios.find(scene => scene.name === name);
+    if (baseline) assert.deepEqual(metrics.presentation.brand, baseline.metrics.presentation.brand, 'brand logo is unchanged');
+  }
   if (before) return metrics;
   assert.equal(metrics.width, width);
   assert.deepEqual(metrics.overflow, []);
@@ -148,6 +191,7 @@ async function verifyScene(fixture, width, state) {
       '.bpm .muted', '.bpm-value', '.presence', '.metric-tag', '.metrics-note', '.notification-heading span',
       '.notice time', '.notice-level', '.notice strong', '.notice small',
       '.current-warning', '.siren-stop', '.chart-empty span', 'footer p',
+      '.chart-scale',
     ];
     const rgb = value => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
     const background = element => {
@@ -183,6 +227,13 @@ async function verifyScene(fixture, width, state) {
   } else assert.ok(chartBox.x + chartBox.width <= metricBox.x, 'desktop metrics sit beside waveform');
   if (['ALERT', 'EMPTY', 'unavailable', 'shaking', 'disconnected', 'stale', 'sensor-disconnected'].includes(state)) {
     assert.equal(await page.locator('.recharts-area-curve').count(), 0, 'unavailable data never fabricates a wave');
+  }
+  const displayRange = await page.locator('.chart').getAttribute('data-range-mm');
+  if (displayRange !== null) {
+    assert.ok(Number(displayRange) >= 2, 'display range is explicit');
+    const labels = (await page.locator('.chart .recharts-cartesian-axis-tick-value').allTextContents()).filter(label => label.endsWith('秒'));
+    assert.equal(labels[0], '0秒');
+    assert.equal(labels.at(-1), '30秒');
   }
   if (state === 'ALERT') {
     const summary = page.locator('.connection-details summary');
@@ -257,6 +308,26 @@ async function verifyInteractions(browser) {
     assert.deepEqual(motion.errors, []);
     report.motionAndThemeChanges = 'PASS';
   } finally { await motion.stop(); }
+  const scale = await fixture(browser, 390, 'light', 'STILL');
+  try {
+    scale.pause();
+    scale.sendStatus({ disp_mm: [-6, 0, 6] });
+    await until(async () => await scale.page.locator('.chart').getAttribute('data-range-mm') === '8', 'large samples expand display range');
+    const curve = await scale.page.locator('.recharts-area-curve').boundingBox();
+    const plot = await scale.page.locator('.recharts-cartesian-grid').boundingBox();
+    assert.ok(curve.y >= plot.y && curve.y + curve.height <= plot.y + plot.height, 'large excursions remain visible');
+    scale.sendStatus({ disp_mm: [.1, .12, .1] });
+    await scale.page.waitForTimeout(80);
+    assert.equal(await scale.page.locator('.chart').getAttribute('data-range-mm'), '8', 'history prevents scale jitter');
+    scale.sendStatus({ disp_mm: [.1, .12, .1] }, 31000);
+    await until(async () => await scale.page.locator('.chart').getAttribute('data-range-mm') === '2', 'scale returns only after the excursion leaves the window');
+    scale.sendStatus({ disp_mm: [0, 0, 0] }, 31000);
+    await scale.page.waitForTimeout(80);
+    assert.equal(await scale.page.locator('.chart--empty').count(), 0, 'measured zeros are not missing data');
+    assert.match(await scale.page.locator('.bpm-value').innerText(), /32.0/);
+    assert.deepEqual(scale.errors, []);
+    report.displayScaleIntegrity = 'PASS';
+  } finally { await scale.stop(); }
 }
 
 (async () => {
