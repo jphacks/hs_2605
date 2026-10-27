@@ -4,3 +4,4 @@ tensorflow==2.21.0
 numpy
 scipy
 h5py
+ethos-u-vela==5.2.0  # the Ethos-U55 compiler (ml/board_models.py)

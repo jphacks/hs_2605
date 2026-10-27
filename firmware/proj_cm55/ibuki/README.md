@@ -9,6 +9,7 @@
 | [lines.h](lines.h) / [lines.c](lines.c) | PC への行。キューに入れて、UART のハードウェア FIFO に空きがあるときに送るので、CPU が UART を待ちません |
 | [board_io.h](board_io.h) / [board_io.c](board_io.c) | 警告 LED（赤・緑・青を同時に点滅）、ユーザーボタン（`B,1` を送る）、PC からのコマンド（`L,1` / `L,0` / `R,1` / `T,<ms>`） |
 | [load.h](load.h) / [load.c](load.c) | CPU がどれだけ忙しいか。1 分ごとに `S,<時刻>,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` を送ります |
+| [ai.h](ai.h) / [ai.c](ai.c) | 学習済みの 2 つのモデルを AI チップ（Ethos-U55）で動かし、警告まで決めます。Y の行を送り、警告のときは LED を自分で点滅させます。アプリと同じ計算で、同じ録画で同じ判定になりました |
 
 ## 1 フレームの流れ
 
@@ -49,6 +50,7 @@ This turns raw radar data into the lines sent to the PC (C / D / S / B). Infineo
 | [lines.h](lines.h) / [lines.c](lines.c) | Lines to the PC, through a queue that is emptied into the UART's hardware FIFO whenever it has room, so the CPU never waits for the UART |
 | [board_io.h](board_io.h) / [board_io.c](board_io.c) | Alert LED (blinks red, green and blue together), user button (sends `B,1`), commands from the PC (`L,1` / `L,0` / `R,1` / `T,<ms>`) |
 | [load.h](load.h) / [load.c](load.c) | How busy the CPU is: `S,<time>,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` once a minute |
+| [ai.h](ai.h) / [ai.c](ai.c) | Runs the two trained models on the AI chip (Ethos-U55) and decides the alarm: sends Y lines and blinks the LED by itself on an alarm. The same maths as the app; on the same recording it gave the same decisions |
 
 ## One frame
 

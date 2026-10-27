@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #include "cybsp.h"
+#include "ai.h"
 #include "board_io.h"
 #include "lines.h"
 #include "load.h"
@@ -131,6 +132,15 @@ static void send_data(void)
     }
     load_add(LOAD_OUT, t0); /* making the line; line_send counts the sending */
     line_send(p);
+
+    /* the same values, unscaled, for the models on the board */
+    float z[2U * IBUKI_NUM_BINS];
+    const float u = 1.0f / (float)(range_frames() * IBUKI_CHIRPS_PER_FRAME);
+    for (uint32_t i = 0U; i < 2U * IBUKI_NUM_BINS; i++)
+    {
+        z[i] = sums[i] * u;
+    }
+    ai_add_line(z);
 }
 
 void ibuki_init(void)
@@ -148,6 +158,7 @@ void ibuki_init(void)
     send_config();
     last_config_ms = ibuki_millis();
     load_init();
+    ai_init();
 }
 
 void ibuki_on_frame(const float* frame)

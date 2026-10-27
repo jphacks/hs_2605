@@ -9,6 +9,7 @@
 static uint64_t cycles_dsp;
 static uint64_t cycles_out;
 static uint64_t cycles_sleep;
+static uint64_t cycles_ai;
 static uint32_t sleeps;       /* times the sleep call was made */
 static uint32_t start_ms;
 
@@ -40,10 +41,14 @@ void load_add(load_part_t part, uint32_t since)
     {
         cycles_out += n;
     }
-    else
+    else if (part == LOAD_SLEEP)
     {
         cycles_sleep += n;
         sleeps++;
+    }
+    else
+    {
+        cycles_ai += n;
     }
 }
 
@@ -76,10 +81,14 @@ void load_poll(uint32_t now_ms)
     p = line_put_u32(p, line_take_peak());
     p = line_put_text(p, " dropped ");
     p = line_put_u32(p, line_dropped());
+    p = line_put_text(p, " ai ");
+    p = line_put_tenths(p, (uint32_t)((cycles_ai * 1000U) / avail));
+    *p++ = '%';
     line_send(p);
     cycles_dsp = 0U;
     cycles_out = 0U;
     cycles_sleep = 0U;
+    cycles_ai = 0U;
     sleeps = 0U;
     start_ms = now_ms;
 }
