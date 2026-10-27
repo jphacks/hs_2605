@@ -217,7 +217,9 @@ def build():
     x = layers.Conv2D(32, (5, 3), strides=(2, 1), padding="same", activation="relu")(x)
     # the strongest evidence over all distances, kept apart per moment (8 x ~4 s)
     x = layers.MaxPooling2D((1, NUM_BINS))(x)
-    x = layers.Flatten()(x)
+    # a fixed size, not Flatten: Flatten works its size out at run time, which the board's
+    # AI chip (Ethos-U55) can't do. 60 steps halved 3 times = 8, times 32 filters
+    x = layers.Reshape((8 * 32,))(x)
     x = layers.Dense(16, activation="relu")(x)
     out = layers.Dense(len(STATES), activation="softmax")(x)
     m = keras.Model(inp, out)
@@ -263,6 +265,20 @@ class Alarm:
             events.append({"type": "alert", "reason": "no_breath",
                            "since_s": int(round(t - self.stopped_since))})
         return events
+
+
+def npu_int8(sample: np.ndarray) -> bytes:
+    """The trained state model as an 8-bit file for the board's AI chip.
+
+    Models trained before the Reshape change used Flatten; this rebuilds the same network with
+    the fixed-size Reshape and copies the trained weights over, so the answers stay the same.
+    """
+    from tensorflow import keras
+    from ml.train import to_int8_tflite
+    trained = keras.models.load_model(MODELS / "state.keras", custom_objects={"partial_loss": partial_loss})
+    fixed = build()
+    fixed.set_weights(trained.get_weights())
+    return to_int8_tflite(fixed, sample)
 
 
 def int8_probs(blob: bytes, X: np.ndarray) -> np.ndarray:
@@ -341,6 +357,7 @@ def main():
     ap.add_argument("--val", action="store_true", help="score on validation without training")
     ap.add_argument("--test", action="store_true", help="once: the unseen test set and real recordings")
     ap.add_argument("--epochs", type=int, default=30)
+    ap.add_argument("--npu", action="store_true", help="write the 8-bit model for the board (state_int8.tflite)")
     ap.add_argument("--lag", type=float, help=f"seconds the count starts back (default {LAG_S:g})")
     args = ap.parse_args()
     if args.lag is not None:
@@ -349,6 +366,15 @@ def main():
     from tensorflow import keras
     tf.keras.utils.set_random_seed(9)
     breath = keras.models.load_model(MODELS / "breath_slot.keras")
+    if args.npu:
+        Xv, _ = dataset(breath, "val", (), "val")
+        some = Xv[np.random.default_rng(9).choice(len(Xv), 500, replace=False)]
+        blob = npu_int8(some)
+        (MODELS / "state_int8.tflite").write_bytes(blob)
+        full = keras.models.load_model(MODELS / "state.keras", custom_objects={"partial_loss": partial_loss})
+        agree = float(np.mean(int8_probs(blob, some).argmax(1) == full.predict(some, verbose=0).argmax(1)))
+        print({"state_int8_bytes": len(blob), "int8_agrees_with_full": round(agree, 4)})
+        return
     if args.val or args.test:
         state = keras.models.load_model(MODELS / "state.keras", custom_objects={"partial_loss": partial_loss})
     else:

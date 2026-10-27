@@ -23,7 +23,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # the repo root, for ml/
 
 from ml.features import NUM_BINS, SCALE, WINDOW, window_features  # noqa: E402
-from ml.runtime import Model  # noqa: E402
+from ml.runtime import load  # noqa: E402
 
 from .brain import Brain as RuleBrain  # noqa: E402
 
@@ -40,8 +40,9 @@ class Brain(RuleBrain):
 
     def __init__(self, no_breath_s: float | None = None, min_cm: float = 15.0):
         super().__init__(no_breath_s, min_cm)
-        self.breath_model = Model("breath_slot")
-        self.state_model = Model("state")
+        self.breath_model = load("breath_slot")   # 8-bit, TensorFlow Lite (see ml/runtime.py)
+        self.state_model = load("state")
+        self.runtime = type(self.breath_model).__name__
         self._clear()
 
     def _clear(self):
