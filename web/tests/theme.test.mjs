@@ -31,7 +31,7 @@ for (const [name, theme] of Object.entries({ light, dark })) {
     }
   });
   test(`${name} theme keeps waveform, unavailable trace and keyboard focus distinguishable`, () => {
-    for (const foreground of ['chart-wave', 'chart-alert', 'chart-idle', 'focus']) {
+    for (const foreground of ['chart-wave', 'chart-alert', 'chart-idle', 'focus', 'border-strong']) {
       assert.ok(ratio(theme[foreground], theme.surface) >= 3, `${foreground} contrast`);
     }
     assert.notEqual(theme.alert, theme.primary);

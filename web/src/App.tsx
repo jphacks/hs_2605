@@ -13,6 +13,7 @@ import { deriveLiveView } from './data/liveView';
 import type { BreathingState, StatusSource } from './data/status';
 import { useDashboard } from './useDashboard';
 import WaveChart from './WaveChart';
+import DashboardIcon from './DashboardIcon';
 import { describeStatus, stateWords } from './data/statusView';
 
 const configuredInterval = Number(import.meta.env.VITE_LIVE_SAMPLE_INTERVAL_MS);
@@ -97,7 +98,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
 
   return <main>
     <header>
-      <h1 className="brand"><span className="brand-symbol">≈</span><span>息吹～IBUKI～<small>赤ちゃんの呼吸の動きを、見えるかたちに。</small></span></h1>
+      <h1 className="brand"><span className="brand-symbol"><DashboardIcon name="brand" /></span><span>息吹～IBUKI～<small>赤ちゃんの呼吸の動きを、見えるかたちに。</small></span></h1>
       <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE モード'}</span></div>
     </header>
     {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
@@ -106,8 +107,8 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
     {!demo && health?.siren && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
       {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
     <section className={`status-banner tone-${statusView.tone}`} aria-live="polite" aria-atomic="true">
-      <span className="status-icon">{{ alert: '!', check: '!', shake: '〜', empty: '○', wait: '…', ok: '≈', still: '≈' }[statusView.tone]}</span>
-      <div><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
+      <span className="status-icon"><DashboardIcon name={({ alert: 'alert', check: 'alert', shake: 'wave', empty: 'empty', wait: 'wave', ok: 'movement', still: 'moon' } as const)[statusView.tone]} /></span>
+      <div><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
     </section>
     <section className="dashboard-grid">
       <article className="panel waveform">
@@ -118,9 +119,9 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <div className="chart-footer"><span><i/>胸の動き{demo ? '（シミュレーション）' : ''}</span><span><i className="idle-key"/>測定なし（揺れ・学習中・不在のとき）</span></div>
       </article>
       <aside className="metrics" aria-label="いまの様子">
-        <article className="panel bpm"><p className="eyebrow">BREATHING RATE</p><h2>呼吸数</h2><div className={`bpm-value${bpm == null ? ' bpm-value--none' : ''}`}>{bpm?.toFixed(1) ?? '—'}<span>回 / 分</span></div><p className="muted">{rateNote}</p></article>
-        <article className="panel metric-row"><div><p className="eyebrow">IN BED</p><h2>ベッド</h2></div><strong className="presence">{!status ? '—' : status.present ? 'います' : 'いません'}</strong></article>
-        <article className="panel metric-row"><div><p className="eyebrow">MOVEMENT</p><h2>体の動き</h2></div><strong className="presence">{!status || !status.present ? '—' : current === 'OK' ? '動いています' : 'じっとしています'}</strong></article>
+        <article className="panel bpm"><div className="metric-heading"><span className="metric-icon"><DashboardIcon name="breathing" /></span><div><p className="eyebrow">BREATHING RATE</p><h2>呼吸数</h2></div></div><div className={`bpm-value${bpm == null ? ' bpm-value--none' : ''}`}>{bpm?.toFixed(1) ?? '—'}<span>回 / 分</span></div><p className="muted">{rateNote}</p></article>
+        <article className="panel metric-row"><div className="metric-heading"><span className="metric-icon"><DashboardIcon name="bed" /></span><div><p className="eyebrow">IN BED</p><h2>ベッド</h2></div></div><strong className="presence">{!status ? '—' : status.present ? 'います' : 'いません'}</strong></article>
+        <article className="panel metric-row"><div className="metric-heading"><span className="metric-icon"><DashboardIcon name="movement" /></span><div><p className="eyebrow">MOVEMENT</p><h2>体の動き</h2></div></div><strong className="presence">{!status || !status.present ? '—' : current === 'OK' ? '動いています' : 'じっとしています'}</strong></article>
       </aside>
     </section>
     {!demo && <NotificationPanel state={notifications} />}

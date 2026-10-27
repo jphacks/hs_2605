@@ -1,12 +1,13 @@
 import { notificationDetails, notificationLevels, notificationMessages, notificationPresentation } from './data/notifications';
 import type { NotificationState } from './data/notifications';
+import DashboardIcon from './DashboardIcon';
 
 const levelClass = { 緊急: 'urgent', 注意: 'caution', お知らせ: 'info' } as const;
 
 export default function NotificationPanel({ state }: { state: NotificationState }) {
   const view = notificationPresentation(state);
   return <section className="notification-panel panel" aria-label="通知">
-    <div className="notification-heading"><h2>通知</h2><span>この画面が受け取った通知です（直近20件）</span></div>
+    <div className="notification-heading"><h2 className="section-heading"><DashboardIcon name="bell" />通知</h2><span>この画面が受け取った通知です（直近20件）</span></div>
     <div aria-live="polite" aria-relevant="additions text">
       {view.current.map(warning => <p key={warning.entry.event.reason}
         className={`current-warning current-warning--${levelClass[notificationLevels[warning.entry.event.reason]]}${warning.indication === 'unknown' ? ' current-warning--unknown' : ''}`}>
