@@ -8,8 +8,11 @@
   --text-sm: 0.8125rem;
   --text-base: 0.875rem;
   --text-lg: 1rem;
-  --text-title: 1.625rem;
-  --text-reading: 3.75rem;
+  --text-title: 2.75rem;
+  --text-reading: 2.25rem;
+  --text-heading: 1.375rem;
+  --text-metric: 1.625rem;
+  --text-secondary: 0.8125rem;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -38,13 +41,16 @@
   --primary-strong: #244b3b;
   --primary-soft: #e5ede2;
   --on-primary: #fffdf8;
-  --normal-surface: #dce8d8;
-  --normal-end: #e8eee2;
+  --normal-surface: #d6e3d2;
+  --normal-end: #e6ede1;
+  --normal-glow: radial-gradient(ellipse at 78% 0%, rgb(255 255 250 / 0.32), transparent 68%);
   --normal-border: #c3d2bd;
   --normal-text: #294d3c;
   --normal-muted: #45634f;
   --medallion-top: #a9c1ab;
   --medallion-bottom: #668e75;
+  --medallion-sheen: radial-gradient(ellipse at 30% 10%, rgb(255 255 255 / 0.22), transparent 70%);
+  --medallion-shadow: inset 0 1px 1px rgb(255 255 255 / 0.22), inset 0 -2px 4px rgb(36 72 49 / 0.08);
   --on-medallion: #fffdf8;
   --connection-surface: #f8fbf4;
   --neutral-surface: #eceee7;
@@ -76,6 +82,7 @@
   --shadow-card: 0 6px 24px rgb(40 55 41 / 0.035), 0 1px 3px rgb(40 55 41 / 0.025);
   --shadow-shell: 0 16px 48px rgb(45 39 28 / 0.10), 0 2px 6px rgb(45 39 28 / 0.06);
   --shadow-alert: 0 5px 16px rgb(112 29 35 / 0.12);
+  --surface-sheen: linear-gradient(140deg, rgb(255 255 255 / 0.42), transparent 65%);
   --page-glow: radial-gradient(ellipse at 10% 0%, #eaf0e4 0%, transparent 55%);
 }
 
@@ -97,13 +104,16 @@
     --primary-strong: #d4e5d7;
     --primary-soft: #263f32;
     --on-primary: #13251b;
-    --normal-surface: #233c2d;
-    --normal-end: #1d3429;
+    --normal-surface: #243e30;
+    --normal-end: #193328;
+    --normal-glow: radial-gradient(ellipse at 78% 0%, rgb(182 212 181 / 0.045), transparent 68%);
     --normal-border: #425d47;
     --normal-text: #edf3e6;
     --normal-muted: #bdceba;
     --medallion-top: #72917a;
     --medallion-bottom: #42654e;
+    --medallion-sheen: radial-gradient(ellipse at 30% 10%, rgb(229 241 217 / 0.12), transparent 70%);
+    --medallion-shadow: inset 0 1px 1px rgb(219 236 210 / 0.14), inset 0 -2px 4px rgb(0 0 0 / 0.10);
     --connection-surface: #203c2d;
     --neutral-surface: #1b2e26;
     --neutral-border: #3b5144;
@@ -131,6 +141,7 @@
     --shadow-card: 0 6px 24px rgb(0 0 0 / 0.12);
     --shadow-shell: 0 16px 48px rgb(0 0 0 / 0.25);
     --shadow-alert: 0 5px 16px rgb(0 0 0 / 0.18);
+    --surface-sheen: linear-gradient(140deg, rgb(198 222 197 / 0.04), transparent 65%);
     --page-glow: radial-gradient(ellipse at 10% 0%, #1a3023 0%, transparent 55%);
   }
 }
