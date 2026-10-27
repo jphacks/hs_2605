@@ -5,7 +5,7 @@ Protocol (see firmware/README.md), one message per line, comma-separated:
   D,seq,t_ms,I0,Q0,...            ~16.6/s, complex range bins nearest first, value = int / scale
   S,t_ms,text                     status / errors
   B,1                             user button
-  L,1 / L,0                       PC -> board: red LED on / off
+  L,1 / L,0                       PC -> board: alert LED (blinks blue) on / off
 Any other line is ignored.
 """
 from __future__ import annotations

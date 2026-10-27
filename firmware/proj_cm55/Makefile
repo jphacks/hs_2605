@@ -86,6 +86,10 @@ INCLUDES+=
 DEFINES+=CY_RETARGET_IO_CONVERT_LF_TO_CRLF
 
 # Add additional defines related to ARM Helium and DSP extensions
+# IBUKI: ARM_MATH_AUTOVECTORIZE makes CMSIS-DSP use plain C instead of its hand-written Helium
+# code, and a Debug (-Og) build doesn't vectorize plain C, so the FFT runs scalar. We tried
+# without it (2026-10-27): the Helium code doesn't compile with GCC 14.2 (arm_vec_fft.h, the
+# Helium FFT itself, and 6 more files), so it stays. The radar maths takes 1.5% of the CPU.
 DEFINES+=ARM_MATH_HELIUM ARM_MATH_DSP ARM_MATH_AUTOVECTORIZE
 
 # Add additional components related to MTB ML

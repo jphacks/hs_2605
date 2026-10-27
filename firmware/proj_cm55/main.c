@@ -50,6 +50,7 @@
 #include "radar_settings.h"
 #include "cy_scb_spi.h"
 #include "ibuki.h"
+#include "load.h"
 
 /*******************************************************************************
 * Macros
@@ -374,6 +375,26 @@ cy_rslt_t radar_data_process(void)
 
 
 /*******************************************************************************
+* Function Name: radar_waiting
+********************************************************************************
+* Summary:
+*  IBUKI: true when radar_data_process() has nothing to do until an interrupt:
+*  an SPI transfer is still running (its interrupt ends it), or the state machine
+*  is idle and the radar has no data ready (its interrupt pin is low). The other
+*  states move on at once and must not wait.
+*******************************************************************************/
+static bool radar_waiting(void)
+{
+    const xensiv_bgt60trxx_mtb_iface_t* mtb_iface = radar.bgt60_obj.dev.iface;
+    if (0UL != (CY_SCB_SPI_TRANSFER_ACTIVE &
+                Cy_SCB_SPI_GetTransferStatus(mtb_iface->scb_inst, mtb_iface->spi)))
+    {
+        return true;
+    }
+    return (sp_state == IDLE) && (Cy_GPIO_Read(CYBSP_RADAR_INT_PORT, CYBSP_RADAR_INT_NUM) == 0U);
+}
+
+/*******************************************************************************
 * Function Name: radar_init
 ********************************************************************************
 * Summary:
@@ -640,6 +661,7 @@ static void cm55_ml_deepcraft_task(void)
         for (;;)
         {
             ibuki_status_code("system init failed", (uint32_t)result);
+            ibuki_flush(); /* nothing else runs here to send the queued output */
             Cy_SysLib_Delay(2000U);
         }
     }
@@ -658,6 +680,15 @@ static void cm55_ml_deepcraft_task(void)
         if ((ibuki_millis() - last_frame_ms) > RADAR_WATCHDOG_MS)
         {
             radar_restart("radar restart: no frames for 1 s");
+        }
+        /* IBUKI: sleep until the next interrupt when the loop is only waiting: for the radar to
+         * have data, or for an SPI transfer to finish. Its interrupt, the radar's, or the 1 ms
+         * tick wakes the CPU, often enough to keep the UART fed (its FIFO lasts ~5 ms). */
+        if (radar_waiting())
+        {
+            uint32_t t0 = load_cycles();
+            (void)Cy_SysPm_CpuEnterSleep(CY_SYSPM_WAIT_FOR_INTERRUPT);
+            load_add(LOAD_SLEEP, t0);
         }
     }
 }

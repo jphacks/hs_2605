@@ -1,4 +1,5 @@
-/* IBUKI firmware: per-chirp range FFT and the C/D/S/B/L line protocol over the debug UART. */
+/* IBUKI firmware: what main.c calls, and the radar settings shared by the modules in this
+ * folder (range.c, lines.c, board_io.c, load.c). */
 #ifndef IBUKI_H
 #define IBUKI_H
 
@@ -23,12 +24,14 @@
 #define IBUKI_FRAMES_PER_LINE   (2U)    /* 2 frames averaged per D line: ~16.6 lines/s */
 #define IBUKI_SCALE             (10)    /* D line integer = value * IBUKI_SCALE */
 #define IBUKI_CONFIG_PERIOD_MS  (5000U) /* C line period */
+#define IBUKI_LOAD_PERIOD_MS    (60000U) /* "S,t_ms,load ..." period: how busy the CPU was */
 
 void     ibuki_init(void);                 /* call after the debug UART is up */
 void     ibuki_on_frame(const float* frame); /* one full radar frame of raw samples */
 void     ibuki_poll(void);                 /* call often from the main loop */
 void     ibuki_status(const char* text);   /* sends "S,t_ms,text" */
 void     ibuki_status_code(const char* text, uint32_t code); /* "S,t_ms,text 0x........" */
+void     ibuki_flush(void);                /* wait until all queued output is sent */
 uint32_t ibuki_millis(void);
 void     ibuki_reset_frames(void);         /* drop a half-filled frame average (radar restart) */
 bool     ibuki_take_restart_request(void); /* true once after the PC sent "R,1" */
