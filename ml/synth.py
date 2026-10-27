@@ -1,4 +1,4 @@
-"""Step 2 of the Kaizen plan: converted baby data, a simulated baby chest in real radar recordings.
+"""Simulated baby chest echoes added to real radar recordings.
 
 We can't record a real baby that stops breathing, and we have no baby recordings at all. So we
 take recordings of our own room made by the real board (empty rooms, or an adult lying there),
@@ -235,7 +235,7 @@ def make_session(rng, base: Path, clips: list[dict], kind: str, with_stop: bool)
         parent_cm = None
     else:
         # co-sleeping: the baby lies 10-20 cm nearer the board than the parent's chest,
-        # the mounting the plan recommends (the separation is easier when the baby is nearer)
+        # the recommended mounting (the separation is easier when the baby is nearer)
         parent_cm = chest_cm_of(z)
         r_cm = max(25.0, parent_cm - float(rng.uniform(10.0, 20.0)))
     echo = float(rng.uniform(*BABY_FACTOR)) * adult_echo(r_cm)

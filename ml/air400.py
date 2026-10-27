@@ -1,9 +1,9 @@
-"""Step 1 of the Kaizen plan: when does each baby breathe? (AIR-400 breath timings)
+"""Breath timings of real babies, from the AIR-400 infant dataset.
 
 AIR-400 (Northeastern University, WACV 2026) is a set of overnight baby-monitor videos of real
 infants, where people marked every breath by hand. We don't use the videos themselves: our radar
 can't learn from pictures. We use the *timing* of the breaths (rate, rhythm, natural pauses) to
-drive a simulated baby chest in step 2 (ml/synth.py).
+drive the simulated baby chest in ml/synth.py.
 
     https://coe.northeastern.edu/Research/AClab/AIR-400/   (dataset, open download)
     https://github.com/michaelwwan/air-400                  (code, MIT)
@@ -25,7 +25,7 @@ Run from the repo root:
 Output:
     ml/data/air400/<subject>/<n>.hdf5       the label files, as downloaded
     ml/data/air400/durations.json           video length per clip (seconds)
-    ml/data/air400_breaths.json             breath times per clip (what step 2 reads)
+    ml/data/air400_breaths.json             breath times per clip (read by ml/synth.py)
 """
 from __future__ import annotations
 
