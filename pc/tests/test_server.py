@@ -245,5 +245,24 @@ class ServerTest(unittest.TestCase):
         self.assertGreater(health["lines"], 10)
 
 
+
+class BoardHealthTest(unittest.TestCase):
+    """Lines the board really sent (2026-10-27)."""
+
+    def test_load_and_restart_lines(self):
+        from ibuki.server import BoardHealth
+        h = BoardHealth()
+        self.assertEqual(h.as_dict(), {"load": None, "restarts": 0, "last_restart": None})
+        h.feed(60000, "load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0")
+        h.feed(25162, "radar restart: fifo overflow 0x00000000")
+        h.feed(1013, "radar initialized P1")  # other status text changes nothing
+        d = h.as_dict()
+        self.assertEqual(d["load"]["sleep_pct"], 95.3)
+        self.assertEqual(d["load"]["wakeups_per_s"], 7158)
+        self.assertEqual(d["load"]["dropped_lines"], 0)
+        self.assertEqual(d["restarts"], 1)
+        self.assertEqual(d["last_restart"]["reason"], "fifo overflow")
+
+
 if __name__ == "__main__":
     unittest.main()

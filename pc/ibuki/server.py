@@ -8,7 +8,7 @@ Run from the repo root:
 Endpoints (port 8000, also reachable from phones on the same Wi-Fi at http://<laptop-ip>:8000):
   WS   /ws                     Brain statuses and events as JSON, one message per text frame
   WS   /ws/raw                 every raw board line (live viewer / recorder use it via --server)
-  GET  /api/health             board connection, lost lines, Brain name, clients, ntfy on/off
+  GET  /api/health             board connection, lost lines, board health, Brain name, clients, ntfy on/off
   GET  /api/status             latest Brain status
   POST /api/test-notification  sends a test push to the phone
   GET  /                       the built dashboard (web/dist), if it exists
@@ -34,6 +34,7 @@ import importlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -94,6 +95,38 @@ def load_brain(spec: str):
             log(f"Brain {s} exists but FAILED to load: {e!r}")
     log("Brain: team Brain not found, using the PLACEHOLDER (no bpm, no alerts)")
     return PlaceholderBrain()
+
+
+# The firmware's own report, once a minute (firmware/proj_cm55/ibuki/load.h)
+LOAD_RE = re.compile(r"load dsp ([\d.]+)% out ([\d.]+)% sleep ([\d.]+)% (\d+)/s queue (\d+) dropped (\d+)")
+
+
+class BoardHealth:
+    """What the board says about itself in its S lines: CPU load and radar restarts.
+
+    In /api/health as "board_health", for the dashboard's connection details. Older firmware
+    sends no load line, so "load" stays None.
+    """
+
+    def __init__(self):
+        self.load: dict | None = None
+        self.restarts = 0
+        self.last_restart: dict | None = None
+
+    def feed(self, t_ms: int, text: str):
+        m = LOAD_RE.search(text)
+        if m:
+            self.load = {"dsp_pct": float(m[1]), "out_pct": float(m[2]), "sleep_pct": float(m[3]),
+                         "wakeups_per_s": int(m[4]), "queue_peak_bytes": int(m[5]),
+                         "dropped_lines": int(m[6]), "board_t_ms": t_ms}
+        elif text.startswith("radar restart:"):
+            # "radar restart: fifo overflow 0x00000000" -> "fifo overflow"
+            reason = text[len("radar restart:"):].strip().rsplit(" 0x", 1)[0]
+            self.restarts += 1
+            self.last_restart = {"reason": reason, "board_t_ms": t_ms, "unix_s": round(time.time(), 1)}
+
+    def as_dict(self) -> dict:
+        return {"load": self.load, "restarts": self.restarts, "last_restart": self.last_restart}
 
 
 class Notifier:
@@ -295,6 +328,7 @@ class Hub:
         self.latest: dict | None = None
         self.board_connected = False
         self.last_board_status: str | None = None
+        self.board_health = BoardHealth()
         self.seq = SeqTracker()
         self.last_state: str | None = None
         self.source = None
@@ -343,6 +377,7 @@ class Hub:
             self.siren.stop()
         elif isinstance(m, Status):
             self.last_board_status = m.text
+            self.board_health.feed(m.t_ms, m.text)
             log(f"board: {m.text}")
         try:
             outputs = self.brain.feed(text) or []
@@ -419,6 +454,7 @@ class Hub:
             "lines": self.lines,
             "seq": {"lost": self.seq.lost, "gaps": self.seq.gaps, "resets": self.seq.resets},
             "last_board_status": self.last_board_status,
+            "board_health": self.board_health.as_dict(),
             "brain_errors": self.brain_errors,
             "led_on": self.led_on,
             "siren": self.siren.on,
