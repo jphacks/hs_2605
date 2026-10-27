@@ -25,6 +25,9 @@ for (const [name, theme] of Object.entries({ light, dark })) {
       ['neutral-text', 'neutral-surface'], ['check-text', 'check-surface'], ['check-text', 'check-icon'],
       ['on-alert', 'alert'], ['on-alert', 'alert-hover'], ['on-alert', 'alert-icon'],
       ['alert-text', 'alert-soft'], ['chart-axis', 'surface'],
+      ['on-alert-panel', 'alert-panel'], ['on-alert-panel', 'alert-panel-end'],
+      ['on-alert-medallion', 'alert-medallion'], ['primary-strong', 'connection-surface'],
+      ['text-subtle', 'shell'],
     ];
     for (const [foreground, background] of pairs) {
       assert.ok(ratio(theme[foreground], theme[background]) >= 4.5, `${foreground}/${background}: ${ratio(theme[foreground], theme[background]).toFixed(2)}`);

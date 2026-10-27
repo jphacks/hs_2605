@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { createMockSource } from './data/mockSource';
 import { createModeSource, selectDashboardMode } from './data/mode';
 import type { DashboardMode } from './data/mode';
@@ -33,6 +33,10 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   const [board, setBoard] = useState<boolean | null>(null);
   const [health, setHealth] = useState<ServerHealth | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [receivedAt, setReceivedAt] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const diagnosticsRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => { if (!demo) return watchHealth(endpoints.health, setHealth); }, [demo]);
   // The server's siren keeps sounding until someone acknowledges it; this is the dashboard's way.
   const [stoppingSiren, setStoppingSiren] = useState(false);
@@ -69,6 +73,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         // /ws initially sends a cached status. Wait for a progressing timestamp.
         setLiveReady(inputConnected !== false && lastTime !== null && status.t > lastTime);
         lastTime = status.t;
+        setReceivedAt(Date.now()); // Browser receipt time only; never reinterpret the board clock.
         listener(status);
       }) };
     },
@@ -96,32 +101,50 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   const chartNote = demo || !liveView.status || liveView.waveAvailable || current === 'EMPTY' || status?.shaking ? null
     : '呼吸の波を準備しています（寝かせた直後や揺れのあとは数秒かかります）';
 
-  return <main>
-    <header>
+  const openDiagnostics = () => {
+    setMenuOpen(false);
+    if (diagnosticsRef.current) {
+      diagnosticsRef.current.open = true;
+      diagnosticsRef.current.querySelector('summary')?.focus();
+    }
+  };
+  const receiptTime = !demo && status && receivedAt !== null ? receivedAt : null;
+
+  return <main id="dashboard">
+    <header className="app-header">
       <h1 className="brand"><span className="brand-symbol"><DashboardIcon name="brand" /></span><span>息吹～IBUKI～<small>赤ちゃんの呼吸の動きを、見えるかたちに。</small></span></h1>
-      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? 'シミュレーションモード' : 'LIVE モード'}</span></div>
+      <nav id="dashboard-navigation" className={`dashboard-nav${menuOpen ? ' is-open' : ''}`} aria-label="ダッシュボード内の移動" onKeyDown={event => { if (event.key === 'Escape') { setMenuOpen(false); menuToggleRef.current?.focus(); } }}>
+        <a href="#dashboard" aria-current="page" onClick={() => setMenuOpen(false)}>ダッシュボード</a>
+        {!demo && <a href="#notifications" onClick={() => setMenuOpen(false)}>通知履歴</a>}
+        {!demo && <button onClick={openDiagnostics}>接続詳細</button>}
+      </nav>
+      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? '模擬データ' : 'LIVE'}</span><button ref={menuToggleRef} className="menu-toggle" aria-label="メニュー" aria-expanded={menuOpen} aria-controls="dashboard-navigation" onClick={() => setMenuOpen(open => !open)}><DashboardIcon name="menu" /></button></div>
     </header>
-    {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
-      placeholder={liveView.placeholder} shaking={data.status?.shaking ?? false} waveAvailable={liveView.waveAvailable}
-      url={endpoints.ws} notice={liveView.notice} />}
-    {!demo && health?.siren && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
-      {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
-    <section className={`status-banner tone-${statusView.tone}`} aria-live="polite" aria-atomic="true">
-      <span className="status-icon"><DashboardIcon name={({ alert: 'alert', check: 'alert', shake: 'wave', empty: 'empty', wait: 'wave', ok: 'movement', still: 'moon' } as const)[statusView.tone]} /></span>
-      <div><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
+    <section className={`status-overview tone-${statusView.tone}`}>
+      <section className="status-banner">
+        <span className="status-icon"><DashboardIcon name={({ alert: 'alert', check: 'alert', shake: 'wave', empty: 'empty', wait: 'wave', ok: 'movement', still: 'moon' } as const)[statusView.tone]} /></span>
+        <div className="status-content">
+          <div className="status-copy" aria-live="polite" aria-atomic="true"><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
+          {!demo && health?.siren && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
+            {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
+        </div>
+      </section>
+      {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
+        placeholder={liveView.placeholder} shaking={data.status?.shaking ?? false} waveAvailable={liveView.waveAvailable}
+        url={endpoints.ws} notice={liveView.notice} detailsRef={diagnosticsRef} receivedAt={receiptTime} />}
     </section>
     <section className="dashboard-grid">
       <article className="panel waveform">
-        <div className="panel-heading"><div><p className="eyebrow">BREATHING MOTION</p><h2>呼吸の動き</h2></div><span className="chart-live"><span className="dot"/>{sourceTag}</span></div>
-        <p className="chart-description">胸の動き（mm） · 直近30秒</p>
-        {chartNote && <p className="muted" role="status">{chartNote}</p>}
+        <div className="panel-heading"><div className="waveform-heading"><h2>呼吸の動き</h2><details className="chart-help"><summary aria-label="波形の説明"><DashboardIcon name="info" /></summary><div><p>受信した胸の動き（mm）を直近30秒分表示します。破線は測定なしの区間です。</p>{chartNote && <p>{chartNote}</p>}<p>波形だけで呼吸や安全を確認するものではありません。</p></div></details></div><span className="chart-range">直近30秒</span></div>
+        <p className="chart-description">胸の動き（mm）</p>
         <WaveChart points={points} t={status?.t ?? null} alert={current === 'ALERT'} demo={demo} label={`胸の動きの波形。${statusView.title}`}/>
-        <div className="chart-footer"><span><i/>胸の動き{demo ? '（シミュレーション）' : ''}</span><span><i className="idle-key"/>測定なし（揺れ・学習中・不在のとき）</span></div>
+        <div className="chart-footer"><span><i/>胸の動き<span className="chart-source"> · {sourceTag}</span></span><span><i className="idle-key"/>測定なし</span></div>
       </article>
       <aside className="metrics" aria-label="いまの様子">
-        <article className="panel bpm"><div className="metric-heading"><span className="metric-icon"><DashboardIcon name="breathing" /></span><div><p className="eyebrow">BREATHING RATE</p><h2>呼吸数</h2></div></div><div className={`bpm-value${bpm == null ? ' bpm-value--none' : ''}`}>{bpm?.toFixed(1) ?? '—'}<span>回 / 分</span></div><p className="muted">{rateNote}</p></article>
-        <article className="panel metric-row"><div className="metric-heading"><span className="metric-icon"><DashboardIcon name="bed" /></span><div><p className="eyebrow">IN BED</p><h2>ベッド</h2></div></div><strong className="presence">{!status ? '—' : status.present ? 'います' : 'いません'}</strong></article>
-        <article className="panel metric-row"><div className="metric-heading"><span className="metric-icon"><DashboardIcon name="movement" /></span><div><p className="eyebrow">MOVEMENT</p><h2>体の動き</h2></div></div><strong className="presence">{!status || !status.present ? '—' : current === 'OK' ? '動いています' : 'じっとしています'}</strong></article>
+        <article className="panel metric-card bpm"><span className="metric-icon"><DashboardIcon name="breathing" /></span><div className="metric-copy"><h2>呼吸数</h2><div className={`bpm-value${bpm == null ? ' bpm-value--none' : ''}`}>{bpm?.toFixed(1) ?? '—'}<span>回/分</span></div><p className="muted bpm-note">{rateNote}</p></div><span className="metric-tag">{bpm === null ? '—' : demo ? '模擬値' : '推定値'}</span></article>
+        <article className="panel metric-card"><span className="metric-icon"><DashboardIcon name="bed" /></span><div className="metric-copy"><h2>ベッド</h2><strong className="presence">{!status ? '—' : status.present ? 'います' : 'いません'}</strong><p className="muted metric-note">{!status ? 'データを待っています' : status.present ? '対象を検知しています' : '対象を検知していません'}</p></div><span className="metric-tag">{!status ? '—' : demo ? '模擬値' : status.present ? '検知中' : '不在'}</span></article>
+        <article className="panel metric-card"><span className="metric-icon"><DashboardIcon name="movement" /></span><div className="metric-copy"><h2>体の動き</h2><strong className="presence">{!status || !status.present ? '—' : current === 'OK' ? '動いています' : 'じっとしています'}</strong><p className="muted metric-note">Brain の状態を表示しています</p></div><span className="metric-tag">{!status || !status.present ? '—' : demo ? '模擬値' : '受信値'}</span></article>
+        <p className="metrics-note">呼吸数：{rateNote}</p>
       </aside>
     </section>
     {!demo && <NotificationPanel state={notifications} />}

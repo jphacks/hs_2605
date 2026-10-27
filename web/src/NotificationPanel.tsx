@@ -6,8 +6,8 @@ const levelClass = { 緊急: 'urgent', 注意: 'caution', お知らせ: 'info' }
 
 export default function NotificationPanel({ state }: { state: NotificationState }) {
   const view = notificationPresentation(state);
-  return <section className="notification-panel panel" aria-label="通知">
-    <div className="notification-heading"><h2 className="section-heading"><DashboardIcon name="bell" />通知</h2><span>この画面が受け取った通知です（直近20件）</span></div>
+  return <section className="notification-panel panel" aria-label="通知" id="notifications">
+    <div className="notification-heading"><h2 className="section-heading"><DashboardIcon name="bell" />通知履歴</h2><span>この画面で受信 · 最新20件</span></div>
     <div aria-live="polite" aria-relevant="additions text">
       {view.current.map(warning => <p key={warning.entry.event.reason}
         className={`current-warning current-warning--${levelClass[notificationLevels[warning.entry.event.reason]]}${warning.indication === 'unknown' ? ' current-warning--unknown' : ''}`}>
@@ -20,10 +20,10 @@ export default function NotificationPanel({ state }: { state: NotificationState 
         {state.history.map(entry => {
           const level = notificationLevels[entry.event.reason];
           return <li key={entry.id} className={`notice notice--${levelClass[level]}`}>
-            <time dateTime={new Date(entry.receivedAt).toISOString()}>{new Date(entry.receivedAt).toLocaleTimeString('ja-JP')}</time>
-            <span className="notice-level">【{level}】</span>
-            <strong>{notificationMessages[entry.event.reason]}</strong>
-            {notificationDetails(entry.event).map(detail => <small key={detail}>{detail}</small>)}
+            <time dateTime={new Date(entry.receivedAt).toISOString()} title={new Date(entry.receivedAt).toLocaleTimeString('ja-JP')}>{new Date(entry.receivedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</time>
+            <span className="notice-dot" aria-hidden="true" />
+            <div className="notice-body"><span className="notice-level">【{level}】</span><strong>{notificationMessages[entry.event.reason]}</strong></div>
+            <div className="notice-details">{notificationDetails(entry.event).map(detail => <small key={detail}>{detail}</small>)}</div>
           </li>;
         })}
       </ol>}

@@ -1,4 +1,4 @@
-type IconName = 'brand' | 'moon' | 'movement' | 'breathing' | 'bed' | 'bell' | 'alert' | 'empty' | 'wave';
+type IconName = 'brand' | 'moon' | 'movement' | 'breathing' | 'bed' | 'bell' | 'alert' | 'empty' | 'wave' | 'menu' | 'wifi' | 'info';
 
 // Decorative, code-native marks. Existing Japanese text supplies every meaning.
 const paths: Record<IconName, string[]> = {
@@ -11,10 +11,13 @@ const paths: Record<IconName, string[]> = {
   alert: ['M16 6v12', 'M16 24v1'],
   empty: ['M7 7h18v18H7Z', 'M12 16h8'],
   wave: ['M2 18c4-10 9-10 14 0s10 10 14 0'],
+  menu: ['M5 8h22M5 16h22M5 24h22'],
+  wifi: ['M3 12a20 20 0 0 1 26 0', 'M8 18a12 12 0 0 1 16 0', 'M13 23a5 5 0 0 1 6 0', 'M16 28h.01'],
+  info: ['M16 28a12 12 0 1 0 0-24 12 12 0 0 0 0 24Z', 'M16 15v8', 'M16 9v1'],
 };
 
 export default function DashboardIcon({ name }: { name: IconName }) {
-  return <svg className="dashboard-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor"
+  return <svg className={`dashboard-icon icon-${name}`} viewBox="0 0 32 32" fill="none" stroke="currentColor"
     strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {paths[name].map((d, index) => <path key={index} d={d} />)}
   </svg>;

@@ -1,8 +1,8 @@
 /* Presentation only: these tokens never classify sensor or Brain state. */
 :root {
   color-scheme: light;
-  --font-body: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif;
-  --font-display: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif;
+  --font-body: 'Hiragino Sans', 'Yu Gothic UI', Meiryo, sans-serif;
+  --font-display: var(--font-body);
   --font-number: 'Aptos', 'Segoe UI', sans-serif;
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
@@ -19,27 +19,34 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
-  --radius-sm: 12px;
-  --radius-card: 20px;
+  --radius-sm: 14px;
+  --radius-card: 18px;
   --radius-lg: 24px;
   --radius-pill: 999px;
-  --canvas: #f6f3ec;
-  --surface: #fffdf8;
-  --surface-soft: #f0eee7;
+  --canvas: #f2eee7;
+  --shell: #fcfaf6;
+  --shell-border: #d4d2ca;
+  --surface: #fffdfa;
+  --surface-soft: #f0eee9;
   --surface-raised: #ffffff;
-  --text: #263b31;
+  --text: #20352e;
   --text-muted: #596b60;
-  --text-subtle: #637368;
-  --border: #dce0d5;
+  --text-subtle: #5d6d62;
+  --border: #e2e3db;
   --border-strong: #7c907f;
   --primary: #315f4c;
   --primary-strong: #244b3b;
   --primary-soft: #e5ede2;
   --on-primary: #fffdf8;
-  --normal-surface: #e1eadb;
+  --normal-surface: #dce8d8;
+  --normal-end: #e8eee2;
   --normal-border: #c3d2bd;
   --normal-text: #294d3c;
   --normal-muted: #45634f;
+  --medallion-top: #a9c1ab;
+  --medallion-bottom: #668e75;
+  --on-medallion: #fffdf8;
+  --connection-surface: #f8fbf4;
   --neutral-surface: #eceee7;
   --neutral-border: #d2d9ce;
   --neutral-text: #526057;
@@ -47,13 +54,19 @@
   --check-border: #d1af70;
   --check-text: #755018;
   --check-icon: #efdbaf;
-  --alert: #b63238;
-  --alert-hover: #9e2930;
+  --alert: #c33530;
+  --alert-hover: #a92a26;
   --on-alert: #fff9f2;
   --alert-soft: #fcece8;
   --alert-border: #d9a6a2;
   --alert-text: #9b2c32;
   --alert-icon: #8f232a;
+  --alert-panel: #713329;
+  --alert-panel-end: #4b241e;
+  --alert-panel-border: #a75643;
+  --on-alert-panel: #fff5ed;
+  --alert-medallion: #f08b78;
+  --on-alert-medallion: #461813;
   --focus: #315f4c;
   --chart-wave: #3f745a;
   --chart-alert: #b63238;
@@ -61,6 +74,7 @@
   --chart-grid: #e0e6dc;
   --chart-idle: #737f74;
   --shadow-card: 0 6px 24px rgb(40 55 41 / 0.035), 0 1px 3px rgb(40 55 41 / 0.025);
+  --shadow-shell: 0 16px 48px rgb(45 39 28 / 0.10), 0 2px 6px rgb(45 39 28 / 0.06);
   --shadow-alert: 0 5px 16px rgb(112 29 35 / 0.12);
   --page-glow: radial-gradient(ellipse at 10% 0%, #eaf0e4 0%, transparent 55%);
 }
@@ -68,8 +82,10 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --canvas: #101f19;
-    --surface: #192c24;
+    --canvas: #0a1712;
+    --shell: #10231c;
+    --shell-border: #34473a;
+    --surface: #1b2e27;
     --surface-soft: #1d3128;
     --surface-raised: #21372d;
     --text: #edf1e7;
@@ -82,9 +98,13 @@
     --primary-soft: #263f32;
     --on-primary: #13251b;
     --normal-surface: #233c2d;
+    --normal-end: #1d3429;
     --normal-border: #425d47;
     --normal-text: #edf3e6;
     --normal-muted: #bdceba;
+    --medallion-top: #72917a;
+    --medallion-bottom: #42654e;
+    --connection-surface: #203c2d;
     --neutral-surface: #1b2e26;
     --neutral-border: #3b5144;
     --neutral-text: #becbc1;
@@ -92,13 +112,16 @@
     --check-border: #806944;
     --check-text: #f1d4a0;
     --check-icon: #59472a;
-    --alert: #a92e35;
-    --alert-hover: #bf3941;
+    --alert: #c33530;
+    --alert-hover: #ac2c28;
     --on-alert: #fff4ec;
     --alert-soft: #3f2325;
     --alert-border: #81504e;
     --alert-text: #ffc1b9;
     --alert-icon: #7e1c24;
+    --alert-panel: #58291f;
+    --alert-panel-end: #301d18;
+    --alert-panel-border: #98553e;
     --focus: #a2ccaf;
     --chart-wave: #a3c9af;
     --chart-alert: #ff8d89;
@@ -106,6 +129,7 @@
     --chart-grid: #334b3c;
     --chart-idle: #a0afa4;
     --shadow-card: 0 6px 24px rgb(0 0 0 / 0.12);
+    --shadow-shell: 0 16px 48px rgb(0 0 0 / 0.25);
     --shadow-alert: 0 5px 16px rgb(0 0 0 / 0.18);
     --page-glow: radial-gradient(ellipse at 10% 0%, #1a3023 0%, transparent 55%);
   }
