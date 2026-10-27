@@ -40,7 +40,7 @@ export default function WaveChart({ points, t, alert, demo, label }:
   const gradientId = useId();
   const waveColor = alert ? 'var(--chart-alert)' : 'var(--chart-wave)';
   const hasWaveform = points.some(point => point.displacement !== null);
-  return <div className="chart" role="img" aria-label={`${label}。横軸は30秒前から最新を0〜30秒で表示。表示範囲は±${domain[1]}mm。`} data-end={end.toFixed(3)} data-range-mm={domain[1]}>
+  return <div className={`chart${hasWaveform ? '' : ' chart--empty'}`} role="img" aria-label={`${label}。横軸は30秒前から最新を0〜30秒で表示。表示範囲は±${domain[1]}mm。`} data-end={end.toFixed(3)} data-range-mm={domain[1]}>
     <span className="chart-scale">{hasWaveform ? `表示範囲 ±${domain[1]} mm${demo ? '（模擬）' : ' · 自動拡大'}` : '胸の動き（mm）'}</span>
     <ResponsiveContainer width="100%" height="100%"><ComposedChart data={points} margin={{ top: 20, right: 12, bottom: 8, left: 0 }} accessibilityLayer>
       <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={waveColor} stopOpacity={0.18}/><stop offset="100%" stopColor={waveColor} stopOpacity={0.01}/></linearGradient></defs>

@@ -27,7 +27,7 @@ export default function ConnectionStatus(props: ConnectionInput & { url: string;
     {view.provenance.length > 0 && <div className="connection-provenance">{view.provenance.map(label => <span key={label}>{label}</span>)}</div>}
     <div className="connection-meta"><span className="last-received">{props.receivedAt ? <>最終受信 <time dateTime={new Date(props.receivedAt).toISOString()}>{new Date(props.receivedAt).toLocaleTimeString('ja-JP')}</time></> : '受信待ち'}</span></div>
     <details className="connection-details" ref={props.detailsRef} id="connection-details">
-      <summary>接続の詳細</summary>
+      <summary title="接続の詳細"><span className="connection-details-label">接続の詳細</span><DashboardIcon name="info" /></summary>
       <div className="connection-diagnostics">
         <p className="diagnostic-summary">{view.title} — {view.description}</p>
         <dl>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
