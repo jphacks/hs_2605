@@ -1,4 +1,5 @@
-/* IBUKI firmware: per-chirp range FFT and the C/D/S/B/L line protocol over the debug UART. */
+/* IBUKI firmware: what main.c calls, and the radar settings shared by the modules in this
+ * folder (range.c, lines.c, board_io.c, load.c). */
 #ifndef IBUKI_H
 #define IBUKI_H
 
