@@ -268,13 +268,13 @@ static void send_data(void)
 }
 
 /* LED and button */
-static bool alert_on;          /* PC sent L,1: the red LED blinks so it stands out from the */
-static uint32_t blink_last_ms; /* board's other red lights (power, KitProg) */
-static bool blink_lit;
+static bool alert_on;          /* PC sent L,1: the RGB LED blinks blue. The board's power and */
+static uint32_t blink_last_ms; /* KitProg lights are red and always on, so a red alert was */
+static bool blink_lit;         /* easy to miss among them */
 
-static void led_red(bool on)
+static void led_alert(bool on)
 {
-    Cy_GPIO_Write(CYBSP_LED_RGB_RED_PORT, CYBSP_LED_RGB_RED_PIN,
+    Cy_GPIO_Write(CYBSP_LED_RGB_BLUE_PORT, CYBSP_LED_RGB_BLUE_PIN,
                   on ? CYBSP_LED_STATE_ON : CYBSP_LED_STATE_OFF);
 }
 
@@ -283,7 +283,7 @@ static void set_alert(bool on)
     alert_on = on;
     blink_lit = on;
     blink_last_ms = ibuki_millis();
-    led_red(on);
+    led_alert(on);
 }
 
 static void poll_blink(uint32_t now)
@@ -292,7 +292,7 @@ static void poll_blink(uint32_t now)
     {
         blink_last_ms = now;
         blink_lit = !blink_lit;
-        led_red(blink_lit);
+        led_alert(blink_lit);
     }
 }
 
