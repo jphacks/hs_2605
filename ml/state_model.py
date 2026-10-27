@@ -27,6 +27,9 @@ Training data. Train sets only; the test babies, rooms and people stay unseen.
       rec_shake_*       not stopped, not empty    breathing, the table bumped twice
       rec_empty_*       empty                     nobody in the room
       rec_leave_*       breathing, then empty     walks away at 20 s
+      (also very light breathing and breathing under a blanket, recorded on 2026-10-28)
+  light-breathing copies of the breathing and hold recordings: the chest moves only 35% as
+      much (LIGHT_GAIN), for people and babies who breathe very lightly
   a long real recording of an adult working beside the board (recordings/room/): nobody
       stops breathing in it, so it is "anything but stopped". The first ROOM_TRAIN_S seconds
       train, the rest is a real false-alarm check for choosing settings.
@@ -67,6 +70,7 @@ TRAIN_PEOPLE = ("ramadhan", "lemonwasp")
 TEST_PEOPLE = ("manami",)
 ROOM_TRAIN = "rec_room_ambient_20261027-220928.csv"   # the first long room recording
 ROOM_TRAIN_S = 12 * 60.0                              # its first 12 min train, the last 8 validate
+LIGHT_GAIN = 0.35  # light-breathing copies of the real breathing recordings (see dataset())
 SYNTH_STRIDE = 2  # simulated sessions: every 2nd step is enough (neighbouring steps overlap 98%)
 
 # a label is the set of states the model may answer (one-hot, or several for "not stopped")
@@ -75,16 +79,21 @@ NOT_STOPPED = B + M + E
 NONE = np.zeros(len(STATES), np.float32)              # unknown: not trained on
 
 
-def steps(breath_model, csv: Path) -> dict:
+def steps(breath_model, csv: Path, gain: float = 1.0) -> dict:
     """Every ~0.5 s of one recording: the end line, its time and the model inputs (24 x 4).
 
     Cached in ml/data/cache/ until the breathing model changes.
     """
-    key = CACHE / ("_".join(csv.resolve().relative_to(REPO).with_suffix("").parts) + ".npz")
+    tag = "" if gain == 1.0 else f"_gain{gain:g}"
+    key = CACHE / ("_".join(csv.resolve().relative_to(REPO).with_suffix("").parts) + tag + ".npz")
     newest = max((MODELS / "breath_slot.keras").stat().st_mtime, csv.stat().st_mtime)
     if key.exists() and key.stat().st_mtime > newest:
         return dict(np.load(key))
     t_ms, z = read_csv(csv)
+    if gain != 1.0:
+        # lighter breathing: each slot's movement around its still echo, made smaller
+        still = z.mean(axis=0)
+        z = still + (z - still) * gain
     # each slot's echo-strength change from one line to the next (the Brain's movement signal)
     change = np.vstack([np.zeros((1, NUM_BINS)), np.abs(np.diff(np.abs(z), axis=0))])
     ends, feats, move, chg, level = [], [], [], [], []
@@ -179,6 +188,11 @@ def dataset(breath_model, synth_set: str, people, room: str) -> tuple[np.ndarray
         y = real_labels(csv, st)
         if y is not None:
             add(st, y, np.arange(len(y)))
+        if y is not None and csv.name.startswith(("rec_breathing_", "rec_hold_")):
+            # the same recording with the chest moving only LIGHT_GAIN as much: people (and
+            # babies) who breathe very lightly. The labels stay: breathing is still breathing
+            st = steps(breath_model, csv, LIGHT_GAIN)
+            add(st, real_labels(csv, st), np.arange(len(st["ends"])))
     path = RECORDINGS / "room" / ROOM_TRAIN
     if room and path.exists():
         st = steps(breath_model, path)
