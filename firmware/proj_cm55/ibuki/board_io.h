@@ -1,5 +1,6 @@
 /* The board's alert LED and user button, and the short commands the PC sends:
  *   L,1 / L,0   alert LED blinking twice a second (red, green and blue together) / off
+ *   M,1 / M,3   send one antenna as D lines (the default) / all 3 as E lines
  *   R,1         restart the radar (main.c asks with ibuki_take_restart_request())
  *   T,<ms>      test only: stall the main loop for up to 2 s, so the radar FIFO overflows
  * A press of the user button sends "B,1". */

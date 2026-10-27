@@ -75,6 +75,28 @@ char* line_put_text(char* p, const char* text)
     return p + n;
 }
 
+char* line_put_base64(char* p, const uint8_t* data, uint32_t n)
+{
+    static const char abc[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (uint32_t i = 0U; i < n; i += 3U)
+    {
+        uint32_t v = (uint32_t)data[i] << 16;
+        if ((i + 1U) < n)
+        {
+            v |= (uint32_t)data[i + 1U] << 8;
+        }
+        if ((i + 2U) < n)
+        {
+            v |= data[i + 2U];
+        }
+        *p++ = abc[(v >> 18) & 63U];
+        *p++ = abc[(v >> 12) & 63U];
+        *p++ = ((i + 1U) < n) ? abc[(v >> 6) & 63U] : '=';
+        *p++ = ((i + 2U) < n) ? abc[v & 63U] : '=';
+    }
+    return p;
+}
+
 /* Hand queued bytes to the UART's hardware FIFO, as many as fit right now. Never waits. */
 void line_pump(void)
 {

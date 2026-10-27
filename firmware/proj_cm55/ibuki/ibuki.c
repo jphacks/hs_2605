@@ -72,11 +72,49 @@ static void send_config(void)
     line_send(p);
 }
 
+/* E,seq,t_ms,<base64>: all 3 antennas (after "M,3"). The bytes are int16 little-endian,
+ * antenna after antenna, bin after bin, Re then Im: 3 x 24 x 2 values, averaged like the D
+ * line but not multiplied by IBUKI_SCALE, so they fit 16 bits (clamped if ever larger).
+ * Text at 115200 baud can't carry 3 antennas as decimal numbers; base64 can. */
+static void send_all_antennas(void)
+{
+    static uint8_t raw[IBUKI_RX_ANTENNAS * 2U * IBUKI_NUM_BINS * 2U];
+    uint32_t t0 = load_cycles();
+    const float k = 1.0f / (float)(range_frames() * IBUKI_CHIRPS_PER_FRAME);
+    uint32_t n = 0U;
+    for (uint32_t a = 0U; a < IBUKI_RX_ANTENNAS; a++)
+    {
+        const float* sums = range_sums(a);
+        for (uint32_t i = 0U; i < 2U * IBUKI_NUM_BINS; i++)
+        {
+            long v = lrintf(sums[i] * k);
+            v = (v > 32767L) ? 32767L : ((v < -32768L) ? -32768L : v);
+            raw[n++] = (uint8_t)((uint16_t)v & 0xFFU);
+            raw[n++] = (uint8_t)((uint16_t)v >> 8);
+        }
+    }
+    char* p = line_start();
+    *p++ = 'E';
+    *p++ = ',';
+    p = line_put_u32(p, d_seq++);
+    *p++ = ',';
+    p = line_put_u32(p, ibuki_millis());
+    *p++ = ',';
+    p = line_put_base64(p, raw, n);
+    load_add(LOAD_OUT, t0);
+    line_send(p);
+}
+
 /* D,seq,t_ms,I0,Q0,...,In-1,Qn-1: the bin sums averaged over all chirps of the summed frames */
 static void send_data(void)
 {
+    if (range_antennas() != 1U)
+    {
+        send_all_antennas();
+        return;
+    }
     uint32_t t0 = load_cycles();
-    const float* sums = range_sums();
+    const float* sums = range_sums(0U);
     const float k = (float)IBUKI_SCALE / (float)(range_frames() * IBUKI_CHIRPS_PER_FRAME);
     char* p = line_start();
     *p++ = 'D';
@@ -141,6 +179,12 @@ void ibuki_poll(void)
     load_poll(now);
     line_pump();
     board_io_poll(now);
+}
+
+void ibuki_set_antennas(uint32_t n)
+{
+    range_set_antennas(n);
+    ibuki_status(range_antennas() == 1U ? "antennas 1 (D lines)" : "antennas 3 (E lines)");
 }
 
 bool ibuki_take_restart_request(void)

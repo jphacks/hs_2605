@@ -66,6 +66,14 @@ static void handle_rx_line(void)
     {
         set_alert(false);
     }
+    else if (strcmp(rx_line, "M,1") == 0)
+    {
+        ibuki_set_antennas(1U);
+    }
+    else if (strcmp(rx_line, "M,3") == 0)
+    {
+        ibuki_set_antennas(3U);
+    }
     else if (strcmp(rx_line, "R,1") == 0)
     {
         restart_requested = true; /* main loop restarts the radar */
