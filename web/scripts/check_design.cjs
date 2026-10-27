@@ -158,7 +158,7 @@ async function verifyScene(fixture, width, state) {
   const contrasts = samples.map(sample => ({ ...sample, ratio: contrast(sample.fg, sample.bg) }));
   assert.deepEqual(contrasts.filter(sample => sample.ratio < 4.5), [], 'text contrast');
   metrics.minTextContrast = Math.min(...contrasts.map(sample => sample.ratio));
-  // #70 changes appearance, not existing navigation, API fields or content order.
+  // Navigation uses existing page sections; no speculative API fields or device features.
   assert.equal(await page.locator('.menu-toggle').count(), 1);
   assert.equal(await page.locator('.menu-toggle').isVisible(), width <= 800);
   assert.equal(await page.getByText('ペアリング', { exact: true }).count(), 0);
