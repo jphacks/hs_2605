@@ -20,6 +20,7 @@ char*    line_put_u32(char* p, uint32_t v);         /* decimal digits */
 char*    line_put_i32(char* p, int32_t v);
 char*    line_put_tenths(char* p, uint32_t tenths); /* one decimal, from tenths: 375 -> "37.5" */
 char*    line_put_text(char* p, const char* text);  /* cut short if the line would not fit */
+char*    line_put_base64(char* p, const uint8_t* data, uint32_t n); /* standard base64, with = padding */
 void     line_send(char* end);                      /* queue the line that ends at `end` */
 void     line_pump(void);                           /* move queued bytes into the UART FIFO */
 void     line_flush(void);                          /* wait until everything queued is sent */

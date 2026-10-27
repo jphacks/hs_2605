@@ -35,10 +35,12 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 |---|---|---|
 | `C,first_cm,step_mm,n,scale` | ボードから PC | 起動したときと 5 秒ごと。いまは `C,15.0,37.5,24,10`。 |
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | ボードから PC | データ本体。`seq` は 1 行ごとに 1 ずつ増え、`t_ms` は起動からの時間、ビンは近い順、値は整数を `scale` で割ったもの。 |
+| `E,seq,t_ms,<base64>` | ボードから PC | `M,3` のあとだけ：3 本のアンテナすべて。base64 の中身は int16（リトルエンディアン）を、アンテナ・ビン・実部/虚部の順に 3×24×2 個。値は D の行と同じ平均ですが `scale` をかけません。読み方は [ml/antennas.py](../ml/antennas.py) |
 | `S,t_ms,text` | ボードから PC | 状態やエラー。例：`S,0,ibuki fw start`。1 分ごとに CPU の使用率も送ります：`S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` |
 | `B,1` | ボードから PC | ユーザーボタンが押された |
 | `L,1` / `L,0` | PC からボード | 警告：RGB LED が赤・緑・青を同時につけて 1 秒に 2 回点滅（ボードの電源などの赤いランプはいつも点いているため、赤だけでは目立ちませんでした）、または消灯 |
 | `R,1` | PC からボード | レーダーを再起動する |
+| `M,1` / `M,3` | PC からボード | アンテナ 1 本を D の行で送る（起動時はこれ）／3 本すべてを E の行で送る。録画は `pc/record.py <名前> --antennas 3` |
 | `T,<ms>` | PC からボード | テスト用。ボードを最大 2000 ms 止める |
 
 ### レーダーに問題が起きたとき
@@ -121,10 +123,12 @@ We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). 
 |---|---|---|
 | `C,first_cm,step_mm,n,scale` | board to PC | Sent at boot and every 5 s. Right now it's `C,15.0,37.5,24,10`. |
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
+| `E,seq,t_ms,<base64>` | board to PC | Only after `M,3`: all 3 antennas. The base64 holds int16 values (little-endian), antenna by antenna, bin by bin, Re then Im: 3×24×2 values, averaged like the D line but without `scale`. Read with [ml/antennas.py](../ml/antennas.py). |
 | `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. Once a minute also the CPU use: `S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0`. |
 | `B,1` | board to PC | The user button was pressed. |
 | `L,1` / `L,0` | PC to board | Alert: the RGB LED blinks twice a second with red, green and blue on together (the board's power and other red lights are always on, so plain red was easy to miss), or off. |
 | `R,1` | PC to board | Restart the radar. |
+| `M,1` / `M,3` | PC to board | Send one antenna as D lines (the default at start-up) / all 3 as E lines. Record with `pc/record.py <name> --antennas 3`. |
 | `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
 
 ### When the radar has problems

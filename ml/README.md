@@ -18,6 +18,7 @@
 | [train.py](train.py) | 呼吸モデル（小さな 1D CNN、重み約 1 万個）の学習と、ボードの AI チップ用の 8 ビット版の書き出し |
 | [state_model.py](state_model.py) | 状態モデル（2D CNN、重み 22,492 個、8 ビット版 30 KB）の学習と採点。シミュレーションの停止と、意味が分かっている実際の録画（息止め、離れる、誰もいない、動いている、横で作業している人）で学習します |
 | [decide.py](decide.py) | 最初に試した手書きのアラームのルールと、Brain との比較（比べるために残しています） |
+| [antennas.py](antennas.py) | 3 本のアンテナで録った録画（E の行）から、呼吸している胸の向きを求めます。左右に座った同じ人で、+32° と −31° と反対の向きになりました（2026-10-28） |
 
 作られる赤ちゃんは 2 種類です：
 
@@ -115,6 +116,7 @@ The server ([pc/](../pc/README.md)) decides with these models whenever their fil
 | [train.py](train.py) | Trains the breathing model (a small 1D CNN, about 10,000 weights) and writes an 8-bit version for the board's AI chip |
 | [state_model.py](state_model.py) | Trains and scores the state model (a 2D CNN, 22,492 weights, 30 KB in 8 bits), on simulated stops and on real recordings whose meaning is known (breath holds, leaving, empty room, moving, a person working beside the board) |
 | [decide.py](decide.py) | The hand-written alarm rules we tried first, and the comparison with the Brain (kept for comparison) |
+| [antennas.py](antennas.py) | The direction of the breathing chest, from recordings with all 3 antennas (E lines). The same person sitting left and then right of the board came out at +32° and −31° (2026-10-28) |
 
 Two kinds of simulated session:
 

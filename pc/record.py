@@ -31,6 +31,8 @@ def main():
     ap.add_argument("--server", nargs="?", const="ws://localhost:8000/ws/raw",
                     help="record through the running IBUKI server instead of the port")
     ap.add_argument("--out-dir", default=os.path.join(REPO, "recordings"))
+    ap.add_argument("--antennas", type=int, choices=(1, 3), default=1,
+                    help="3: the board sends all 3 antennas as E lines while recording (M,3), then M,1")
     a = ap.parse_args()
 
     os.makedirs(a.out_dir, exist_ok=True)
@@ -41,7 +43,7 @@ def main():
         time.sleep(1)
 
     seq = SeqTracker()
-    counts = {"D": 0, "other": 0}
+    counts = {"D": 0, "E": 0, "other": 0}
     recording = [False]
     out = open(path, "w", encoding="ascii", errors="replace")
 
@@ -53,6 +55,8 @@ def main():
         if isinstance(m, Data):
             counts["D"] += 1
             seq.feed(m.seq)
+        elif text.startswith("E,"):
+            counts["E"] += 1
         else:
             counts["other"] += 1
 
@@ -67,6 +71,9 @@ def main():
         src = BoardLink(a.port, on_line=on_line, on_state=on_state)
     recording[0] = True
     src.start()
+    if a.antennas == 3:
+        time.sleep(1.0)  # let the port open
+        src.send("M,3")
     print(f"recording '{a.name}' for {a.seconds:.0f} s -> {path}")
     t0 = time.time()
     next_report = 5.0
@@ -79,13 +86,18 @@ def main():
     except KeyboardInterrupt:
         print("stopped early")
     recording[0] = False
+    if a.antennas == 3:
+        src.send("M,1")  # back to normal D lines for the app
+        time.sleep(0.3)
     src.stop()
     out.close()
     secs = time.time() - t0
     print(f"done: {counts['D']} D lines in {secs:.0f} s ({counts['D'] / max(secs, 1e-9):.1f}/s), "
           f"lost {seq.lost}, board restarts {seq.resets}")
     print(f"saved {path}")
-    if counts["D"] == 0:
+    if counts["E"]:
+        print(f"{counts['E']} E lines (all 3 antennas)")
+    if counts["D"] + counts["E"] == 0:
         sys.exit("no data recorded: is the board plugged in and the viewer closed?")
 
 
