@@ -99,9 +99,13 @@ def load_brain(spec: str):
 class Notifier:
     """Push notification through ntfy (the iPhone app forwards it to the watch)."""
 
-    def __init__(self, topic: str | None, url: str = "https://ntfy.sh", min_interval_s: float = 60.0):
+    def __init__(self, topic: str | None, url: str = "https://ntfy.sh", min_interval_s: float = 60.0,
+                 token: str | None = None):
         self.topic = topic
         self.url = url.rstrip("/")
+        # An ntfy access token (tk_...): with a protected topic, nobody can read the alerts or
+        # send fake ones just by guessing the topic name. Without one, the name is the only secret.
+        self.token = token or None
         self.min_interval_s = min_interval_s
         self.last_sent: dict[str, float] = {}
 
@@ -164,9 +168,10 @@ class Notifier:
         if not force and key and now - self.last_sent.get(key, 0.0) < wait:
             return False, "skipped (sent recently)"
         try:
+            headers = {"Authorization": f"Bearer {self.token}"} if self.token else None
             r = requests.post(self.url, json={"topic": self.topic, "title": title,
                                               "message": message, "priority": priority,
-                                              "tags": [tag]}, timeout=5)
+                                              "tags": [tag]}, headers=headers, timeout=5)
             ok = r.status_code < 300
             if ok and key:
                 self.last_sent[key] = now
@@ -423,7 +428,8 @@ class Hub:
 
 def create_app(args) -> FastAPI:
     notifier = Notifier(os.environ.get("IBUKI_NTFY_TOPIC"),
-                        os.environ.get("IBUKI_NTFY_URL", "https://ntfy.sh"))
+                        os.environ.get("IBUKI_NTFY_URL", "https://ntfy.sh"),
+                        token=os.environ.get("IBUKI_NTFY_TOKEN"))
     hub = Hub(load_brain(args.brain), notifier, Siren(os.environ.get("IBUKI_SIREN", "1") != "0"))
 
     @asynccontextmanager

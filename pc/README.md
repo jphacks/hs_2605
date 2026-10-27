@@ -57,6 +57,8 @@ Windows 実行器は利用可能な既存環境を再利用し、依存関係や
 
 ntfy を使っています。iPhone に ntfy アプリを入れて、+ を押し、リポジトリの `.env` にあるトピック（`IBUKI_NTFY_TOPIC=...` の行）を購読してください。Apple Watch にも届くようにするには、iPhone の Watch アプリで ntfy の通知のミラーリングをオンにします。
 
+トピック名だけでは、名前を知った人が通知を読んだり偽の通知を送ったりできます。守るときは、ntfy.sh のアカウントでトピックを予約するか自分の ntfy サーバーを使い、アクセストークン（`tk_...`）を `.env` の `IBUKI_NTFY_TOKEN=` に書いてください。サーバーは通知を送るときにそのトークンを付けます。
+
 確かめるときは、サーバーを起動して：
 
 ```
@@ -214,6 +216,8 @@ Only one program can have the serial port open. While the server runs, start the
 ### Notifications
 
 We use ntfy. Install the ntfy app on the iPhone, tap +, and subscribe to the topic in the repo's `.env` file (the line `IBUKI_NTFY_TOPIC=...`). To get the notifications on the Apple Watch too, turn on mirroring for ntfy in the iPhone's Watch app.
+
+With only a topic name, anyone who learns the name can read the alerts or send fake ones. To protect them, reserve the topic with an ntfy.sh account or use your own ntfy server, and put the access token (`tk_...`) in `.env` as `IBUKI_NTFY_TOKEN=`. The server then sends it with every notification.
 
 To check it, start the server and run:
 
