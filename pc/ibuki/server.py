@@ -15,7 +15,7 @@ Endpoints (port 8000, also reachable from phones on the same Wi-Fi at http://<la
 
 Messages on /ws:
   Brain status   {"t", "state", "bpm", "disp_mm", "motion", "present", "chest_cm", ...}
-  Brain alert    {"type": "alert", "reason": "no_breath"|"left_bed", ...}   -> LED red + urgent push
+  Brain alert    {"type": "alert", "reason": "no_breath"|"left_bed", ...}   -> board LED + urgent push
   Brain info     {"type": "info", "reason": "woke_up"|"fast_breathing", ...} -> normal push, no LED
   Board state    {"type": "board", "connected": true|false}
 A client may send {"type": "button"} to act like the board's user button (B,1).

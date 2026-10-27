@@ -37,7 +37,7 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | ボードから PC | データ本体。`seq` は 1 行ごとに 1 ずつ増え、`t_ms` は起動からの時間、ビンは近い順、値は整数を `scale` で割ったもの。 |
 | `S,t_ms,text` | ボードから PC | 状態やエラー。例：`S,0,ibuki fw start`。1 分ごとに CPU の使用率も送ります：`S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` |
 | `B,1` | ボードから PC | ユーザーボタンが押された |
-| `L,1` / `L,0` | PC からボード | 警告：LED が青く 1 秒に 2 回点滅（ボードの電源などの赤いランプはいつも点いているため、青にしました）、または消灯 |
+| `L,1` / `L,0` | PC からボード | 警告：RGB LED が赤・緑・青を同時につけて 1 秒に 2 回点滅（ボードの電源などの赤いランプはいつも点いているため、赤だけでは目立ちませんでした）、または消灯 |
 | `R,1` | PC からボード | レーダーを再起動する |
 | `T,<ms>` | PC からボード | テスト用。ボードを最大 2000 ms 止める |
 
@@ -123,7 +123,7 @@ We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). 
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
 | `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. Once a minute also the CPU use: `S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0`. |
 | `B,1` | board to PC | The user button was pressed. |
-| `L,1` / `L,0` | PC to board | Alert: the LED blinks blue twice a second (the board's power and other red lights are always on, so red was easy to miss), or off. |
+| `L,1` / `L,0` | PC to board | Alert: the RGB LED blinks twice a second with red, green and blue on together (the board's power and other red lights are always on, so plain red was easy to miss), or off. |
 | `R,1` | PC to board | Restart the radar. |
 | `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
 

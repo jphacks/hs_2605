@@ -20,14 +20,17 @@ static bool btn_stable_pressed;
 static bool btn_last_raw;
 static uint32_t btn_change_ms;
 
-static bool alert_on;          /* PC sent L,1: the RGB LED blinks blue. The board's power and */
-static uint32_t blink_last_ms; /* KitProg lights are red and always on, so a red alert was */
-static bool blink_lit;         /* easy to miss among them */
+static bool alert_on;          /* PC sent L,1: the RGB LED blinks with red, green and blue on */
+static uint32_t blink_last_ms; /* together. The board's power and KitProg lights are red and */
+static bool blink_lit;         /* always on, so plain red was easy to miss among them; blue alone
+                                * didn't show on our board, so every colour that works lights */
 
 static void led_alert(bool on)
 {
-    Cy_GPIO_Write(CYBSP_LED_RGB_BLUE_PORT, CYBSP_LED_RGB_BLUE_PIN,
-                  on ? CYBSP_LED_STATE_ON : CYBSP_LED_STATE_OFF);
+    uint32_t v = on ? CYBSP_LED_STATE_ON : CYBSP_LED_STATE_OFF;
+    Cy_GPIO_Write(CYBSP_LED_RGB_RED_PORT, CYBSP_LED_RGB_RED_PIN, v);
+    Cy_GPIO_Write(CYBSP_LED_RGB_GREEN_PORT, CYBSP_LED_RGB_GREEN_PIN, v);
+    Cy_GPIO_Write(CYBSP_LED_RGB_BLUE_PORT, CYBSP_LED_RGB_BLUE_PIN, v);
 }
 
 static void set_alert(bool on)
