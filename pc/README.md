@@ -18,7 +18,7 @@
 .venv/bin/python pc/ibuki/server.py
 ```
 
-http://localhost:8000/api/health を開いて、`board_connected` が `true` になっていれば大丈夫です。ボードが手元にないときは、録画を再生できます：
+http://localhost:8000/api/health を開いて、`board_connected` が `true` になっていれば大丈夫です。`board_health` には、ボードが 1 分ごとに送る CPU の使用率（`load`）と、レーダーの再起動の回数・最後の理由（`restarts`、`last_restart`）が入ります。ボードが手元にないときは、録画を再生できます：
 
 ```
 .venv/bin/python pc/ibuki/server.py --replay recordings/<ファイル>.csv --loop
@@ -186,7 +186,7 @@ The easiest way is `./ibuki.command` in the repo folder: it starts the server an
 .venv/bin/python pc/ibuki/server.py
 ```
 
-Then open http://localhost:8000/api/health and check that `board_connected` is `true`. If you don't have the board with you, replay a recording instead:
+Then open http://localhost:8000/api/health and check that `board_connected` is `true`. `board_health` shows what the board reports about itself: its CPU use once a minute (`load`) and radar restarts (`restarts`, `last_restart`). If you don't have the board with you, replay a recording instead:
 
 ```
 .venv/bin/python pc/ibuki/server.py --replay recordings/<file>.csv --loop
