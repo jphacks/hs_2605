@@ -4,6 +4,8 @@
 
 🏆 JPHACKS 2026 Hack Day Audience Award（広島会場）受賞
 
+[![tests](https://github.com/jphacks/hs_2605/actions/workflows/tests.yml/badge.svg)](https://github.com/jphacks/hs_2605/actions/workflows/tests.yml)
+
 [![デモ動画：息を止めると、スマートフォンに緊急の通知が届く](docs/videos/demo_1_no_breathing.jpg)](https://jphacks.github.io/hs_2605/videos/demo_1_no_breathing.mp4)
 
 ▶ 画像をクリックするとデモ動画が開きます（息を止めると警告が出るまで）。ほかの動画は[デモ動画](#デモ動画)にあります。

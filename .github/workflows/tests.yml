@@ -1,0 +1,35 @@
+# Runs on every push and pull request: the laptop side (pc/) and the dashboard (web/).
+# The firmware needs Infineon's ModusToolbox and is checked on the board
+# (firmware/tools/recovery_test.py); the trained models' tests skip here, as the models are
+# built locally (ml/README.md).
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: PC tests (server, Brain, recorder, replays of recordings)
+        run: python -m unittest discover -s pc/tests -t pc -v
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
