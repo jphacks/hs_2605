@@ -23,7 +23,7 @@
 |---|---|---|
 | ダッシュボードとライブの波形（Wi-Fi） | 暗号化なし、ログインなし | ペアリング（合言葉）を付ける。ボード単体で動かすときは暗号化（TLS） |
 | アラームを止めるボタン（`POST /api/button`） | 同じ Wi-Fi の誰でも押せる | ボードのボタンか、ペアリングした端末だけ |
-| スマートフォンへの通知（ntfy.sh） | 通信は HTTPS で暗号化。ただしトピック名が唯一の秘密で、ntfy.sh のサーバーは通知の文を読める | 長いランダムなトピック名とアクセストークン、または自分たちの ntfy サーバー |
+| スマートフォンへの通知（ntfy.sh） | 通信は HTTPS で暗号化。アクセストークン（`IBUKI_NTFY_TOKEN`）に対応済みで、予約したトピックなら名前を知られても読まれません。トークンなしではトピック名が唯一の秘密です。ntfy.sh のサーバーは通知の文を読めます | 長いランダムなトピック名とトークン、または自分たちの ntfy サーバー |
 | 秘密の管理 | トピック名は `.env` に置き、git に入れない（`.gitignore`） | このまま |
 | ボードとパソコン（USB） | 暗号化なし。ただしケーブルなので外からは聞けない | ボード単体で動かせば、外に出るのは通知の「出来事」だけ |
 | 保存されるデータ | 開発用の録画がパソコンにファイルとして残る | 製品では生のデータを保存しない。設定は暗号化して、鍵はチップの安全な領域に |
@@ -64,7 +64,7 @@
 |---|---|---|
 | Dashboard and live wave (Wi-Fi) | No encryption, no login | Pairing (a shared code). Encryption (TLS) once the board runs on its own |
 | The alarm's stop button (`POST /api/button`) | Anyone on the same Wi-Fi can press it | Only the board's own button or a paired device |
-| Phone alerts (ntfy.sh) | Encrypted in transit (HTTPS), but the topic name is the only secret and ntfy.sh's server can read the alert text | A long random topic plus an access token, or our own ntfy server |
+| Phone alerts (ntfy.sh) | Encrypted in transit (HTTPS). Access tokens are supported (`IBUKI_NTFY_TOKEN`): with a reserved topic, knowing the name isn't enough to read alerts. Without a token the topic name is the only secret. ntfy.sh's server can read the alert text | A long random topic plus a token, or our own ntfy server |
 | Secrets | The topic name lives in `.env`, never committed (`.gitignore`) | Keep as is |
 | Board to laptop (USB) | Not encrypted, but a cable can't be heard from outside | Once the board runs on its own, only alert events leave it |
 | Stored data | Development recordings stay on the laptop as files | The product stores no raw data. Settings encrypted, keys in the chip's secure area |
