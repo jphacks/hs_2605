@@ -10,6 +10,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np  # noqa: E402
+import serial.tools.list_ports  # noqa: E402,F401  (loaded so the Windows test can patch comports on any OS)
 
 from ibuki.serial_reader import (Button, Config, Data, FileReplay, SeqTracker,  # noqa: E402
                                  Status, find_port, parse_line)
