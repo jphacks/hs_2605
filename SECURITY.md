@@ -15,7 +15,8 @@
 
 ## 使うときの注意
 
-- ダッシュボードにはログインがありません。同じ Wi-Fi の人は開けて、アラームを止めることもできます。信頼できるネットワークでだけ使ってください。
+- ダッシュボードにはログインがありません。同じ Wi-Fi の人は呼吸を見ることができます。信頼できるネットワークでだけ使ってください。
+- `IBUKI_PAIRING=1` にすると、ネットワークからアラームを止められるのは、サーバーの画面に出る 6 桁の番号でペアリングした端末だけになります（番号を 5 回間違えると新しい番号になります）。ボードの SW1 とサーバーの画面の Enter は、いつでも止められます。
 - 医療機器ではありません。
 
 ---
@@ -37,5 +38,6 @@
 
 ## When you use it
 
-- The dashboard has no login: anyone on the same Wi-Fi can open it and stop the alarm. Use it on a network you trust.
+- The dashboard has no login: anyone on the same Wi-Fi can watch the breathing. Use it on a network you trust.
+- With `IBUKI_PAIRING=1`, only devices paired with the 6-digit code in the server window can stop the alarm over the network (five wrong codes make a new code). The board's SW1 and Enter in the server window always work.
 - Not a medical device.

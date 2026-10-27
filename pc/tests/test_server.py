@@ -205,6 +205,22 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(Notifier.level_for({"reason": "something_new"}, True), (5, "warning"))
         self.assertEqual(Notifier.level_for({"reason": "something_new"}, False), (3, "baby"))
 
+    def test_with_pairing_only_a_paired_phone_stops_the_siren(self):
+        s = ServerRun(self.recording, "tests.fake_brains:AlertBrain", env_extra={"IBUKI_PAIRING": "1"})
+        try:
+            s.messages(2.0)  # the no_breath alert starts the siren
+            health = requests.get(s.base + "/api/health").json()
+            stranger = requests.post(s.base + "/api/button")
+            wrong = requests.post(s.base + "/api/pair", json={"code": "not the code"})
+            time.sleep(0.3)
+            still_on = requests.get(s.base + "/api/health").json()["siren"]
+        finally:
+            s.stop()
+        self.assertTrue(health["pairing"])
+        self.assertEqual(stranger.status_code, 403)
+        self.assertEqual(wrong.status_code, 403)
+        self.assertTrue(still_on)
+
     def test_ntfy_token_is_sent_only_when_set(self):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
         from unittest.mock import patch
@@ -244,6 +260,29 @@ class ServerTest(unittest.TestCase):
         self.assertGreater(health["brain_errors"], 5)
         self.assertGreater(health["lines"], 10)
 
+
+
+class PairingTest(unittest.TestCase):
+    def test_right_code_gives_a_token_that_is_allowed(self):
+        from ibuki.server import Pairing
+        p = Pairing(True)
+        self.assertFalse(p.allowed(None))
+        token = p.pair(p.code)
+        self.assertTrue(token)
+        self.assertTrue(p.allowed(token))
+        self.assertFalse(p.allowed("made-up"))
+
+    def test_five_wrong_codes_make_a_new_code(self):
+        from ibuki.server import Pairing
+        p = Pairing(True)
+        first = p.code
+        for _ in range(Pairing.MAX_TRIES):
+            self.assertIsNone(p.pair("x"))
+        self.assertNotEqual(p.code, first)  # (1 in a million it repeats; the test then fails once)
+
+    def test_off_by_default_allows_everyone(self):
+        from ibuki.server import Pairing
+        self.assertTrue(Pairing(False).allowed(None))
 
 
 class BoardHealthTest(unittest.TestCase):
