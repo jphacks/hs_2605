@@ -1,0 +1,6 @@
+# The AI environment, ../ml-env (Python 3.11: TensorFlow doesn't support Python 3.14 yet).
+#   python3.11 -m venv ../ml-env && ../ml-env/bin/pip install -r ml/requirements.txt
+tensorflow==2.21.0
+numpy
+scipy
+h5py
