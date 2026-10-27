@@ -45,8 +45,8 @@
   --normal-end: #e6ede1;
   --normal-glow: radial-gradient(ellipse at 78% 0%, rgb(255 255 250 / 0.32), transparent 68%);
   --normal-border: #c3d2bd;
-  --normal-text: #294d3c;
-  --normal-muted: #45634f;
+  --normal-text: #203b2d;
+  --normal-muted: #3f5948;
   --medallion-top: #a9c1ab;
   --medallion-bottom: #668e75;
   --medallion-sheen: radial-gradient(ellipse at 30% 10%, rgb(255 255 255 / 0.22), transparent 70%);
@@ -61,6 +61,7 @@
   --check-text: #755018;
   --check-icon: #efdbaf;
   --alert: #c33530;
+  --alert-end: #b52c27;
   --alert-hover: #a92a26;
   --on-alert: #fff9f2;
   --alert-soft: #fcece8;
@@ -70,19 +71,22 @@
   --alert-panel: #713329;
   --alert-panel-end: #4b241e;
   --alert-panel-border: #a75643;
+  --alert-glow: radial-gradient(ellipse at 10% 0%, rgb(230 131 94 / 0.08), transparent 70%);
   --on-alert-panel: #fff5ed;
   --alert-medallion: #f08b78;
+  --alert-medallion-end: #e57866;
   --on-alert-medallion: #461813;
   --focus: #315f4c;
   --chart-wave: #3f745a;
   --chart-alert: #b63238;
   --chart-axis: #637368;
-  --chart-grid: #e0e6dc;
+  --chart-grid: #ebeee7;
   --chart-idle: #737f74;
   --shadow-card: 0 6px 24px rgb(40 55 41 / 0.035), 0 1px 3px rgb(40 55 41 / 0.025);
   --shadow-shell: 0 16px 48px rgb(45 39 28 / 0.10), 0 2px 6px rgb(45 39 28 / 0.06);
   --shadow-alert: 0 5px 16px rgb(112 29 35 / 0.12);
   --surface-sheen: linear-gradient(140deg, rgb(255 255 255 / 0.42), transparent 65%);
+  --shell-sheen: radial-gradient(ellipse at 90% 0%, rgb(255 255 255 / 0.30), transparent 70%);
   --page-glow: radial-gradient(ellipse at 10% 0%, #eaf0e4 0%, transparent 55%);
 }
 
@@ -132,16 +136,18 @@
     --alert-panel: #58291f;
     --alert-panel-end: #301d18;
     --alert-panel-border: #98553e;
+    --alert-glow: radial-gradient(ellipse at 10% 0%, rgb(230 131 94 / 0.06), transparent 70%);
     --focus: #a2ccaf;
     --chart-wave: #a3c9af;
     --chart-alert: #ff8d89;
     --chart-axis: #aec1b1;
-    --chart-grid: #334b3c;
+    --chart-grid: #293e32;
     --chart-idle: #a0afa4;
     --shadow-card: 0 6px 24px rgb(0 0 0 / 0.12);
     --shadow-shell: 0 16px 48px rgb(0 0 0 / 0.25);
     --shadow-alert: 0 5px 16px rgb(0 0 0 / 0.18);
-    --surface-sheen: linear-gradient(140deg, rgb(198 222 197 / 0.04), transparent 65%);
+    --surface-sheen: linear-gradient(140deg, rgb(198 222 197 / 0.065), transparent 65%);
+    --shell-sheen: radial-gradient(ellipse at 90% 0%, rgb(137 170 140 / 0.025), transparent 70%);
     --page-glow: radial-gradient(ellipse at 10% 0%, #1a3023 0%, transparent 55%);
   }
 }

@@ -22,9 +22,9 @@ export default function ConnectionStatus(props: ConnectionInput & { url: string;
       <span className="connection-icon" aria-hidden="true"><DashboardIcon name={view.severity === 'positive' ? 'wifi' : view.severity === 'caution' ? 'alert' : 'wave'} /></span>
       <div className="connection-copy">
         <p aria-live="polite" aria-atomic="true"><strong>{compactTitle}</strong></p>
-        {view.provenance.length > 0 && <div className="connection-provenance">{view.provenance.map(label => <span key={label}>{label}</span>)}</div>}
       </div>
     </div>
+    {view.provenance.length > 0 && <div className="connection-provenance">{view.provenance.map(label => <span key={label}>{label}</span>)}</div>}
     <div className="connection-meta"><span className="last-received">{props.receivedAt ? <>最終受信 <time dateTime={new Date(props.receivedAt).toISOString()}>{new Date(props.receivedAt).toLocaleTimeString('ja-JP')}</time></> : '受信待ち'}</span></div>
     <details className="connection-details" ref={props.detailsRef} id="connection-details">
       <summary>接続の詳細</summary>

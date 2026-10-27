@@ -27,6 +27,7 @@ for (const [name, theme] of Object.entries({ light, dark })) {
       ['alert-text', 'alert-soft'], ['chart-axis', 'surface'],
       ['on-alert-panel', 'alert-panel'], ['on-alert-panel', 'alert-panel-end'],
       ['on-alert-medallion', 'alert-medallion'], ['primary-strong', 'connection-surface'],
+      ['on-alert', 'alert-end'], ['on-alert-medallion', 'alert-medallion-end'],
       ['text-subtle', 'shell'],
     ];
     for (const [foreground, background] of pairs) {
