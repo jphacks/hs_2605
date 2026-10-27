@@ -51,7 +51,6 @@ OUT = DATA / "air400_breaths.json"
 PEAK_MIN = 0.1
 
 
-# ----------------------------------------------------------------------------- downloading
 def _get(url: str, byte_range: str | None = None, timeout: float = 30.0) -> bytes:
     """GET a URL (optionally only part of it: byte_range like "0-65535" or "-262144")."""
     req = urllib.request.Request(url, headers={"User-Agent": "ibuki-ml/1.0"})
@@ -124,7 +123,6 @@ def download() -> dict[str, float]:
     return durations
 
 
-# ----------------------------------------------------------------------------- extracting
 def breath_frames(resp: np.ndarray) -> list[int]:
     """Frame index of every marked breath: local maxima of the bump signal above PEAK_MIN.
     (`>=` on the left and `>` on the right, so a flat-topped bump gives exactly one peak.)"""

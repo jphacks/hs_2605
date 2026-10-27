@@ -47,7 +47,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "ml" / "data"
 
-# --- the board (must match firmware/proj_cm55/ibuki.h and radar_settings.h) ------------------
+# The board: these must match firmware/proj_cm55/ibuki.h and radar_settings.h.
 N_FFT = 64              # samples per chirp = FFT size
 FIRST_BIN = 4           # first FFT bin sent: 4 * 3.75 cm = 15 cm
 NUM_BINS = 24           # slots per D line
@@ -55,7 +55,7 @@ STEP_CM = 3.75          # c / (2 * 4 GHz sweep)
 SCALE = 10              # D line integer = value * SCALE
 LAMBDA_MM = 299792458.0 / 60.5e9 * 1000.0  # 4.955 mm at the sweep's centre
 
-# --- the simulated baby (assumptions above) ------------------------------------------------
+# The simulated baby (see the assumptions above).
 ADULT_ECHO_AT_37CM = 430.0
 BABY_FACTOR = (0.2, 0.5)
 DEPTH_MM = (0.5, 2.0)
@@ -65,7 +65,6 @@ STOP_S = (20.0, 35.0)   # a scripted breathing stop lasts this long
 STOP_AFTER_S = 25.0     # ...and starts after this much breathing, so the Brain learns "normal"
 
 
-# ----------------------------------------------------------------------------- the radar maths
 def tone_bins(r_cm: float) -> tuple[np.ndarray, np.ndarray]:
     """How a reflector at r_cm shows up in the 24 slots, as two complex vectors (a, b).
 
@@ -96,7 +95,6 @@ def adult_echo(r_cm: float) -> float:
     return ADULT_ECHO_AT_37CM * (37.5 / r_cm) ** 2
 
 
-# ----------------------------------------------------------------------------- base recordings
 def read_lines(path: Path) -> list[str]:
     """Board lines from a recording: our CSVs, or the server's .jsonl logs (channel "raw")."""
     if path.suffix == ".jsonl":
@@ -135,7 +133,6 @@ def write_csv(path: Path, seq: list[int], t_ms: list[int], z: np.ndarray) -> Non
     path.write_text("\n".join(out) + "\n")
 
 
-# ----------------------------------------------------------------------------- the baby
 @dataclass
 class Baby:
     r_cm: float
@@ -211,7 +208,6 @@ def add_baby(z: np.ndarray, t_s: np.ndarray, baby: Baby) -> np.ndarray:
     return z + baby.echo * (a[None, :] * e + bb[None, :] * np.conj(e))
 
 
-# ----------------------------------------------------------------------------- sessions
 def chest_cm_of(z: np.ndarray) -> float:
     """Where the adult in a base recording is: the slot (from 28 cm) whose echo changes most."""
     change = np.abs(z - z.mean(axis=0)).mean(axis=0)
@@ -273,26 +269,36 @@ def make_session(rng, base: Path, clips: list[dict], kind: str, with_stop: bool)
     return seq, t_ms, z_out, truth
 
 
-def bases(kind: str) -> list[Path]:
+def bases(kind: str, people: list[str] | None = None) -> list[Path]:
+    """Base recordings for a kind of session, optionally only from some people's folders
+    (recordings/<person>/...; the long live recordings are under "live")."""
     rec = REPO / "recordings"
     if kind == "alone":
-        return sorted(rec.glob("*/rec_empty_*.csv")) + sorted(rec.glob("live/empty_*.jsonl"))
-    # co-sleeping: the adult breathing (and, in the hold recordings, stopping) beside the baby
-    return sorted(rec.glob("*/rec_breathing_*.csv")) + sorted(rec.glob("*/rec_hold_*.csv"))
+        found = sorted(rec.glob("*/rec_empty_*.csv")) + sorted(rec.glob("live/empty_*.jsonl"))
+    else:
+        # co-sleeping: the adult breathing (and, in the hold recordings, stopping) beside the baby
+        found = sorted(rec.glob("*/rec_breathing_*.csv")) + sorted(rec.glob("*/rec_hold_*.csv"))
+    return [p for p in found if not people or p.parent.name in people]
 
 
 def main():
     ap = argparse.ArgumentParser(description="Make converted baby sessions (see the module docstring).")
     ap.add_argument("--per-base", type=int, default=8, help="sessions per base recording and kind")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--out", default="synth", help="folder under ml/data/ (e.g. train, test)")
+    # A fair test uses babies and rooms the model never saw while training: pick them here.
+    ap.add_argument("--subjects", nargs="*", help="AIR-400 babies to use, e.g. S01 S02 (default: all)")
+    ap.add_argument("--people", nargs="*", help="base recordings from these folders only, e.g. ramadhan live")
     args = ap.parse_args()
     clips = json.loads((DATA / "air400_breaths.json").read_text())
+    if args.subjects:
+        clips = [c for c in clips if c["subject"] in args.subjects]
     rng = np.random.default_rng(args.seed)
     for kind in ("alone", "cosleep"):
-        out_dir = DATA / "synth" / kind
+        out_dir = DATA / args.out / kind
         out_dir.mkdir(parents=True, exist_ok=True)
         n = 0
-        for base in bases(kind):
+        for base in bases(kind, args.people):
             for j in range(args.per_base):
                 seq, t_ms, z, truth = make_session(rng, base, clips, kind, with_stop=(j % 2 == 0))
                 name = f"{base.parent.name}_{base.stem}_{j}"
