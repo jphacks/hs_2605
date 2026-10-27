@@ -65,7 +65,9 @@ from ibuki.placeholder_brain import PlaceholderBrain  # noqa: E402
 from ibuki.serial_reader import (BoardLink, Button, Data, FileReplay, SeqTracker,  # noqa: E402
                                  Status, parse_line)
 
-DEFAULT_BRAINS = ["ibuki.brain:Brain", "ibuki.states:Brain", "ibuki.processing:Brain"]
+# The trained models decide first; without their exported files (ml/data/models) the
+# rule-based Brain takes over, so the app always starts
+DEFAULT_BRAINS = ["ibuki.model_brain:Brain", "ibuki.brain:Brain", "ibuki.states:Brain", "ibuki.processing:Brain"]
 
 
 def log(msg: str):

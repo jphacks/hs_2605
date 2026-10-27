@@ -5,7 +5,7 @@
 1. **呼吸モデル**：距離ごとに「いま呼吸しているか」を判定します（12 秒分の反射の動きから）
 2. **状態モデル**：呼吸モデルの 30 秒分の答えから、赤ちゃんがいま「呼吸している・止まった・動いている・いない」のどれかを決めます。手で書いたアラームのルールの代わりです。残るルールは「止まった」が設定の秒数続いたら警告、の 1 つだけです
 
-サーバー（[pc/](../pc/README.md)）が標準で使うのは Brain のルールです。
+サーバー（[pc/](../pc/README.md)）は、モデルのファイルがあれば、このモデルで判定します。
 
 ## ファイル
 
@@ -102,7 +102,7 @@ We can't record a baby that stops breathing. So this folder combines **real babi
 1. **Breathing model**: for each distance, "is something breathing here right now?" (from 12 s of echo movement)
 2. **State model**: from the breathing model's last 30 s of answers, is the baby breathing, stopped, moving, or not there? It replaces hand-written alarm rules. The one rule left: "stopped" for the set number of seconds means an alert
 
-By default the server ([pc/](../pc/README.md)) uses the Brain's rules.
+The server ([pc/](../pc/README.md)) decides with these models whenever their files are there.
 
 ## Files
 
