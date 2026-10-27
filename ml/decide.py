@@ -24,6 +24,7 @@ rate. The comparison below is about stops and false alarms only.
 
 Run with the AI environment, after ml.train:
     ../ml-env/bin/python -m ml.decide              # test set, thresholds 10 s and 20 s
+    ../ml-env/bin/python -m ml.decide --real recordings/room/<file>.csv   # real false-alarm check
 """
 from __future__ import annotations
 
@@ -158,14 +159,32 @@ def compare(model, folder: Path, no_breath_s: float, who: list[str]) -> list[dic
     return rows
 
 
+def false_alarms(model, csv: Path, no_breath_s: float) -> dict:
+    """A real recording in which everyone breathes the whole time (an adult working beside the
+    board, say): no simulation, no truth file needed, because every no_breath alert is false."""
+    brain = evaluate.replay(csv, no_breath_s)
+    mine = run_session(model, csv, no_breath_s)
+    lines = [ln for ln in csv.read_text().splitlines() if ln.startswith("D,")]
+    minutes = (int(lines[-1].split(",")[2]) - int(lines[0].split(",")[2])) / 60000.0
+    count = lambda run: sum(1 for e in run["events"] if e.get("reason") == "no_breath")
+    return {"file": csv.name, "minutes": round(minutes, 1), "no_breath_s": no_breath_s,
+            "brain_false_alarms": count(brain), "model_false_alarms": count(mine)}
+
+
 def main():
     ap = argparse.ArgumentParser(description="Score the model + rules against the Brain on the test set.")
     ap.add_argument("--no-breath", type=float, nargs="*", default=[10.0, 20.0])
     ap.add_argument("--set", default="test", help="folder under ml/data/ (test is unseen by the model)")
     ap.add_argument("--who", nargs="*", default=["brain", "model"], help="brain, model or both")
+    ap.add_argument("--real", nargs="*", help="real recordings where everyone keeps breathing: count false alarms")
     args = ap.parse_args()
     from tensorflow import keras
     model = keras.models.load_model(DATA / "models" / "breath_slot.keras")
+    if args.real:
+        for path in args.real:
+            for nb in args.no_breath:
+                print(false_alarms(model, Path(path), nb))
+        return
     rows = []
     for nb in args.no_breath:
         rows += compare(model, DATA / args.set, nb, args.who)

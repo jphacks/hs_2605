@@ -39,6 +39,8 @@ python3.11 -m venv ../ml-env && ../ml-env/bin/pip install -r ml/requirements.txt
 ../env/bin/python -m ml.evaluate   # 今の Brain の採点
 ../ml-env/bin/python -m ml.train   # モデルの学習と 8 ビット版の書き出し
 ../ml-env/bin/python -m ml.decide  # モデル + ルールと Brain を、試験用のデータで比較
+# 実際の録画で誤報を数える（録画中ずっと誰もが呼吸しているので、警告はすべて誤報）
+../ml-env/bin/python -m ml.decide --real recordings/room/<ファイル名>.csv
 ```
 
 作ったデータはダッシュボードで再生できます（サイレンなし、スマートフォンへの通知なし）：
@@ -102,6 +104,8 @@ python3.11 -m venv ../ml-env && ../ml-env/bin/pip install -r ml/requirements.txt
 ../env/bin/python -m ml.evaluate   # score the current Brain
 ../ml-env/bin/python -m ml.train   # train the model, write the 8-bit version
 ../ml-env/bin/python -m ml.decide  # model + rules vs the Brain, on the test set
+# count false alarms on a real recording (everyone keeps breathing, so every alarm is false)
+../ml-env/bin/python -m ml.decide --real recordings/room/<file>.csv
 ```
 
 The generated sessions replay in the dashboard (no siren, no phone notifications):
