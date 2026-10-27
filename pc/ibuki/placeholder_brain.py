@@ -51,7 +51,6 @@ class PlaceholderBrain:
         self.last_t = None    # board time of the previous D line (also during shakes)
         self.dt_ms = 60.0     # disp_mm sample spacing, learned from the board's t_ms
 
-    # ------------------------------------------------------------------ helpers
     def _use(self, n: int) -> np.ndarray:
         rng = self.cfg.first_cm + np.arange(n) * self.cfg.step_mm / 10.0
         return rng >= self.min_cm
@@ -66,7 +65,6 @@ class PlaceholderBrain:
         self.unwrapped = 0.0
         self.slow = None
 
-    # ------------------------------------------------------------------ main entry
     def feed(self, line: str) -> list[dict]:
         m = parse_line(line)
         if isinstance(m, Config):

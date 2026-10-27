@@ -205,6 +205,18 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(Notifier.level_for({"reason": "something_new"}, True), (5, "warning"))
         self.assertEqual(Notifier.level_for({"reason": "something_new"}, False), (3, "baby"))
 
+    def test_ntfy_token_is_sent_only_when_set(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from unittest.mock import patch
+        from ibuki.server import Notifier
+
+        with patch("ibuki.server.requests.post") as post:
+            post.return_value.status_code = 200
+            Notifier("topic", token="tk_secret").send("t", "m")
+            self.assertEqual(post.call_args.kwargs["headers"], {"Authorization": "Bearer tk_secret"})
+            Notifier("topic").send("t", "m")
+            self.assertIsNone(post.call_args.kwargs["headers"])  # no token: no header at all
+
     def test_raw_lines_stream(self):
         s = ServerRun(self.recording, "placeholder")
         try:
