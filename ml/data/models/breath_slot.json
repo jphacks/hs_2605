@@ -1,0 +1,80 @@
+[
+ {
+  "type": "Conv1D",
+  "n_weights": 2,
+  "activation": "relu",
+  "strides": [
+   2
+  ],
+  "pool_size": [
+   1,
+   1
+  ],
+  "padding": "same"
+ },
+ {
+  "type": "Conv1D",
+  "n_weights": 2,
+  "activation": "relu",
+  "strides": [
+   2
+  ],
+  "pool_size": [
+   1,
+   1
+  ],
+  "padding": "same"
+ },
+ {
+  "type": "Conv1D",
+  "n_weights": 2,
+  "activation": "relu",
+  "strides": [
+   2
+  ],
+  "pool_size": [
+   1,
+   1
+  ],
+  "padding": "same"
+ },
+ {
+  "type": "GlobalAveragePooling1D",
+  "n_weights": 0,
+  "activation": "linear",
+  "strides": [
+   1
+  ],
+  "pool_size": [
+   1,
+   1
+  ],
+  "padding": "valid"
+ },
+ {
+  "type": "Dense",
+  "n_weights": 2,
+  "activation": "relu",
+  "strides": [
+   1
+  ],
+  "pool_size": [
+   1,
+   1
+  ],
+  "padding": "valid"
+ },
+ {
+  "type": "Dense",
+  "n_weights": 2,
+  "activation": "sigmoid",
+  "strides": [
+   1
+  ],
+  "pool_size": [
+   1,
+   1
+  ],
+  "padding": "valid"
+ }
+]
