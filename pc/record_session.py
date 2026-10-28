@@ -5,6 +5,7 @@ Usage (repo root, board plugged in, viewer closed):
   ../env/bin/python pc/record_session.py --person ramadhan
   ../env/bin/python pc/record_session.py --server          # if the server is running
   ../env/bin/python pc/record_session.py --only hold,shake # just some of them
+  ../env/bin/python pc/record_session.py --antennas 3      # all 3 antennas (E lines)
 
 Before each recording it tells you what to do and waits for Enter. The Mac says "start",
 then the cues (for example "hold your breath now"), then "done". Each recording is 60 s.
@@ -70,6 +71,8 @@ def main():
     ap.add_argument("--server", action="store_true", help="record through the running server")
     ap.add_argument("--only", help="comma-separated names to record")
     ap.add_argument("--seconds", type=float, default=60.0)
+    ap.add_argument("--antennas", type=int, choices=(1, 3), default=1,
+                    help="3: record all 3 antennas (E lines); the names get _3ant")
     ap.add_argument("--no-say", action="store_true", help="print the cues instead of speaking")
     ap.add_argument("--from-file", help="for tests: record from a saved file")
     ap.add_argument("--person", help="your name; recordings go to recordings/<person>/")
@@ -101,7 +104,8 @@ def main():
             if answer == "s":
                 continue
         lead = 8 if name == "empty" else 3  # time to get in position after Enter
-        cmd = [sys.executable, RECORD, name, "--seconds", str(a.seconds), "--countdown", str(lead)]
+        label = f"{name}_3ant" if a.antennas == 3 else name
+        cmd = [sys.executable, RECORD, label, "--antennas", str(a.antennas), "--seconds", str(a.seconds), "--countdown", str(lead)]
         if a.server:
             cmd.append("--server")
         if a.from_file:
