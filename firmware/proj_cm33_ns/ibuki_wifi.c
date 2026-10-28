@@ -193,7 +193,12 @@ static cy_rslt_t join_eduroam(void)
     /* the outer (visible) identity: the anonymous one if set, otherwise the login */
     strncpy(ent.outer_eap_identity, (sizeof(IBUKI_WIFI_EAP_ANON_ID) > 1U) ? IBUKI_WIFI_EAP_ANON_ID : IBUKI_WIFI_EAP_IDENTITY,
             sizeof(ent.outer_eap_identity) - 1U);
+#ifdef IBUKI_WIFI_EAP_INNER_ID
+    /* some universities want only the user ID inside the tunnel, the realm only outside */
+    strncpy(ent.phase2.inner_identity, IBUKI_WIFI_EAP_INNER_ID, sizeof(ent.phase2.inner_identity) - 1U);
+#else
     strncpy(ent.phase2.inner_identity, IBUKI_WIFI_EAP_IDENTITY, sizeof(ent.phase2.inner_identity) - 1U);
+#endif
     strncpy(ent.phase2.inner_password, IBUKI_WIFI_EAP_PASSWORD, sizeof(ent.phase2.inner_password) - 1U);
     ent.phase2.inner_eap_type = CY_ENTERPRISE_SECURITY_EAP_TYPE_MSCHAPV2;
     ent.phase2.tunnel_auth_type = CY_ENTERPRISE_SECURITY_TUNNEL_TYPE_MSCHAPV2;
