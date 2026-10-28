@@ -51,6 +51,22 @@ SESSION = [
 ]
 
 
+# what the voice says before each recording: the whole task, not just "get ready"
+SAY = {
+    "empty": "Empty room. Walk away from the board now, and stay away until I say done.",
+    "breathing_20cm": "Breathing, 20 centimetres. Sit still with your chest one hand span from the board.",
+    "breathing_30cm": "Breathing, 30 centimetres. Sit still with your chest one ruler from the board.",
+    "breathing_50cm": "Breathing. Sit still, chest 50 centimetres from the board. Breathe with my voice.",
+    "hold": "Breath hold. Sit still, chest 50 centimetres from the board. Breathe normally until I say hold.",
+    "moving": "Moving. Sit 50 centimetres from the board, and move your body and arms until I say done.",
+    "shake": "Table bumps. Sit still and breathe quietly. Bump the table only when I say.",
+    "leave": "Leaving. Sit still, 50 centimetres from the board. Walk away only when I say.",
+}
+START = {"empty": "Recording. Stay away.", "moving": "Recording. Start moving now.",
+         **{n: "Recording. Follow my voice, in and out." for n in ("breathing_20cm", "breathing_30cm",
+                                                                  "breathing_50cm")}}
+
+
 def speak(text, enabled):
     print(f"   >> {text}")
     if enabled:
@@ -112,14 +128,16 @@ def main():
             cmd += ["--from-file", a.from_file]
         cmd += ["--out-dir", out_dir]
 
-        speak("Get ready", say_on)
+        speak(f"Recording {i} of {len(plan)}. {SAY.get(name, todo)}", say_on)
+        time.sleep(0 if a.yes and a.no_say else 7)  # let the instruction finish before the countdown
         start_time = time.time() + lead  # record.py counts down before it starts
         stop = threading.Event()
-        threading.Thread(target=run_cues, args=([(0, "Start")] + cues, start_time, say_on, stop),
+        first = START.get(name, "Recording. Breathe normally.")
+        threading.Thread(target=run_cues, args=([(0, first)] + cues, start_time, say_on, stop),
                          daemon=True).start()
         proc = subprocess.run(cmd, capture_output=True, text=True)
         stop.set()
-        speak("Done", say_on)
+        speak(f"Done with recording {i}.", say_on)
         lines = [ln for ln in proc.stdout.splitlines() if ln.startswith(("done:", "saved"))]
         for ln in lines:
             print(f"   {ln}")
