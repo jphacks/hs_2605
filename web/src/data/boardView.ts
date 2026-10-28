@@ -2,7 +2,7 @@ import type { ServerHealth } from './health';
 
 export interface BoardItem { key: string; label: string; value: string; tone: 'neutral' | 'positive' | 'caution' }
 
-const aiWords: Record<string, string> = { breathing: '呼吸しています', stopped: '呼吸が止まっています', moving: '動いています', empty: 'いません' };
+const aiWords: Record<string, string> = { breathing: '呼吸しています', stopped: '呼吸が確認できません', moving: '動いています', empty: 'ベッドにいません' };
 const RECENT_S = 10 * 60; // a restart or a move in the last 10 minutes is worth mentioning
 
 function clock(unixS: number): string {
