@@ -58,7 +58,7 @@ Brain が送る状態は 5 種類です：
 
 ### LIVE データの流れ
 
-既存の PC サーバーから、**`/ws`** で状態・ボード接続イベント・通知を受信し、**`/api/health`** でデータの入力元や Brain の情報を確認します。Web 用の別の Python サーバーはありません。
+既存の PC サーバーから、**`/ws`** で状態・ボード接続イベント・通知を受信し、**`/api/health`** でデータの入力元や Brain の情報、ボードの様子（ボードの AI、Wi-Fi、温度・湿度、再起動・移動）、ペアリングの有無を確認します。「ボードの様子」の欄はお知らせだけで、警告にはしません。サーバーが `IBUKI_PAIRING=1` のときは、停止ボタンの前にサーバーの画面の 6 桁の番号を一度入れます。Web 用の別の Python サーバーはありません。
 
 受信する状態の例（数値は説明用です）：
 
@@ -178,7 +178,7 @@ These are **prototype analysis states, not diagnoses**. In particular, `OK` does
 
 ### How LIVE data arrives
 
-The browser uses the existing PC endpoints: **`/ws`** for statuses, board connection events and notifications, and **`/api/health`** for input source and processing information. There is no separate web-side Python gateway.
+The browser uses the existing PC endpoints: **`/ws`** for statuses, board connection events and notifications, and **`/api/health`** for input source and processing information, the board's own state (its AI, Wi-Fi, temperature/humidity, restarts and moves) and whether pairing is on. The 「ボードの様子」 panel is information only, never an alarm. With `IBUKI_PAIRING=1` on the server, the stop button first asks once for the 6-digit code from the server window. There is no separate web-side Python gateway.
 
 A status looks like this (example values only):
 
