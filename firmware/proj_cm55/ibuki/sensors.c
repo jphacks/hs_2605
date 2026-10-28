@@ -4,11 +4,33 @@
 #include "cybsp.h"
 #include "ibuki.h"
 #include "lines.h"
+#include "mtb_bmi270.h"
+#include "mtb_hal.h"
+
+#include <math.h>
 
 #define I2C_TIMEOUT_MS (5U)
 
 static cy_stc_scb_i2c_context_t i2c;
 static bool i2c_ok;
+
+/* "Board moved": the BMI270 motion sensor (0x68, chip ID 0x24), through Infineon's
+ * sensor-motion-bmi270 library on Bosch's BMI270 SensorAPI, set up as in Infineon's own PSOC
+ * Edge example. Every 100 ms the acceleration is compared with its slow average (about 5 s):
+ * more than MOVE_MG on two reads in a row means the board was bumped, lifted or tilted, so the
+ * radar may no longer point at the bed. */
+#define IMU_MS        (100U)
+#define MOVE_MG       (50.0f)
+#define MOVE_QUIET_MS (10000U)  /* at most one report per 10 s */
+#define COUNTS_PER_G  (16384.0f) /* the driver's default range: +-2 g */
+static mtb_hal_i2c_t i2c_hal;
+static mtb_bmi270_t imu;
+static bool imu_ok;
+static float avg[3];
+static bool have_avg;
+static uint32_t last_imu_ms;
+static uint32_t last_move_ms;
+static uint32_t over;
 
 /* true if a chip acknowledges its address */
 static bool answers(uint32_t address)
@@ -90,8 +112,61 @@ static void send_climate(uint32_t now)
     line_send(p);
 }
 
+static void imu_init(void)
+{
+    imu_ok = (mtb_hal_i2c_setup(&i2c_hal, &CYBSP_I2C_CONTROLLER_hal_config, &i2c, NULL) == CY_RSLT_SUCCESS)
+             && (mtb_bmi270_init_i2c(&imu, &i2c_hal, MTB_BMI270_ADDRESS_DEFAULT) == CY_RSLT_SUCCESS)
+             && (mtb_bmi270_config_default(&imu) == CY_RSLT_SUCCESS);
+    ibuki_status(imu_ok ? "imu: BMI270 ready (board moved)" : "imu: BMI270 not ready");
+}
+
+static void imu_poll(uint32_t now)
+{
+    mtb_bmi270_data_t d;
+    if (mtb_bmi270_read(&imu, &d) != CY_RSLT_SUCCESS)
+    {
+        return;
+    }
+    float a[3] = {(float)d.sensor_data.acc.x / COUNTS_PER_G, (float)d.sensor_data.acc.y / COUNTS_PER_G,
+                  (float)d.sensor_data.acc.z / COUNTS_PER_G};
+    if (!have_avg)
+    {
+        avg[0] = a[0];
+        avg[1] = a[1];
+        avg[2] = a[2];
+        have_avg = true;
+        return;
+    }
+    float dx = a[0] - avg[0];
+    float dy = a[1] - avg[1];
+    float dz = a[2] - avg[2];
+    float mg = 1000.0f * sqrtf((dx * dx) + (dy * dy) + (dz * dz));
+    for (uint32_t i = 0U; i < 3U; i++)
+    {
+        avg[i] += 0.02f * (a[i] - avg[i]); /* ~5 s at 10 reads per second */
+    }
+    over = (mg > MOVE_MG) ? over + 1U : 0U;
+    if ((over >= 2U) && ((now - last_move_ms) >= MOVE_QUIET_MS))
+    {
+        last_move_ms = now;
+        char* p = line_start();
+        *p++ = 'S';
+        *p++ = ',';
+        p = line_put_u32(p, now);
+        p = line_put_text(p, ",board moved ");
+        p = line_put_u32(p, (uint32_t)mg);
+        p = line_put_text(p, " mg");
+        line_send(p);
+    }
+}
+
 void sensors_poll(uint32_t now_ms)
 {
+    if (imu_ok && ((now_ms - last_imu_ms) >= IMU_MS))
+    {
+        last_imu_ms = now_ms;
+        imu_poll(now_ms);
+    }
     if (i2c_ok && ((now_ms - last_climate_ms) >= CLIMATE_MS))
     {
         last_climate_ms = now_ms;
@@ -126,4 +201,5 @@ void sensors_init(void)
         }
     }
     line_send(p);
+    imu_init();
 }
