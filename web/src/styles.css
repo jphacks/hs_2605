@@ -455,3 +455,21 @@ footer div { margin-top: 6px; font-size: 11px; letter-spacing: .08em; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* What the board reports about itself: information only, so no alert colours. */
+.board-panel { margin-top: var(--space-4); padding: 14px var(--space-5) var(--space-4); }
+.board-panel h2 { display: inline-flex; align-items: center; gap: 6px; }
+.board-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 12px 0 0; }
+.board-item { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.board-item dt { color: var(--text-muted); font-size: 11px; }
+.board-item dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.board-item--positive { border-color: var(--primary); background: var(--primary-soft); }
+.board-item--caution { border-color: var(--check-border); background: var(--check-surface); }
+.board-note { font-size: 12px; }
+.pair-badge { margin-left: 6px; }
+.pair-form { display: grid; gap: 8px; max-width: 430px; margin-top: 16px; }
+.pair-form label { display: grid; gap: 6px; font-size: 13px; }
+.pair-form input { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 20px; letter-spacing: 0.3em; }
+.pair-form button { padding: 10px 20px; border: 1px solid var(--alert); border-radius: var(--radius-pill); background: var(--alert); color: var(--on-alert); font-size: 16px; }
+.pair-form button:disabled { opacity: 0.6; }
+.pair-form p, .pair-form small { margin: 0; font-size: 12px; }

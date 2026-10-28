@@ -13,11 +13,17 @@ import { deriveLiveView } from './data/liveView';
 import type { BreathingState, StatusSource } from './data/status';
 import { useDashboard } from './useDashboard';
 import WaveChart from './WaveChart';
+import BoardPanel from './BoardPanel';
 import DashboardIcon from './DashboardIcon';
 import { describeStatus, stateWords } from './data/statusView';
 
 const configuredInterval = Number(import.meta.env.VITE_LIVE_SAMPLE_INTERVAL_MS);
 const liveIntervalMs = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : null;
+const TOKEN_KEY = 'ibuki-pairing-token';
+function readToken(): string | null { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } }
+function saveToken(token: string | null) {
+  try { if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY); } catch { /* kept in memory only */ }
+}
 const endpoints = resolveEndpoints(window.location.href, import.meta.env.VITE_LIVE_WS_URL, import.meta.env.VITE_LIVE_HEALTH_URL);
 
 export default function App() {
@@ -41,9 +47,26 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
   // The server's siren keeps sounding until someone acknowledges it; this is the dashboard's way.
   const [stoppingSiren, setStoppingSiren] = useState(false);
   useEffect(() => { if (!health?.siren) setStoppingSiren(false); }, [health?.siren]);
+  // With pairing on (IBUKI_PAIRING=1), only a device that entered the server window's code may stop it.
+  const [token, setToken] = useState<string | null>(readToken);
+  const [pairCode, setPairCode] = useState('');
+  const [pairError, setPairError] = useState<string | null>(null);
+  const needsPairing = !!health?.pairing && !token;
   const stopSiren = () => {
     setStoppingSiren(true);
-    fetch(new URL('/api/button', endpoints.health).href, { method: 'POST' }).catch(() => setStoppingSiren(false));
+    fetch(new URL('/api/button', endpoints.health).href, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(response => { if (response.status === 403) { saveToken(null); setToken(null); setStoppingSiren(false); } })
+      .catch(() => setStoppingSiren(false));
+  };
+  const pair = () => {
+    setPairError(null);
+    fetch(new URL('/api/pair', endpoints.health).href, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: pairCode.trim() }) })
+      .then(response => response.json().then(body => ({ ok: response.ok, body })))
+      .then(({ ok, body }) => {
+        if (ok && typeof body.token === 'string') { saveToken(body.token); setToken(body.token); setPairCode(''); }
+        else setPairError('番号が違います。サーバーの画面の 6 桁の番号を入れてください');
+      })
+      .catch(() => setPairError('サーバーに届きませんでした'));
   };
   const [mock] = useState(() => demo ? createMockSource() : null);
   const [source] = useState<StatusSource>(() => createModeSource<StatusSource>(mode, {
@@ -118,15 +141,20 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         {!demo && <a href="#notifications" onClick={() => setMenuOpen(false)}>通知履歴</a>}
         {!demo && <button onClick={openDiagnostics}>接続詳細</button>}
       </nav>
-      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? '模擬データ' : 'LIVE'}</span><button ref={menuToggleRef} className="menu-toggle" aria-label="メニュー" aria-expanded={menuOpen} aria-controls="dashboard-navigation" onClick={() => setMenuOpen(open => !open)}><DashboardIcon name="menu" /></button></div>
+      <div className="header-controls"><span className="demo-badge"><span className="dot"/>{demo ? '模擬データ' : 'LIVE'}</span>{!demo && health?.pairing && token && <span className="demo-badge pair-badge">ペアリング済み</span>}<button ref={menuToggleRef} className="menu-toggle" aria-label="メニュー" aria-expanded={menuOpen} aria-controls="dashboard-navigation" onClick={() => setMenuOpen(open => !open)}><DashboardIcon name="menu" /></button></div>
     </header>
     <section className={`status-overview tone-${statusView.tone}`}>
       <section className="status-banner">
         <span className="status-icon"><DashboardIcon name={({ alert: 'alert', check: 'alert', shake: 'wave', empty: 'empty', wait: 'wave', ok: 'movement', still: 'moon' } as const)[statusView.tone]} /></span>
         <div className="status-content">
           <div className="status-copy" aria-live="polite" aria-atomic="true"><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
-          {!demo && health?.siren && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
+          {!demo && health?.siren && !needsPairing && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
             {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
+          {!demo && health?.siren && needsPairing && <form className="pair-form" onSubmit={event => { event.preventDefault(); pair(); }}>
+            <label>この端末からアラームを止めるには、サーバーの画面の 6 桁の番号を入れてください<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={pairCode} onChange={event => setPairCode(event.target.value)} /></label>
+            <button type="submit" disabled={pairCode.trim().length !== 6}>ペアリング</button>
+            {pairError && <p role="alert">{pairError}</p>}
+            <small>ボードの SW1 なら、いつでも止められます。</small></form>}
         </div>
       </section>
       {!demo && <ConnectionStatus connection={connection} board={board} ready={liveReady} health={health}
@@ -146,6 +174,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <p className="metrics-note">呼吸数：{rateNote}</p>
       </aside>
     </section>
+    {!demo && <BoardPanel health={health} />}
     {!demo && <NotificationPanel state={notifications} />}
     {demo && <section className="panel controls"><div><p className="eyebrow">INTERACTIVE DEMO</p><h2>シーンを切り替える</h2><p className="muted">表示したい模擬状態を選択してください。</p></div><div className="state-buttons" role="group" aria-label="模擬状態の選択">{(Object.keys(stateWords) as BreathingState[]).map(state => <button key={state} aria-pressed={selected === state} onClick={() => { mock?.setState(state); setSelected(state); }} className={selected === state ? 'selected' : ''}><span>{state}</span><small>{stateWords[state].title}</small></button>)}</div></section>}
     <footer>{demo && <p><strong>すべてシミュレーションです。</strong>実際のセンサーには接続していません。</p>}<p>本プロトタイプは医療機器ではなく、診断・安全の保証・SIDS（乳幼児突然死症候群）の予防を目的としません。</p><div><span>息吹～IBUKI～ — JPHACKS 2026</span></div></footer>

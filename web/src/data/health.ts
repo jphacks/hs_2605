@@ -1,9 +1,23 @@
-export interface ServerHealth { source: string | null; brain: string; board_connected: boolean; siren?: boolean }
+// What the board says about itself (server's BoardHealth). Every part is optional: older
+// servers and firmware send less, and a missing part is simply not shown.
+export interface BoardHealth {
+  restarts?: number;
+  last_restart?: { reason: string; unix_s: number } | null;
+  climate?: { board_temp_c: number; humidity_pct: number } | null;
+  moves?: number;
+  last_move?: { mg: number | null; unix_s: number } | null;
+  board_ai?: { state: string; event: string; unix_s: number } | null;
+  wifi?: { connected: boolean; text: string; alerts_sent: number; unix_s: number } | null;
+}
+export interface ServerHealth { source: string | null; brain: string; board_connected: boolean; siren?: boolean; pairing?: boolean; board_health?: BoardHealth }
 export function parseHealth(value: unknown): ServerHealth | null {
   if (typeof value !== 'object' || value === null) return null;
   const v = value as Record<string, unknown>;
-  return (typeof v.source === 'string' || v.source === null) && typeof v.brain === 'string' && typeof v.board_connected === 'boolean'
-    ? { source: v.source, brain: v.brain, board_connected: v.board_connected, ...(typeof v.siren === 'boolean' ? { siren: v.siren } : {}) } : null;
+  if (!((typeof v.source === 'string' || v.source === null) && typeof v.brain === 'string' && typeof v.board_connected === 'boolean')) return null;
+  return { source: v.source, brain: v.brain, board_connected: v.board_connected,
+    ...(typeof v.siren === 'boolean' ? { siren: v.siren } : {}),
+    ...(typeof v.pairing === 'boolean' ? { pairing: v.pairing } : {}),
+    ...(typeof v.board_health === 'object' && v.board_health !== null ? { board_health: v.board_health as BoardHealth } : {}) };
 }
 export function resolveEndpoints(pageUrl: string, wsOverride?: string, healthOverride?: string) {
   const ws = new URL(wsOverride || '/ws', pageUrl);
