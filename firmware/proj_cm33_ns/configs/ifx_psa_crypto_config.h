@@ -93,7 +93,9 @@
 #define PSA_WANT_ECC_SECP_R1_224                1
 /* For secp256r1, consider enabling #MBEDTLS_PSA_P256M_DRIVER_ENABLED
  * (see the description in mbedtls/mbedtls_config.h for details). */
-//#define PSA_WANT_ECC_SECP_R1_256                1
+/* IBUKI: on. ntfy.sh's certificate and key exchange use P-256; without it the board could not
+ * open HTTPS to ntfy (CY_RSLT_HTTP_CLIENT_ERROR_CONNECT_FAIL, 2026-10-28) */
+#define PSA_WANT_ECC_SECP_R1_256                1
 #define PSA_WANT_ECC_SECP_R1_384                1
 #define PSA_WANT_ECC_SECP_R1_521                1
 

@@ -129,7 +129,7 @@
 #undef MBEDTLS_ECP_DP_SECP192R1_ENABLED
 #undef MBEDTLS_ECP_DP_SECP224R1_ENABLED
 //#define MBEDTLS_ECP_DP_SECP256R1_ENABLED
-#undef MBEDTLS_ECP_DP_SECP384R1_ENABLED
+/* IBUKI: on. ntfy.sh's chain (Root YE, ISRG Root X2) is ECDSA P-384; without it the handshake failed (-0x7F80) */
 #undef MBEDTLS_ECP_DP_SECP521R1_ENABLED
 #undef MBEDTLS_ECP_DP_SECP192K1_ENABLED
 #undef MBEDTLS_ECP_DP_SECP224K1_ENABLED
@@ -1170,5 +1170,10 @@
 #endif
 
 #endif /* DISABLE_MBEDTLS_ACCELERATION */
+
+/* IBUKI: outgoing TLS records at most 4 KB (our requests are a small JSON POST); incoming stay
+ * 16 KB. Saves 12 KB per TLS session: after joining eduroam the CM33's heap had too little
+ * left for the ntfy session (MBEDTLS_ERR_SSL_ALLOC_FAILED, 2026-10-28). */
+#define MBEDTLS_SSL_OUT_CONTENT_LEN 4096
 
 #endif /* MBEDTLS_USER_CONFIG_HEADER */

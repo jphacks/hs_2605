@@ -6,6 +6,7 @@
  * the HTTPS client example again. */
 #include "ibuki_wifi.h"
 
+#include <malloc.h>
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
@@ -33,7 +34,9 @@
 #define HOST_WAKE_INTERRUPT_PRIORITY (2U)
 #define SDIO_FREQUENCY_HZ            (25000000U)
 #define SDIO_BLOCK_SIZE              (64U)
-#define REJOIN_AFTER_MS              (30000U)      /* try again this long after a failed join */
+#define REJOIN_AFTER_MS              (10000U)      /* try again this long after a failed join; the first
+                                                      * join right after a restart often fails (the access
+                                                      * point still has the old session), the next works */
 #define POLL_MS                      (200U)        /* how often the mailbox is checked */
 #define HTTP_TIMEOUT_MS              (5000U)
 #define NTFY_HOST                    "ntfy.sh"
@@ -233,6 +236,13 @@ static cy_rslt_t send_alert(uint32_t kind, uint32_t since_s)
                  "すぐに様子を見てください。（ボードから直接）\",\"priority\":5,\"tags\":[\"rotating_light\"]}",
                  IBUKI_NTFY_TOPIC, (unsigned long)since_s);
     }
+    else if (kind == IBUKI_ALARM_TEST)
+    {
+        snprintf(body, sizeof(body),
+                 "{\"topic\":\"%s\",\"title\":\"【テスト】ボードから直接の通知\",\"message\":\"ボードが自分の Wi-Fi で"
+                 "送ったテストです。警告ではありません。\",\"priority\":3,\"tags\":[\"white_check_mark\"]}",
+                 IBUKI_NTFY_TOPIC);
+    }
     else
     {
         snprintf(body, sizeof(body),
@@ -306,27 +316,7 @@ static cy_rslt_t send_alert(uint32_t kind, uint32_t since_s)
 }
 #endif /* WIFI_CONFIGURED */
 
-/* reports every 10 s while the Wi-Fi driver is still starting, to tell a slow start from a
- * stuck one (and that FreeRTOS on the CM33 keeps running) */
-static volatile bool driver_ready;
-
-static void start_watch_task(void* arg)
-{
-    (void)arg;
-    for (uint32_t s = 10U; !driver_ready; s += 10U)
-    {
-        vTaskDelay(pdMS_TO_TICKS(10000U));
-        if (!driver_ready)
-        {
-            char buf[48];
-            snprintf(buf, sizeof(buf), "wifi: driver still starting (%lu s)", (unsigned long)s);
-            status(buf);
-        }
-    }
-    vTaskDelete(NULL);
-}
-
-/* the enterprise-security library's log (cy_log), line by line into the mailbox */
+/* the Wi-Fi libraries' log (cy_log), line by line into the mailbox */
 static int log_to_mailbox(CY_LOG_FACILITY_T facility, CY_LOG_LEVEL_T level, char* msg)
 {
     (void)facility;
@@ -362,7 +352,7 @@ static int log_to_mailbox(CY_LOG_FACILITY_T facility, CY_LOG_LEVEL_T level, char
     {
         return 0;
     }
-    snprintf(buf, sizeof(buf), "es: %s", joined);
+    snprintf(buf, sizeof(buf), "es: %.110s", joined);
     status(buf);
     return 0;
 }
@@ -370,7 +360,7 @@ static int log_to_mailbox(CY_LOG_FACILITY_T facility, CY_LOG_LEVEL_T level, char
 void ibuki_wifi_task(void* arg)
 {
     (void)arg;
-    (void)cy_log_init(CY_LOG_INFO, log_to_mailbox, NULL);
+    (void)cy_log_init(CY_LOG_ERR, log_to_mailbox, NULL); /* errors only; CY_LOG_INFO shows the login steps */
 #if !WIFI_CONFIGURED
     status("wifi: off (no firmware/wifi_secrets.h)");
     vTaskDelete(NULL);
@@ -388,7 +378,6 @@ void ibuki_wifi_task(void* arg)
         vTaskDelay(pdMS_TO_TICKS(300U));
     }
     status("wifi: starting");
-    (void)xTaskCreate(start_watch_task, "wifi watch", 512U, NULL, 1U, NULL);
 #if (CY_CFG_PWR_SYS_IDLE_MODE == CY_CFG_PWR_MODE_DEEPSLEEP)
     Cy_SysPm_RegisterCallback(&sdhc_ds_callback);
 #endif
@@ -406,7 +395,6 @@ void ibuki_wifi_task(void* arg)
         status_code("wifi: init failed", r);
         vTaskDelete(NULL);
     }
-    driver_ready = true;
     status("wifi: driver ready");
     uint32_t seen = IBUKI_MAILBOX->alarm_seq;
     TickType_t next_join = 0;
@@ -425,6 +413,13 @@ void ibuki_wifi_task(void* arg)
             if (r == CY_RSLT_SUCCESS)
             {
                 status("wifi: connected to " IBUKI_WIFI_SSID);
+                {   /* free memory after the join: the alert's TLS session needs some */
+                    struct mallinfo mi = mallinfo();
+                    char buf[96];
+                    snprintf(buf, sizeof(buf), "cm33: heap in use %u, free inside %u, taken from the system %u",
+                             (unsigned)mi.uordblks, (unsigned)mi.fordblks, (unsigned)mi.arena);
+                    status(buf);
+                }
             }
             else
             {
@@ -506,7 +501,7 @@ int _write(int fd, const char* buf, int len)
             {
                 line[n] = '\0';
                 char out[sizeof(IBUKI_MAILBOX->status)];
-                snprintf(out, sizeof(out), "cm33: %s", line);
+                snprintf(out, sizeof(out), "cm33: %.110s", line);
                 status(out);
                 n = 0U;
             }

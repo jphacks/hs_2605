@@ -42,6 +42,7 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 | `B,1` | ボードから PC | ユーザーボタンが押された |
 | `L,1` / `L,0` | PC からボード | 警告：RGB LED が赤・緑・青を同時につけて 1 秒に 2 回点滅（ボードの電源などの赤いランプはいつも点いているため、赤だけでは目立ちませんでした）、または消灯 |
 | `R,1` | PC からボード | レーダーを再起動する |
+| `A,1` | PC からボード | ボード自身の Wi-Fi からスマートフォンへテスト通知（【テスト】ボードから直接の通知）を送る |
 | `M,1` / `M,3` | PC からボード | アンテナ 1 本を D の行で送る（起動時はこれ）／3 本すべてを E の行で送る。録画は `pc/record.py <名前> --antennas 3` |
 | `T,<ms>` | PC からボード | テスト用。ボードを最大 2000 ms 止める |
 
@@ -71,6 +72,17 @@ make program     # KitProg3 で書き込み。ボードに最初から入って�
 ```
 
 D 行が 1 秒に約 16.6 本、`gaps: 0` なら大丈夫です。データをリアルタイムで見るには [tools/live_view.py](tools/live_view.py) を使います。どこで動きがあるか、呼吸の波形、信号の品質、ボードが揺れていないかがわかります。
+
+### ボード自身の Wi-Fi 通知（CM33）
+
+警告のとき、ボードはパソコンがなくても自分の Wi-Fi でスマートフォンに通知します。2 つ目のコア（CM33）が FreeRTOS と Infineon の Wi-Fi ライブラリで動き、レーダーと AI のコア（M55）とは共有メモリの「メールボックス」（[shared_src/ibuki_mailbox.h](shared_src/ibuki_mailbox.h)）でやりとりします。
+
+- eduroam（WPA2-Enterprise、PEAP と MSCHAPv2）に接続します。大学の認証サーバーの証明書は SECOM TLS RSA Root CA 2024 と NII Open Domain CA - G8 RSA で確かめます（[proj_cm33_ns/ibuki_certs.h](proj_cm33_ns/ibuki_certs.h)）
+- 通知は ntfy.sh へ HTTPS で送り、証明書は ISRG Root X1・X2 で確かめます
+- ログイン情報と ntfy のトピックは `firmware/wifi_secrets.h` に書きます（git に入れません）。見本は [wifi_secrets.example.h](wifi_secrets.example.h)。ファイルがなければ Wi-Fi は使いません
+- 状態は `S,<時刻>,wifi: ...` の行で PC に出ます。`A,1` を送るとテスト通知を 1 回送ります
+
+2026-10-28 に広島大学の eduroam に接続し、ボードから直接スマートフォンに通知が届くことを確かめました。
 
 ### 知っておくこと
 
@@ -132,6 +144,7 @@ We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). 
 | `B,1` | board to PC | The user button was pressed. |
 | `L,1` / `L,0` | PC to board | Alert: the RGB LED blinks twice a second with red, green and blue on together (the board's power and other red lights are always on, so plain red was easy to miss), or off. |
 | `R,1` | PC to board | Restart the radar. |
+| `A,1` | PC to board | Send a test notification to the phone through the board's own Wi-Fi (【テスト】ボードから直接の通知). |
 | `M,1` / `M,3` | PC to board | Send one antenna as D lines (the default at start-up) / all 3 as E lines. Record with `pc/record.py <name> --antennas 3`. |
 | `T,<ms>` | PC to board | For testing only. Stalls the board for up to 2000 ms. |
 
@@ -161,6 +174,17 @@ Then check the stream from the repo folder:
 ```
 
 You should see about 16.6 D lines per second and `gaps: 0`. To watch the data live, run [tools/live_view.py](tools/live_view.py). It shows where something is moving, the breathing wave, the signal quality, and whether the board is being shaken.
+
+### The board's own Wi-Fi alerts (CM33)
+
+On an alarm the board notifies the phone over its own Wi-Fi, with or without the laptop. The second core (CM33) runs FreeRTOS and Infineon's Wi-Fi libraries and talks to the radar/AI core (M55) through a shared-memory mailbox ([shared_src/ibuki_mailbox.h](shared_src/ibuki_mailbox.h)).
+
+- Joins eduroam (WPA2-Enterprise, PEAP with MSCHAPv2). The university's login server certificate is checked against SECOM TLS RSA Root CA 2024 and NII Open Domain CA - G8 RSA ([proj_cm33_ns/ibuki_certs.h](proj_cm33_ns/ibuki_certs.h))
+- Sends the alert to ntfy.sh over HTTPS, the certificate checked against ISRG Root X1 and X2
+- The login and the ntfy topic go in `firmware/wifi_secrets.h` (never committed); template: [wifi_secrets.example.h](wifi_secrets.example.h). Without the file, no Wi-Fi
+- Its progress reaches the PC as `S,<time>,wifi: ...` lines; `A,1` sends one test notification
+
+Checked on 2026-10-28: the board joined Hiroshima University's eduroam and its notifications reached the phone directly.
 
 ### Good to know
 

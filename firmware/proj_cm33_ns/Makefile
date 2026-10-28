@@ -85,8 +85,8 @@ DEFINES+=HTTP_DO_NOT_USE_CUSTOM_CONFIG MQTT_DO_NOT_USE_CUSTOM_CONFIG
 # "accelerated" entries when this is set, so mbedTLS builds its own. Also: a failed login hung while
 # cleaning up with the hardware crypto on.
 DEFINES+=DISABLE_MBEDTLS_ACCELERATION
-# IBUKI: the login's own log, shown on the PC as "es: ..." S lines (while the login is being made to work)
-DEFINES+=ENABLE_ENTERPRISE_SECURITY_LOGS
+# IBUKI: the Wi-Fi libraries' errors, shown on the PC as "es: ..." S lines (level in ibuki_wifi.c)
+DEFINES+=ENABLE_ENTERPRISE_SECURITY_LOGS ENABLE_SECURE_SOCKETS_LOGS ENABLE_HTTP_CLIENT_LOGS
 
 # IBUKI: the mailbox shared with the M55 (shared_src/ibuki_mailbox.h)
 SEARCH+=../shared_src/

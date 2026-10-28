@@ -19,6 +19,7 @@
 #define IBUKI_MAILBOX_MAGIC  (0x49425531UL) /* "IBU1" */
 #define IBUKI_ALARM_NO_BREATH (1UL)
 #define IBUKI_ALARM_LEFT_BED  (2UL)
+#define IBUKI_ALARM_TEST      (3UL) /* the PC's "A,1": a test notification, not an alarm */
 
 typedef struct
 {
