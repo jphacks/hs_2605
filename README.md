@@ -10,7 +10,7 @@
 
 ▶ 画像をクリックするとデモ動画が開きます（息を止めると警告が出るまで）。ほかの動画は[デモ動画](#デモ動画)にあります。
 
-ベビーベッドのそばに置いた 60 GHz のミリ波レーダーが、赤ちゃんの胸のわずか数ミリの上下運動をとらえます。呼吸が止まっていると判断された場合、保護者のスマートフォンに通知が届き、ボードの赤い LED が点滅します。
+ベビーベッドのそばに置いた 60 GHz のミリ波レーダーが、赤ちゃんの胸のわずか数ミリの上下運動をとらえます。呼吸が止まっていると判断された場合、保護者のスマートフォンに通知が届き、ボードの LED が点滅します。判断はボードの AI 用チップで動く学習済みモデルが行い、ボードは自分で Wi-Fi から通知を送れます。
 
 <p align="center">
   <img src="docs/images/ibuki_flow.png" width="400" alt="息吹～IBUKI～のしくみ：レーダーが胸の動きをとらえ、ボードが距離ごとに分け、Brain が判断し、スマートフォンと LED で知らせる">
@@ -30,8 +30,8 @@
 
 息吹～IBUKI～ は 3 つの部分でできています。
 
-1. **レーダーのボード**：Infineon の PSOC Edge E84 AI Kit に、私たちが書いたファームウェアを入れています。跳ね返ってきた電波を距離ごとに分け、1 秒に約 16 回パソコンへ送ります。
-2. **パソコンの Brain**：赤ちゃんがいるか、動いているか、息をしているかを判断し、呼吸数を計算します。
+1. **レーダーのボード**：Infineon の PSOC Edge E84 AI Kit に、私たちが書いたファームウェアを入れています。跳ね返ってきた電波を距離ごとに分け、1 秒に約 16 回パソコンへ送ります。同じデータで、ボードの AI 用チップ（Ethos-U55）が学習済みモデルを動かして状態を判断し、警告のときは Wi-Fi（eduroam）から自分でスマートフォンに通知します。温度・湿度と、ボードが動かされたことも測ります。
+2. **パソコンの Brain**：学習済みの AI モデル（2 つの CNN、8 ビット）で、赤ちゃんがいるか、動いているか、息をしているかを判断し、呼吸数を計算します。
 3. **ダッシュボードと通知**：ブラウザに呼吸の波と状態を表示し、スマートフォンに【緊急】【注意】【お知らせ】の 3 段階で知らせます。
 <img width="1088" height="140" alt="Image" src="https://github.com/user-attachments/assets/336bb867-4170-4fc6-b1ef-da7c9b89cc1d" />
 
@@ -58,6 +58,9 @@
 #### 4. 誤報を出さない
 動いているときやボードが揺れたときは、呼吸を「わからない」として扱い、「呼吸が止まった」とは知らせません。静かになったときは、その人の反射が残っているかで、「ベッドにいない」と「息が止まった」を見分けます。
 
+#### 5. パソコンがなくても知らせる
+ボードの AI 用チップが自分で判断し、Wi-Fi から直接スマートフォンに通知します。パソコンの電源が切れていても、警告は届きます。
+
 ### 解決出来ること
 - 夜中に何度ものぞきに行かなくても、別の部屋で様子がわかります。
 - 見守りカメラに抵抗がある家庭でも使えます。
@@ -65,14 +68,16 @@
 
 ### 今後の展望
 - 赤ちゃんで確かめる（赤ちゃんの呼吸は 1 分に 30〜60 回で、息吹～IBUKI～ が見ている範囲に入ります）
-- 3 本ある受信アンテナを組み合わせて、毛布越しでも、より正確に測れるようにする
-- ボードの AI 用チップで判断を動かし、パソコンなしで使えるようにする
+- とても浅い呼吸の録画を増やして、AI モデルの息止めの検出を強くする
+- 3 本のアンテナでわかる方向を使い、赤ちゃんとそばにいる大人を見分ける（方向の測定はできています）
+- 家庭の Wi-Fi（WPA2/WPA3）にも対応する（今は eduroam で確認）
 - 他のハードウェアやアプリケーションと連携し、緊急時には大きなアラーム音で確実に保護者が気付くようにする
 - 小さなケースに入れて、ベッドの柵に取り付けられるようにする
 
 ### 注力したこと（こだわり等）
-* **実際のデータで決める。** 閾値は 3 人・24 本の録画から決めました。1 分に 10 回の呼吸を 10.0 回と測れました。
-* **誤報を出さない。** 24 本の録画で、間違った「呼吸なし」は 0 回です。迷ったときは「まだそこにいる」と考えて、呼吸を見続けます。
+* **実際のデータで決める。** AI モデルは、赤ちゃんの呼吸データ（AIR-400）をもとにしたデータと、私たちの実機の録画で学習しました。新しいモデルは、学習に使っていない人の録画で前のモデルより良いときだけ使います。1 分に 10 回の呼吸を 10.0 回と測れました。
+* **ボードの上で動かす。** モデルを 8 ビットにして、ボードの AI 用チップで動かしています。ボードとパソコンの判断が一致することを確かめました。
+* **誤報を出さない。** 隣で大人が 20 分作業している録画で、間違った「呼吸なし」は 0 回です。迷ったときは「まだそこにいる」と考えて、呼吸を見続けます。
 * **止まらない。** レーダーが止まってもボードが自分で復帰し、USB を抜き差ししてもサーバーがつなぎ直します。
 * **すぐに使える。** `ibuki.command` をダブルクリックするだけで、すべてが起動します。
 * **家族のデータを守る。** カメラを使わず、通知は暗号化してトークンで守り、秘密は git に入れません。対策は [SECURITY.md](SECURITY.md) にまとめました。
@@ -129,9 +134,12 @@
 |---|---|
 | データの送信 | 1 秒に 16.6 回、欠けなし |
 | 呼吸数（1 分に 10 回のペースで呼吸） | 9.0〜10.7 回（解析では 10.0 回） |
-| 間違った「呼吸なし」 | 3 人・24 本の録画で 0 回 |
-| 息止めの検出 | 息を止めた録画 3 本のうち 1 本と、実機での再テストで警告が出る（呼吸の浅い人は、50 cm では検出できないことがある） |
+| 間違った「呼吸なし」 | 隣で大人が作業する 20 分の録画で 0 回。学習に使っていない人のとても浅い呼吸では、10 秒の設定で 1 分の録画 3 本に計 3 回（20 秒の設定では 0 回） |
+| 息止めの検出 | 大人の息止めで約半分（呼吸の浅い人や、20 秒ほどの短い息止めは見逃すことがある） |
 | 警告の流れ | iPhone への通知、LED の点滅、ボタンでの解除まで動作 |
+| ボードの AI | 2 つのモデルが AI 用チップ（Ethos-U55）で動き、パソコンと同じ判断 |
+| ボードからの通知 | ボードが eduroam につながり、パソコンなしで iPhone に通知が届く |
+| ボードのセンサー | 温度・湿度を 10 秒ごとに送信、ボードを叩くと「ボードが動いた」 |
 | レーダーが止まったとき | 自動で復帰（テスト 4 段階すべて合格） |
 
 <p align="center">
@@ -156,9 +164,10 @@ flowchart LR
   S -- "WebSocket" --> W["ダッシュボード"]
   S -- "ntfy" --> N["スマートフォン<br>（iPhone）"]
   S -- "警告のとき LED を点滅" --> R
+  R -- "Wi-Fi（HTTPS）<br>ボード自身の警告" --> N
 ```
 
-Brain は機械学習ではなく、録画から決めたルールで判断します。くわしくは [pc/README.md](pc/README.md) に記載されています。
+判断は学習済みの AI モデルです。パソコンでは TensorFlow Lite、ボードでは AI 用チップで動きます。くわしくは [ml/README.md](ml/README.md)、[pc/README.md](pc/README.md)、[firmware/README.md](firmware/README.md) に記載されています。
 
 ## 動かし方
 ボードを USB でつなぎ、Mac では `ibuki.command`、Windows 10/11 では `ibuki.cmd` をダブルクリックします。ターミナルからも起動できます。準備ができるとブラウザで LIVE 監視画面が自動的に開きます。
@@ -202,10 +211,12 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * ファームウェア：ModusToolbox 3.9、Arm GNU Toolchain 14.2、CMSIS-DSP、XENSIV BGT60TRxx ドライバ
 * サーバーと Brain：Python、FastAPI、uvicorn、websockets、NumPy、SciPy、pyserial、python-dotenv、requests
 * ダッシュボード：React、TypeScript、Vite、Recharts
-* テストと道具：unittest、Node.js のテストランナー、matplotlib、macOS の say
+* AI：TensorFlow / Keras、TensorFlow Lite（LiteRT）、Arm Vela、ModusToolbox ML（mtb-ml）
+* ボードの Wi-Fi：FreeRTOS、lwIP、Mbed TLS、Infineon Wi-Fi Connection Manager、Enterprise Security（PEAP）、HTTP Client
+* テストと道具：unittest、Node.js のテストランナー、GitHub Actions、matplotlib、macOS の say
 
 #### デバイス
-* Infineon PSOC Edge E84 AI Kit（XENSIV BGT60TR13C 60 GHz レーダー）
+* Infineon PSOC Edge E84 AI Kit（XENSIV BGT60TR13C 60 GHz レーダー、Ethos-U55、CYW55513 Wi-Fi、SHT4x、BMI270）
 * MacBook、iPhone
 
 ### 独自技術
@@ -219,10 +230,22 @@ Brain は機械学習ではなく、録画から決めたルールで判断し�
 * **アラーム音**：呼吸が確認できないとき、パソコンからアラーム音を鳴らします。保護者が止めるまで鳴り続けます（ダッシュボードの停止ボタン、ボードの SW1、サーバー画面の Enter）。[server.py](pc/ibuki/server.py)（[baa0667](https://github.com/jphacks/hs_2605/commit/baa0667)、[705b907](https://github.com/jphacks/hs_2605/commit/705b907)）
 * **ダッシュボード**：呼吸の波、状態、通知の履歴をリアルタイムに表示します。[web/](web/)（[827dfc2](https://github.com/jphacks/hs_2605/commit/827dfc2)、[80a9233](https://github.com/jphacks/hs_2605/commit/80a9233)）
 * **ワンコマンドで起動**：準備、ビルド、起動、ブラウザの表示まで 1 回で行います。[ibuki.command](ibuki.command)（[42db14c](https://github.com/jphacks/hs_2605/commit/42db14c)）
-* **自動テスト**：パソコン側 44 個、ダッシュボード 56 個。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+* **自動テスト**：パソコン側 71 個、ダッシュボード 66 個。push のたびに GitHub Actions で実行します。[pc/tests/](pc/tests/)、[web/tests/](web/tests/)
+
+#### Hack Day 後に開発した機能・技術
+* **AI モデル**：呼吸を見つける 1D CNN と、状態（呼吸・停止・体動・不在）を決める 2D CNN。手で決めたルールの代わりに判断します。[ml/](ml/README.md)（[#73](https://github.com/jphacks/hs_2605/pull/73)、[#81](https://github.com/jphacks/hs_2605/pull/81)、[#82](https://github.com/jphacks/hs_2605/pull/82)）
+* **8 ビット化と TensorFlow Lite**：パソコンでは 8 ビットのモデルを TensorFlow Lite で動かします。[runtime.py](ml/runtime.py)（[#84](https://github.com/jphacks/hs_2605/pull/84)）
+* **ボードの AI 用チップ**：同じモデルを Ethos-U55 で動かし、ボードだけで判断します。[ai.c](firmware/proj_cm55/ibuki/ai.c)（[#85](https://github.com/jphacks/hs_2605/pull/85)）
+* **ボードからの Wi-Fi 通知**：もう 1 つのコア（CM33）が eduroam に接続し、HTTPS で ntfy に通知します。[ibuki_wifi.c](firmware/proj_cm33_ns/ibuki_wifi.c)（[#90](https://github.com/jphacks/hs_2605/pull/90)）
+* **ボードのセンサー**：温度・湿度（SHT4x）と、ボードが動かされたこと（BMI270）。[sensors.c](firmware/proj_cm55/ibuki/sensors.c)（[#88](https://github.com/jphacks/hs_2605/pull/88)、[#89](https://github.com/jphacks/hs_2605/pull/89)）
+* **3 本のアンテナ**：全アンテナのデータを送り、胸の方向を求めます。[antennas.py](ml/antennas.py)（[#83](https://github.com/jphacks/hs_2605/pull/83)、[#91](https://github.com/jphacks/hs_2605/pull/91)）
+* **セキュリティ**：脅威モデル、ntfy のアクセストークン、停止ボタンのペアリング。[SECURITY.md](SECURITY.md)（[#72](https://github.com/jphacks/hs_2605/pull/72)、[#80](https://github.com/jphacks/hs_2605/pull/80)）
+* **ファームウェアの省電力**：出力を待たない送信、待ち時間のスリープ、モジュール分け。（[#74](https://github.com/jphacks/hs_2605/pull/74)）
+* **ダッシュボードの新デザイン**：昼と夜のテーマ。[web/](web/)（[#77](https://github.com/jphacks/hs_2605/pull/77)）
+* **Windows 対応**：`ibuki.cmd` とアラーム音。（[#66](https://github.com/jphacks/hs_2605/pull/66)）
 
 ## English summary
-息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 24 recordings from 3 people gave no false alerts.
+息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Trained models (two small CNNs, 8-bit) make the decisions, in the app with TensorFlow Lite and on the board's own AI chip (Ethos-U55); the board can also send the alert itself over Wi-Fi, without the laptop. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 20 minutes of an adult working beside the board gave no false "no breathing" alert.
 
 We tested on adults. Babies breathe faster (newborns about 30–60 times a minute), and WHO's "fast breathing" levels for children (60 a minute under 2 months, 50 at 2–12 months, 40 at 1–5 years) are all inside the range 息吹～IBUKI～ reads, 6–90 breaths a minute. A baby's chest moves less than an adult's, so the board goes close to the baby (20–30 cm), and testing with real babies is the next step.
 
