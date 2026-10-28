@@ -147,7 +147,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
       <section className="status-banner">
         <span className="status-icon"><DashboardIcon name={({ alert: 'alert', check: 'alert', shake: 'wave', empty: 'empty', wait: 'wave', ok: 'movement', still: 'moon' } as const)[statusView.tone]} /></span>
         <div className="status-content">
-          <div className="status-copy" aria-live="polite" aria-atomic="true"><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
+          <div className="status-copy" {...(current === 'ALERT' ? { role: 'alert' } : { 'aria-live': 'polite' as const })} aria-atomic="true"><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
           {!demo && health?.siren && !needsPairing && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
             {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
           {!demo && health?.siren && needsPairing && <form className="pair-form" onSubmit={event => { event.preventDefault(); pair(); }}>

@@ -467,9 +467,9 @@ footer div { margin-top: 6px; font-size: 11px; letter-spacing: .08em; }
 .board-item--caution { border-color: var(--check-border); background: var(--check-surface); }
 .board-note { font-size: 12px; }
 .pair-badge { margin-left: 6px; }
-.pair-form { display: grid; gap: 8px; max-width: 430px; margin-top: 16px; }
+.pair-form { display: grid; gap: 8px; width: 100%; max-width: 430px; min-width: 0; margin-top: 16px; }
 .pair-form label { display: grid; gap: 6px; font-size: 13px; }
-.pair-form input { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 20px; letter-spacing: 0.3em; }
+.pair-form input { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 20px; letter-spacing: 0.3em; }
 .pair-form button { padding: 10px 20px; border: 1px solid var(--alert); border-radius: var(--radius-pill); background: var(--alert); color: var(--on-alert); font-size: 16px; }
 .pair-form button:disabled { opacity: 0.6; }
 .pair-form p, .pair-form small { margin: 0; font-size: 12px; }
