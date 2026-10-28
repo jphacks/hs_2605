@@ -10,6 +10,7 @@
 | [board_io.h](board_io.h) / [board_io.c](board_io.c) | 警告 LED（赤・緑・青を同時に点滅）、ユーザーボタン（`B,1` を送る）、PC からのコマンド（`L,1` / `L,0` / `R,1` / `T,<ms>`） |
 | [load.h](load.h) / [load.c](load.c) | CPU がどれだけ忙しいか。1 分ごとに `S,<時刻>,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` を送ります |
 | [ai.h](ai.h) / [ai.c](ai.c) | 学習済みの 2 つのモデルを AI チップ（Ethos-U55）で動かし、警告まで決めます。Y の行を送り、警告のときは LED を自分で点滅させます。アプリと同じ計算で、同じ録画で同じ判定になりました |
+| [sensors.h](sensors.h) / [sensors.c](sensors.c) | ボードの I2C のセンサー。起動時に応答するアドレスを報告し（0x18、0x44、0x68、0x77）、10 秒ごとに温湿度（0x44、SHT4x）を H の行で送ります。ほかのセンサーはまだ読んでいません |
 
 ## 1 フレームの流れ
 
@@ -51,6 +52,7 @@ This turns raw radar data into the lines sent to the PC (C / D / S / B). Infineo
 | [board_io.h](board_io.h) / [board_io.c](board_io.c) | Alert LED (blinks red, green and blue together), user button (sends `B,1`), commands from the PC (`L,1` / `L,0` / `R,1` / `T,<ms>`) |
 | [load.h](load.h) / [load.c](load.c) | How busy the CPU is: `S,<time>,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` once a minute |
 | [ai.h](ai.h) / [ai.c](ai.c) | Runs the two trained models on the AI chip (Ethos-U55) and decides the alarm: sends Y lines and blinks the LED by itself on an alarm. The same maths as the app; on the same recording it gave the same decisions |
+| [sensors.h](sensors.h) / [sensors.c](sensors.c) | The board's I2C sensors: reports at start-up which addresses answer (0x18, 0x44, 0x68, 0x77) and sends the temperature/humidity (0x44, an SHT4x) every 10 s as H lines. The other sensors are not read yet |
 
 ## One frame
 

@@ -17,6 +17,7 @@
 #include "lines.h"
 #include "load.h"
 #include "range.h"
+#include "sensors.h"
 
 static uint32_t d_seq;
 static uint32_t last_config_ms;
@@ -159,6 +160,7 @@ void ibuki_init(void)
     last_config_ms = ibuki_millis();
     load_init();
     ai_init();
+    sensors_init();
 }
 
 void ibuki_on_frame(const float* frame)
@@ -188,6 +190,7 @@ void ibuki_poll(void)
         last_config_ms = now;
     }
     load_poll(now);
+    sensors_poll(now);
     line_pump();
     board_io_poll(now);
 }

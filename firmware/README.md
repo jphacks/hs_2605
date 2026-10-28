@@ -37,6 +37,7 @@ Infineon のサンプル `mtb-example-psoc-edge-ml-deepcraft-deploy-radar` を�
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | ボードから PC | データ本体。`seq` は 1 行ごとに 1 ずつ増え、`t_ms` は起動からの時間、ビンは近い順、値は整数を `scale` で割ったもの。 |
 | `E,seq,t_ms,<base64>` | ボードから PC | `M,3` のあとだけ：3 本のアンテナすべて。base64 の中身は int16（リトルエンディアン）を、アンテナ・ビン・実部/虚部の順に 3×24×2 個。値は D の行と同じ平均ですが `scale` をかけません。読み方は [ml/antennas.py](../ml/antennas.py) |
 | `Y,t_ms,state,event` | ボードから PC | ボードの AI チップ（Ethos-U55）で動く 2 つのモデルの判定（約 0.5 秒ごと）。`state` は breathing / stopped / moving / empty、`event` は `-` / `no_breath` / `left_bed`。警告のときはボードが自分で LED を点滅させ、SW1 で止まります。モデルは `../ml-env/bin/python -m ml.board_models` で作ります（なければ Y の行は出ません） |
+| `H,t_ms,temp_c,humidity` | ボードから PC | 10 秒ごと、ボードの上の温湿度センサー（I2C 0x44、SHT4x）。センサーはレーダーとプロセッサーの横にあるので、部屋より高い「ボードの温度」です（25 °C ほどの部屋で 36 °C） |
 | `S,t_ms,text` | ボードから PC | 状態やエラー。例：`S,0,ibuki fw start`。1 分ごとに CPU の使用率も送ります：`S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0` |
 | `B,1` | ボードから PC | ユーザーボタンが押された |
 | `L,1` / `L,0` | PC からボード | 警告：RGB LED が赤・緑・青を同時につけて 1 秒に 2 回点滅（ボードの電源などの赤いランプはいつも点いているため、赤だけでは目立ちませんでした）、または消灯 |
@@ -126,6 +127,7 @@ We use preset P1 from [proj_cm55/radar_settings.h](proj_cm55/radar_settings.h). 
 | `D,seq,t_ms,I0,Q0,…,In-1,Qn-1` | board to PC | The data. `seq` goes up by one per line, `t_ms` is the board's time since boot, bins are nearest first, and each value is the integer divided by `scale`. |
 | `E,seq,t_ms,<base64>` | board to PC | Only after `M,3`: all 3 antennas. The base64 holds int16 values (little-endian), antenna by antenna, bin by bin, Re then Im: 3×24×2 values, averaged like the D line but without `scale`. Read with [ml/antennas.py](../ml/antennas.py). |
 | `Y,t_ms,state,event` | board to PC | The decision of the two models running on the board's AI chip (Ethos-U55), about every 0.5 s. `state` is breathing / stopped / moving / empty, `event` is `-` / `no_breath` / `left_bed`. On an alarm the board blinks its LED by itself; SW1 stops it. Build the models with `../ml-env/bin/python -m ml.board_models` (without them there are no Y lines). |
+| `H,t_ms,temp_c,humidity` | board to PC | Every 10 s, from the temperature/humidity sensor on the board (I2C 0x44, an SHT4x). It sits beside the radar and the processor, so it reads the board's temperature, warmer than the room (36 °C in a ~25 °C room). |
 | `S,t_ms,text` | board to PC | Status and errors, for example `S,0,ibuki fw start`. Once a minute also the CPU use: `S,60000,load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0`. |
 | `B,1` | board to PC | The user button was pressed. |
 | `L,1` / `L,0` | PC to board | Alert: the RGB LED blinks twice a second with red, green and blue on together (the board's power and other red lights are always on, so plain red was easy to miss), or off. |
