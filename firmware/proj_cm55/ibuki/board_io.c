@@ -7,6 +7,7 @@
 #include "cybsp.h"
 #include "ibuki.h"
 #include "ai.h"
+#include "ibuki_mailbox.h"
 #include "lines.h"
 
 #define RX_LINE_MAX       (16U)
@@ -66,6 +67,15 @@ static void handle_rx_line(void)
     else if (strcmp(rx_line, "L,0") == 0)
     {
         set_alert(false);
+    }
+    else if (strcmp(rx_line, "A,1") == 0)
+    {
+        /* a test notification through the board's own Wi-Fi (the CM33), not an alarm */
+        ibuki_mailbox_refresh();
+        IBUKI_MAILBOX->alarm_kind = IBUKI_ALARM_TEST;
+        IBUKI_MAILBOX->alarm_since_s = 0U;
+        IBUKI_MAILBOX->alarm_seq = IBUKI_MAILBOX->alarm_seq + 1U;
+        ibuki_mailbox_flush();
     }
     else if (strcmp(rx_line, "M,1") == 0)
     {

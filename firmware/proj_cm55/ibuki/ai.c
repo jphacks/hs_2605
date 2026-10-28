@@ -9,6 +9,7 @@
 #include "cybsp.h"
 #include "ibuki.h"
 #include "lines.h"
+#include "ibuki_mailbox.h"
 #include "load.h"
 
 #if __has_include("models/ibuki_models.h")
@@ -290,6 +291,12 @@ static void decide(int s, float t)
     if (event[0] != '-')
     {
         board_io_alarm(); /* the LED blinks, with or without the laptop */
+        /* and the CM33 sends it to the phone over Wi-Fi (shared mailbox) */
+        ibuki_mailbox_refresh();
+        IBUKI_MAILBOX->alarm_kind = (event[0] == 'n') ? IBUKI_ALARM_NO_BREATH : IBUKI_ALARM_LEFT_BED;
+        IBUKI_MAILBOX->alarm_since_s = (event[0] == 'n') ? (uint32_t)(t - stopped_since) : 0U;
+        IBUKI_MAILBOX->alarm_seq = IBUKI_MAILBOX->alarm_seq + 1U;
+        ibuki_mailbox_flush();
     }
     char* p = line_start();
     *p++ = 'Y';

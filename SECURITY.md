@@ -11,6 +11,7 @@
 | スマートフォンへの通知（ntfy） | 通信は HTTPS で暗号化。アクセストークン（`IBUKI_NTFY_TOKEN`）に対応しているので、予約したトピックなら、名前を知られても通知を読まれたり偽の通知を送られたりしません |
 | 秘密の管理 | トピック名とトークンは `.env` に置き、git に入れません（`.gitignore`）。見本は [.env.example](.env.example) |
 | ボードとパソコン | USB ケーブルでつなぐので、データは無線で外に出ません |
+| ボード自身の Wi-Fi 通知 | eduroam の認証サーバーの証明書を確かめてからログインし（SECOM・NII の CA）、通知は HTTPS（証明書を確かめる）で送ります。外に出るのは警告の内容だけです。Wi-Fi のパスワードは git に入れないファイルにだけ置きます |
 | 録画 | 開発用の録画はパソコンの中だけに置き、git に入れません。共有するのは短い見本（`recordings/samples/`）だけです |
 
 ## 使うときの注意
@@ -34,6 +35,7 @@
 | Phone alerts (ntfy) | Encrypted in transit (HTTPS). Access tokens are supported (`IBUKI_NTFY_TOKEN`): with a reserved topic, knowing the name isn't enough to read alerts or send fake ones |
 | Secrets | The topic name and token live in `.env`, never committed (`.gitignore`). Template: [.env.example](.env.example) |
 | Board to laptop | A USB cable, so the data never goes over the air |
+| The board's own Wi-Fi alerts | Logs into eduroam only after checking the login server's certificate (SECOM / NII CAs); alerts go over HTTPS with the certificate checked. Only the alert leaves the board. The Wi-Fi password lives only in a file that is never committed |
 | Recordings | Development recordings stay on the laptop and out of git. Only short samples are shared (`recordings/samples/`) |
 
 ## When you use it

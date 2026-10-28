@@ -40,3 +40,6 @@ ml/data/
 
 # the trained models as C arrays for the board (ml/board_models.py); weights partly from AIR-400
 firmware/proj_cm55/ibuki/models/
+
+# the board's Wi-Fi login and ntfy topic (see firmware/wifi_secrets.example.h)
+firmware/wifi_secrets.h

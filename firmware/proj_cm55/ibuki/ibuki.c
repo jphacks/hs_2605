@@ -18,6 +18,7 @@
 #include "load.h"
 #include "range.h"
 #include "sensors.h"
+#include "ibuki_mailbox.h"
 
 static uint32_t d_seq;
 static uint32_t last_config_ms;
@@ -56,6 +57,23 @@ void ibuki_status_code(const char* text, uint32_t code)
 void ibuki_flush(void)
 {
     line_flush();
+}
+
+/* the CM33's status from the shared mailbox, sent on as "S,t_ms,<text>" when it changes */
+static void relay_cm33_status(void)
+{
+    static uint32_t seen;
+    ibuki_mailbox_refresh();
+    if ((IBUKI_MAILBOX->magic == IBUKI_MAILBOX_MAGIC) && (IBUKI_MAILBOX->status_seq != seen))
+    {
+        char text[sizeof(IBUKI_MAILBOX->status)];
+        seen = IBUKI_MAILBOX->status_seq;
+        memcpy(text, (const void*)IBUKI_MAILBOX->status, sizeof(text));
+        text[sizeof(text) - 1U] = '\0';
+        ibuki_status(text);
+        IBUKI_MAILBOX->status_ack = seen; /* the CM33 may write the next one */
+        ibuki_mailbox_flush();
+    }
 }
 
 /* C,first_cm,step_mm,n,scale */
@@ -190,6 +208,7 @@ void ibuki_poll(void)
         last_config_ms = now;
     }
     load_poll(now);
+    relay_cm33_status();
     sensors_poll(now);
     line_pump();
     board_io_poll(now);
