@@ -119,6 +119,8 @@ class BoardHealth:
         self.restarts = 0
         self.last_restart: dict | None = None
         self.climate: dict | None = None
+        self.moves = 0
+        self.last_move: dict | None = None
 
     def feed_climate(self, text: str):
         """H,t_ms,<temperature C>,<humidity %> from the sensor on the board. It sits beside the
@@ -135,6 +137,11 @@ class BoardHealth:
             self.load = {"dsp_pct": float(m[1]), "out_pct": float(m[2]), "sleep_pct": float(m[3]),
                          "wakeups_per_s": int(m[4]), "queue_peak_bytes": int(m[5]),
                          "dropped_lines": int(m[6]), "board_t_ms": t_ms}
+        elif text.startswith("board moved"):
+            # "board moved 120 mg": bumped, lifted or tilted; the radar may no longer face the bed
+            self.moves += 1
+            mg = re.search(r"(\d+) mg", text)
+            self.last_move = {"mg": int(mg[1]) if mg else None, "board_t_ms": t_ms, "unix_s": round(time.time(), 1)}
         elif text.startswith("radar restart:"):
             # "radar restart: fifo overflow 0x00000000" -> "fifo overflow"
             reason = text[len("radar restart:"):].strip().rsplit(" 0x", 1)[0]
@@ -143,7 +150,7 @@ class BoardHealth:
 
     def as_dict(self) -> dict:
         return {"load": self.load, "restarts": self.restarts, "last_restart": self.last_restart,
-                "climate": self.climate}
+                "climate": self.climate, "moves": self.moves, "last_move": self.last_move}
 
 
 class Pairing:

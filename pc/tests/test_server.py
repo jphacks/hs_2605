@@ -291,7 +291,10 @@ class BoardHealthTest(unittest.TestCase):
     def test_load_and_restart_lines(self):
         from ibuki.server import BoardHealth
         h = BoardHealth()
-        self.assertEqual(h.as_dict(), {"load": None, "restarts": 0, "last_restart": None, "climate": None})
+        self.assertEqual(h.as_dict(), {"load": None, "restarts": 0, "last_restart": None, "climate": None,
+                                       "moves": 0, "last_move": None})
+        h.feed(5000, "board moved 120 mg")
+        self.assertEqual((h.as_dict()["moves"], h.as_dict()["last_move"]["mg"]), (1, 120))
         h.feed_climate("H,10000,36.3,36.7")
         self.assertEqual(h.as_dict()["climate"], {"board_temp_c": 36.3, "humidity_pct": 36.7, "board_t_ms": 10000})
         h.feed(60000, "load dsp 1.5% out 0.0% sleep 95.3% 7158/s queue 246 dropped 0")
