@@ -149,7 +149,7 @@ function Dashboard({ mode }: { mode: DashboardMode }) {
         <div className="status-content">
           <div className="status-copy" {...(current === 'ALERT' ? { role: 'alert' } : { 'aria-live': 'polite' as const })} aria-atomic="true"><span className="status-eyebrow">現在の状態</span><h2>{statusView.title}</h2><p>{statusView.detail}{demo ? '（シミュレーション）' : ''}</p></div>
           {!demo && health?.siren && !needsPairing && <button className="siren-stop" onClick={stopSiren} disabled={stoppingSiren}>
-            {stoppingSiren ? 'アラームを止めています…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
+            {stoppingSiren ? '停止を要求中…' : 'アラームを止める'}<small>赤ちゃんの様子を確認したら押してください（ボードの SW1 と同じです）</small></button>}
           {!demo && health?.siren && needsPairing && <form className="pair-form" onSubmit={event => { event.preventDefault(); pair(); }}>
             <label>この端末からアラームを止めるには、サーバーの画面の 6 桁の番号を入れてください<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={pairCode} onChange={event => setPairCode(event.target.value)} /></label>
             <button type="submit" disabled={pairCode.trim().length !== 6}>ペアリング</button>
