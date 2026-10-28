@@ -292,7 +292,7 @@ class BoardHealthTest(unittest.TestCase):
         from ibuki.server import BoardHealth
         h = BoardHealth()
         self.assertEqual(h.as_dict(), {"load": None, "restarts": 0, "last_restart": None, "climate": None,
-                                       "moves": 0, "last_move": None})
+                                       "moves": 0, "last_move": None, "board_ai": None, "wifi": None})
         h.feed(5000, "board moved 120 mg")
         self.assertEqual((h.as_dict()["moves"], h.as_dict()["last_move"]["mg"]), (1, 120))
         h.feed_climate("H,10000,36.3,36.7")
@@ -306,6 +306,22 @@ class BoardHealthTest(unittest.TestCase):
         self.assertEqual(d["load"]["dropped_lines"], 0)
         self.assertEqual(d["restarts"], 1)
         self.assertEqual(d["last_restart"]["reason"], "fifo overflow")
+
+    def test_board_ai_and_wifi(self):
+        from ibuki.server import BoardHealth
+        h = BoardHealth()
+        h.feed_ai("Y,7000,empty,left_bed")
+        self.assertEqual((h.board_ai["state"], h.board_ai["event"]), ("empty", "left_bed"))
+        h.feed(1000, "wifi: joining eduroam")
+        self.assertFalse(h.wifi["connected"])
+        h.feed(9000, "wifi: connected to eduroam, IP 10.1.2.120")
+        h.feed(20000, "wifi: alert sent to the phone")
+        self.assertEqual((h.wifi["connected"], h.wifi["alerts_sent"]), (True, 1))
+        h.feed(30000, "wifi: join failed 0x1234")
+        self.assertFalse(h.wifi["connected"])
+        h = BoardHealth()  # the server started after the board joined
+        h.feed(40000, "wifi: alert sent to the phone")
+        self.assertTrue(h.wifi["connected"])
 
 
 if __name__ == "__main__":
