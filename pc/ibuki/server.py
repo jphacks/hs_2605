@@ -118,6 +118,16 @@ class BoardHealth:
         self.load: dict | None = None
         self.restarts = 0
         self.last_restart: dict | None = None
+        self.climate: dict | None = None
+
+    def feed_climate(self, text: str):
+        """H,t_ms,<temperature C>,<humidity %> from the sensor on the board. It sits beside the
+        radar and the processor, so it reads the board's temperature, warmer than the room."""
+        p = text.split(",")
+        try:
+            self.climate = {"board_temp_c": float(p[2]), "humidity_pct": float(p[3]), "board_t_ms": int(p[1])}
+        except (IndexError, ValueError):
+            pass
 
     def feed(self, t_ms: int, text: str):
         m = LOAD_RE.search(text)
@@ -132,7 +142,8 @@ class BoardHealth:
             self.last_restart = {"reason": reason, "board_t_ms": t_ms, "unix_s": round(time.time(), 1)}
 
     def as_dict(self) -> dict:
-        return {"load": self.load, "restarts": self.restarts, "last_restart": self.last_restart}
+        return {"load": self.load, "restarts": self.restarts, "last_restart": self.last_restart,
+                "climate": self.climate}
 
 
 class Pairing:
@@ -426,6 +437,8 @@ class Hub:
             log("button pressed (B,1)")
             self.set_led(False)  # a parent saw it: acknowledge
             self.siren.stop()
+        elif text.startswith("H,"):
+            self.board_health.feed_climate(text)
         elif isinstance(m, Status):
             self.last_board_status = m.text
             self.board_health.feed(m.t_ms, m.text)
