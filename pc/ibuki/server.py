@@ -108,7 +108,8 @@ LOAD_RE = re.compile(r"load dsp ([\d.]+)% out ([\d.]+)% sleep ([\d.]+)% (\d+)/s 
 
 
 class BoardHealth:
-    """What the board says about itself in its S lines: CPU load and radar restarts.
+    """What the board says about itself: CPU load, radar restarts, moves and climate, its own
+    AI's state (Y lines) and its Wi-Fi ("wifi: ..." S lines from the CM33).
 
     In /api/health as "board_health", for the dashboard's connection details. Older firmware
     sends no load line, so "load" stays None.
@@ -121,6 +122,14 @@ class BoardHealth:
         self.climate: dict | None = None
         self.moves = 0
         self.last_move: dict | None = None
+        self.board_ai: dict | None = None
+        self.wifi: dict | None = None
+
+    def feed_ai(self, text: str):
+        """Y,t_ms,state,event: the decision of the models on the board's AI chip."""
+        p = text.split(",")
+        if len(p) >= 3 and p[2]:
+            self.board_ai = {"state": p[2], "event": p[3] if len(p) > 3 else "", "unix_s": round(time.time(), 1)}
 
     def feed_climate(self, text: str):
         """H,t_ms,<temperature C>,<humidity %> from the sensor on the board. It sits beside the
@@ -142,6 +151,18 @@ class BoardHealth:
             self.moves += 1
             mg = re.search(r"(\d+) mg", text)
             self.last_move = {"mg": int(mg[1]) if mg else None, "board_t_ms": t_ms, "unix_s": round(time.time(), 1)}
+        elif text.startswith("wifi: "):
+            # the CM33's progress: joined, failed, an alert sent. Only some lines change "connected"
+            msg = text[len("wifi: "):].strip()
+            was = self.wifi or {"connected": False, "alerts_sent": 0}
+            connected = was["connected"]
+            if msg.startswith("connected to"):
+                connected = True
+            elif msg.startswith(("join failed", "init failed", "chip setup failed", "off", "starting")):
+                connected = False
+            self.wifi = {"connected": connected, "text": msg,
+                         "alerts_sent": was["alerts_sent"] + (msg == "alert sent to the phone"),
+                         "unix_s": round(time.time(), 1)}
         elif text.startswith("radar restart:"):
             # "radar restart: fifo overflow 0x00000000" -> "fifo overflow"
             reason = text[len("radar restart:"):].strip().rsplit(" 0x", 1)[0]
@@ -150,7 +171,8 @@ class BoardHealth:
 
     def as_dict(self) -> dict:
         return {"load": self.load, "restarts": self.restarts, "last_restart": self.last_restart,
-                "climate": self.climate, "moves": self.moves, "last_move": self.last_move}
+                "climate": self.climate, "moves": self.moves, "last_move": self.last_move,
+                "board_ai": self.board_ai, "wifi": self.wifi}
 
 
 class Pairing:
@@ -446,6 +468,8 @@ class Hub:
             self.siren.stop()
         elif text.startswith("H,"):
             self.board_health.feed_climate(text)
+        elif text.startswith("Y,"):
+            self.board_health.feed_ai(text)
         elif isinstance(m, Status):
             self.last_board_status = m.text
             self.board_health.feed(m.t_ms, m.text)
