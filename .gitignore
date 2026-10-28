@@ -32,11 +32,12 @@ recordings/**/*.jsonl
 # Web tooling
 node_modules/
 
-# Datasets downloaded by ml/ scripts (AIR-400 has no stated license: never commit it)
-ml/data/
-
-# Datasets downloaded by ml/ scripts (AIR-400 has no stated license: never commit it)
-ml/data/
+# Datasets downloaded by ml/ scripts (AIR-400 has no stated license: never commit it).
+# The trained models the app runs (ml/data/models/, about 190 KB) are in git, so a fresh clone
+# uses the AI; the large .keras training files are not.
+ml/data/*
+!ml/data/models/
+ml/data/models/*.keras
 
 # the trained models as C arrays for the board (ml/board_models.py); weights partly from AIR-400
 firmware/proj_cm55/ibuki/models/
