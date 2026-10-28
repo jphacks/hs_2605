@@ -53,10 +53,11 @@ VERBOSE=
 # ... then code in directories named COMPONENT_foo and COMPONENT_bar will be
 # added to the build
 #
-COMPONENTS+=
+# IBUKI: Wi-Fi (as Infineon's mtb-tester-psoc-edge-enterprise-security)
+COMPONENTS+=FREERTOS MBEDTLS LWIP SECURE_SOCKETS WCM
 
 # Like COMPONENTS, but disable optional code that was enabled by default.
-DISABLE_COMPONENTS=
+DISABLE_COMPONENTS=WICED_BLE
 
 CORE=CM33
 CORE_NAME=CM33_0
@@ -73,12 +74,25 @@ INCLUDES+=
 
 # Add additional defines to the build process (without a leading -D).
 DEFINES+=CY_RETARGET_IO_CONVERT_LF_TO_CRLF
+MBEDTLSFLAGS = MBEDTLS_USER_CONFIG_FILE='"configs/mbedtls_user_config.h"'
+DEFINES+=MBEDTLS_CONFIG_FILE='"mbedtls/mbedtls_config.h"'
+DEFINES+=MBEDTLS_PSA_CRYPTO_CONFIG_FILE='"configs/ifx_psa_crypto_config.h"'
+DEFINES+=$(MBEDTLSFLAGS) CYBSP_WIFI_CAPABLE CY_RTOS_AWARE HAVE_SNPRINTF
+DEFINES+=HTTP_DO_NOT_USE_CUSTOM_CONFIG MQTT_DO_NOT_USE_CUSTOM_CONFIG
+# IBUKI: software crypto. Neither Infineon's hardware crypto driver nor its absence (with the PSA
+# config still marking RSA/SHA as accelerated) could verify Hiroshima University's RSA-4096 eduroam
+# certificate chain (-0x2700, flags 0x8, 2026-10-28); configs/ifx_psa_crypto_config.h drops the
+# "accelerated" entries when this is set, so mbedTLS builds its own. Also: a failed login hung while
+# cleaning up with the hardware crypto on.
+DEFINES+=DISABLE_MBEDTLS_ACCELERATION
+# IBUKI: the login's own log, shown on the PC as "es: ..." S lines (while the login is being made to work)
+DEFINES+=ENABLE_ENTERPRISE_SECURITY_LOGS
 
 # IBUKI: the mailbox shared with the M55 (shared_src/ibuki_mailbox.h)
 SEARCH+=../shared_src/
 
 # Select softfp or hardfp floating point. Default is softfp.
-VFP_SELECT+=
+VFP_SELECT+=hardfp
 
 # Additional / custom C compiler flags.
 #

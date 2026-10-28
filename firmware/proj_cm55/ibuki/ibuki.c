@@ -71,6 +71,8 @@ static void relay_cm33_status(void)
         memcpy(text, (const void*)IBUKI_MAILBOX->status, sizeof(text));
         text[sizeof(text) - 1U] = '\0';
         ibuki_status(text);
+        IBUKI_MAILBOX->status_ack = seen; /* the CM33 may write the next one */
+        ibuki_mailbox_flush();
     }
 }
 

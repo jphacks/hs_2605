@@ -27,7 +27,8 @@ typedef struct
     uint32_t alarm_kind;     /* M55: IBUKI_ALARM_... */
     uint32_t alarm_since_s;  /* M55: seconds without breathing (no_breath) */
     uint32_t status_seq;     /* CM33: +1 per new status */
-    char status[56];         /* CM33: e.g. "wifi: connected to eduroam" */
+    uint32_t status_ack;     /* M55: the status_seq it has printed, so the CM33 can send the next */
+    char status[120];         /* CM33: e.g. "wifi: connected to eduroam" */
 } ibuki_mailbox_t;
 
 #define IBUKI_MAILBOX ((volatile ibuki_mailbox_t*)CYMEM_m33_m55_shared_START)
