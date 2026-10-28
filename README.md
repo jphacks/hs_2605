@@ -160,7 +160,7 @@
 ## しくみ
 ```mermaid
 flowchart LR
-  R["レーダーのボード<br>PSOC Edge E84 AI Kit"] -- "USB<br>1 秒に約 16 回" --> S["ノート PC<br>サーバー + Brain"]
+  R["レーダーのボード<br>PSOC Edge E84 AI Kit"] -- "USB<br>1 秒に約 16 回" --> S["ノート PC<br>サーバー + AI"]
   S -- "WebSocket" --> W["ダッシュボード"]
   S -- "ntfy" --> N["スマートフォン<br>（iPhone）"]
   S -- "警告のとき LED を点滅" --> R
