@@ -74,6 +74,9 @@ INCLUDES+=
 # Add additional defines to the build process (without a leading -D).
 DEFINES+=CY_RETARGET_IO_CONVERT_LF_TO_CRLF
 
+# IBUKI: the mailbox shared with the M55 (shared_src/ibuki_mailbox.h)
+SEARCH+=../shared_src/
+
 # Select softfp or hardfp floating point. Default is softfp.
 VFP_SELECT+=
 

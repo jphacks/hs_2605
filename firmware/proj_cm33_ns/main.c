@@ -41,6 +41,7 @@
 *******************************************************************************/
 
 #include "cybsp.h"
+#include "ibuki_mailbox.h"
 
 /*******************************************************************************
 * Macros
@@ -106,6 +107,12 @@ int main(void)
 
     /* Enable global interrupts */
     __enable_irq();
+
+    /* IBUKI: clear the mailbox shared with the M55 before it starts, then say hello through it */
+    memset((void*)IBUKI_MAILBOX, 0, sizeof(ibuki_mailbox_t));
+    IBUKI_MAILBOX->magic = IBUKI_MAILBOX_MAGIC;
+    strncpy((char*)IBUKI_MAILBOX->status, "cm33: mailbox ready", sizeof(IBUKI_MAILBOX->status) - 1U);
+    IBUKI_MAILBOX->status_seq = 1U;
 
     /* Enable CM55. */
     /* CY_CM55_APP_BOOT_ADDR must be updated if CM55 memory layout is changed.*/
