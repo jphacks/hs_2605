@@ -242,6 +242,7 @@ flowchart LR
 * **セキュリティ**：脅威モデル、ntfy のアクセストークン、停止ボタンのペアリング。[SECURITY.md](SECURITY.md)（[#72](https://github.com/jphacks/hs_2605/pull/72)、[#80](https://github.com/jphacks/hs_2605/pull/80)）
 * **ファームウェアの省電力**：出力を待たない送信、待ち時間のスリープ、モジュール分け。（[#74](https://github.com/jphacks/hs_2605/pull/74)）
 * **ダッシュボードの新デザイン**：昼と夜のテーマ。[web/](web/)（[#77](https://github.com/jphacks/hs_2605/pull/77)）
+* **ダッシュボードの「ボードの様子」**：判定している AI、ボードの AI の判断、ボードの Wi-Fi、温度・湿度、ボードの状態を表示します。停止ボタンのペアリング、スマートフォンの画面の確認。[BoardPanel.tsx](web/src/BoardPanel.tsx)（[#94](https://github.com/jphacks/hs_2605/pull/94)、[#95](https://github.com/jphacks/hs_2605/pull/95)）
 * **Windows 対応**：`ibuki.cmd` とアラーム音。（[#66](https://github.com/jphacks/hs_2605/pull/66)）
 
 ## English summary
