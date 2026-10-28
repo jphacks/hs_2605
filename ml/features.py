@@ -30,6 +30,7 @@ Shape per example: (STEPS, 15), after averaging pairs of lines.
 """
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +49,11 @@ CHANNELS = FEATURES * (2 * NEIGHBOURS + 1)
 
 
 def read_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """t_ms and complex slots (value units) of every full D line in a board-format CSV."""
+    """t_ms and complex slots (value units) of every full D line in a board-format CSV.
+
+    A 3-antenna recording has E lines instead: their first antenna is the D line's antenna, in
+    value units already (E lines are not multiplied by SCALE).
+    """
     t, z = [], []
     for ln in Path(path).read_text().splitlines():
         p = ln.split(",")
@@ -56,6 +61,12 @@ def read_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
             v = np.array(p[3:], float) / SCALE
             t.append(int(p[2]))
             z.append(v[0::2] + 1j * v[1::2])
+        elif p[0] == "E" and len(p) == 4:
+            v = np.frombuffer(base64.b64decode(p[3]), dtype="<i2")
+            if len(v) == 3 * 2 * NUM_BINS:
+                v = v[:2 * NUM_BINS].astype(float)
+                t.append(int(p[2]))
+                z.append(v[0::2] + 1j * v[1::2])
     return np.array(t), np.array(z)
 
 
