@@ -156,7 +156,8 @@ class BoardHealth:
             msg = text[len("wifi: "):].strip()
             was = self.wifi or {"connected": False, "alerts_sent": 0}
             connected = was["connected"]
-            if msg.startswith("connected to"):
+            if msg.startswith(("connected to", "alert sent")):  # a sent alert: online, even if the
+                # server started after the join
                 connected = True
             elif msg.startswith(("join failed", "init failed", "chip setup failed", "off", "starting")):
                 connected = False

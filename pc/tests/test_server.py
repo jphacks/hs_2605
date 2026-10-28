@@ -319,6 +319,9 @@ class BoardHealthTest(unittest.TestCase):
         self.assertEqual((h.wifi["connected"], h.wifi["alerts_sent"]), (True, 1))
         h.feed(30000, "wifi: join failed 0x1234")
         self.assertFalse(h.wifi["connected"])
+        h = BoardHealth()  # the server started after the board joined
+        h.feed(40000, "wifi: alert sent to the phone")
+        self.assertTrue(h.wifi["connected"])
 
 
 if __name__ == "__main__":
