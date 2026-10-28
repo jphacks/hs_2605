@@ -8,8 +8,8 @@
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1f2a44" flood-opacity="0.10"/>
     </filter>
     <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#e63946" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#e63946" stop-opacity="0"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
@@ -100,57 +100,44 @@
   <!-- arrow -->
   <line x1="380" y1="736" x2="380" y2="762" class="flow" marker-end="url(#arrow)"/>
 
-  <!-- ③ brain -->
+  <!-- ③ AI -->
   <rect x="40" y="770" width="680" height="530" rx="22" class="card" filter="url(#shadow)"/>
   <circle cx="84" cy="814" r="22" fill="#2a9d8f"/>
   <text x="84" y="822" text-anchor="middle" class="num">3</text>
-  <text x="120" y="823" class="h">Brain が判断する</text>
+  <text x="120" y="823" class="h">AI が判断する</text>
 
-  <!-- questions (left) -->
-  <g>
-    <rect x="80" y="852" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
-    <text x="205" y="886" text-anchor="middle" class="q">ベッドにいる？</text>
-    <rect x="80" y="948" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
-    <text x="205" y="982" text-anchor="middle" class="q">動いている？</text>
-    <rect x="80" y="1044" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
-    <text x="205" y="1078" text-anchor="middle" class="q">呼吸の波がある？</text>
-    <rect x="80" y="1140" width="250" height="54" rx="27" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
-    <text x="205" y="1174" text-anchor="middle" class="q">そのまま 10 秒？</text>
-  </g>
-  <!-- yes / no down arrows -->
-  <line x1="205" y1="908" x2="205" y2="942" class="flow" marker-end="url(#arrow)"/>
-  <text x="217" y="931" class="lab">はい</text>
-  <line x1="205" y1="1004" x2="205" y2="1038" class="flow" marker-end="url(#arrow)"/>
-  <text x="217" y="1027" class="lab">いいえ</text>
-  <line x1="205" y1="1100" x2="205" y2="1134" class="flow" marker-end="url(#arrow)"/>
-  <text x="217" y="1123" class="lab">いいえ</text>
-  <line x1="205" y1="1196" x2="205" y2="1222" class="flow" marker-end="url(#arrow)"/>
-  <text x="217" y="1215" class="lab">はい</text>
+  <!-- where the models run -->
+  <rect x="80" y="852" width="290" height="84" rx="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <rect x="98" y="872" width="44" height="44" rx="8" fill="#264653"/>
+  <rect x="110" y="884" width="20" height="20" rx="3" fill="#2a9d8f"/>
+  <text x="156" y="888" class="q">ボードの AI 用チップ</text>
+  <text x="156" y="914" class="s">Ethos-U55・8 ビット</text>
+  <rect x="390" y="852" width="290" height="84" rx="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <rect x="408" y="874" width="46" height="32" rx="5" fill="#1f2a44"/>
+  <rect x="413" y="879" width="36" height="22" rx="3" fill="#f8fafc"/>
+  <rect x="402" y="906" width="58" height="6" rx="3" fill="#1f2a44"/>
+  <text x="472" y="888" class="q">パソコン</text>
+  <text x="472" y="914" class="s">TensorFlow Lite・8 ビット</text>
+  <text x="380" y="972" text-anchor="middle" class="t">同じ 2 つの学習済みモデル（CNN）が、</text>
+  <text x="380" y="998" text-anchor="middle" class="t">30 秒分の距離ごとの動きから状態を決める</text>
 
-  <!-- outcomes (right) -->
-  <line x1="332" y1="879" x2="424" y2="879" class="flow" marker-end="url(#arrow)"/>
-  <text x="378" y="868" text-anchor="middle" class="lab">いいえ</text>
-  <rect x="430" y="852" width="250" height="54" rx="14" fill="#fde2dc"/>
-  <text x="527" y="886" text-anchor="middle" class="q" style="fill:#b5452b">ベッドにいません</text>
-  <rect x="614" y="866" width="52" height="26" rx="13" fill="#e76f51"/>
-  <text x="640" y="884" text-anchor="middle" class="lab" style="fill:#ffffff">通知</text>
+  <line x1="380" y1="1010" x2="380" y2="1036" class="flow" marker-end="url(#arrow)"/>
 
-  <line x1="332" y1="975" x2="424" y2="975" class="flow" marker-end="url(#arrow)"/>
-  <text x="378" y="964" text-anchor="middle" class="lab">はい</text>
-  <rect x="430" y="948" width="250" height="54" rx="14" fill="#dbe9f6"/>
-  <text x="555" y="982" text-anchor="middle" class="q" style="fill:#2f5f8a">起きています</text>
-
-  <line x1="332" y1="1071" x2="424" y2="1071" class="flow" marker-end="url(#arrow)"/>
-  <text x="378" y="1060" text-anchor="middle" class="lab">はい</text>
-  <rect x="430" y="1044" width="250" height="54" rx="14" fill="#d8f3ee"/>
-  <text x="555" y="1078" text-anchor="middle" class="q" style="fill:#1f7a6d">眠っています＋呼吸数</text>
-
-  <line x1="332" y1="1167" x2="424" y2="1167" class="flow" marker-end="url(#arrow)"/>
-  <text x="378" y="1156" text-anchor="middle" class="lab">まだ</text>
-  <rect x="430" y="1140" width="250" height="54" rx="14" fill="#fdf0d5"/>
-  <text x="555" y="1174" text-anchor="middle" class="q" style="fill:#a8701d">呼吸を確認中</text>
+  <!-- states -->
+  <rect x="80" y="1044" width="290" height="62" rx="14" fill="#d8f3ee"/>
+  <text x="225" y="1082" text-anchor="middle" class="q" style="fill:#1f7a6d">眠っています＋呼吸数</text>
+  <rect x="390" y="1044" width="290" height="62" rx="14" fill="#dbe9f6"/>
+  <text x="535" y="1082" text-anchor="middle" class="q" style="fill:#2f5f8a">起きています</text>
+  <rect x="80" y="1122" width="290" height="62" rx="14" fill="#fdf0d5"/>
+  <text x="225" y="1160" text-anchor="middle" class="q" style="fill:#a8701d">呼吸を確認中</text>
+  <rect x="390" y="1122" width="290" height="62" rx="14" fill="#fde2dc"/>
+  <text x="510" y="1160" text-anchor="middle" class="q" style="fill:#b5452b">ベッドにいません</text>
+  <rect x="614" y="1140" width="52" height="26" rx="13" fill="#e76f51"/>
+  <text x="640" y="1158" text-anchor="middle" class="lab" style="fill:#ffffff">通知</text>
 
   <!-- final alert -->
+  <line x1="225" y1="1186" x2="225" y2="1220" class="flow" marker-end="url(#arrow)"/>
+  <text x="237" y="1209" class="lab">止まったまま 10 秒</text>
   <rect x="80" y="1226" width="600" height="54" rx="14" fill="#e76f51"/>
   <text x="380" y="1260" text-anchor="middle" class="q" style="fill:#ffffff">呼吸が確認できません → 通知</text>
 
@@ -177,16 +164,21 @@
   <rect x="404" y="1462" width="34" height="42" rx="10" fill="#1f2a44"/>
   <rect x="409" y="1467" width="24" height="32" rx="6" fill="#e76f51"/>
   <text x="385" y="1566" text-anchor="middle" class="t">スマホ・Apple Watch</text>
-  <text x="385" y="1592" text-anchor="middle" class="s">緊急度つきで届く</text>
+  <text x="385" y="1592" text-anchor="middle" class="s">ボードからも Wi-Fi で届く</text>
 
   <!-- board LED -->
   <rect x="520" y="1440" width="120" height="76" rx="10" fill="#264653"/>
   <circle cx="580" cy="1478" r="34" fill="url(#glow)"/>
-  <circle cx="580" cy="1478" r="11" fill="#e63946"/>
+  <circle cx="580" cy="1478" r="11" fill="#ffffff"/>
   <circle cx="540" cy="1500" r="4" fill="#9fb3c8"/>
   <circle cx="620" cy="1458" r="4" fill="#9fb3c8"/>
+  <g fill="none" stroke="#2a9d8f" stroke-width="3" stroke-linecap="round">
+    <path d="M 501.6 1472.0 A 12 12 0 0 0 501.6 1484.0"/>
+    <path d="M 492.9 1467.0 A 22 22 0 0 0 492.9 1489.0"/>
+    <path d="M 484.3 1462.0 A 32 32 0 0 0 484.3 1494.0"/>
+  </g>
   <text x="580" y="1566" text-anchor="middle" class="t">ボードの LED</text>
-  <text x="580" y="1592" text-anchor="middle" class="s">赤く点滅</text>
+  <text x="580" y="1592" text-anchor="middle" class="s">点滅（SW1 で停止）</text>
 
   <!-- footer -->
   <text x="380" y="1690" text-anchor="middle" class="s">揺れや動きでは警告しません ・ ハッカソンの試作品で、医療機器ではありません</text>
