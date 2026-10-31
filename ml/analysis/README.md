@@ -66,9 +66,135 @@ all D rows in all three public samples exactly with `ml.features.read_csv` and
 check conversion against the live parser.
 
 E/Y/H/S and other nonempty message kinds are retained in `other_messages` with
-source line numbers, without payload validation or interpretation. No sequence
-quality analysis, model changes, alarms, visualization, Parquet, or reports are
-implemented here.
+source line numbers, without payload validation or interpretation. Quality
+diagnostics below count these message kinds without decoding them.
+
+## Capture quality diagnostics
+
+Use the standard-library-only diagnostics to check recording integrity without
+hardware. The API consumes the existing parser result and never repairs samples:
+
+```python
+from ml.analysis.protocol import read_capture
+from ml.analysis.quality import analyze_quality
+
+capture = read_capture("recordings/samples/breathing.sample.csv")
+report = analyze_quality(capture)
+print(report.to_dict())
+```
+
+From the repository root:
+
+```sh
+python -m ml.analysis.quality recordings/samples/breathing.sample.csv
+python -m ml.analysis.quality recordings/samples/breathing.sample.csv --json
+```
+
+The default summary prints descriptive metric labels; JSON uses the stable keys
+below, sorted deterministically, with unavailable values as `null`. Reports go
+to stdout only; no files are written. Empty files succeed with zero counts and
+unavailable timing metrics. Files without D (including E-only captures) also have
+unavailable timing metrics. Missing/unreadable files produce an error on stderr,
+no report on stdout, and exit status 2. Row issues remain in the capture and do
+not cause a nonzero CLI status; consumers should inspect the issue counts.
+
+Measured breathing sample JSON:
+
+```json
+{
+  "backward_sequence_events": 0,
+  "backward_timestamp_events": 0,
+  "bin_count_mismatch_frames": 0,
+  "duplicate_sequence_events": 0,
+  "estimated_missing_frames": 0,
+  "frames_without_configuration": 0,
+  "frames_without_usable_configuration": 0,
+  "issue_source_line_count": 0,
+  "long_interval_events": 0,
+  "long_interval_multiplier": 3.0,
+  "long_interval_threshold_ms": 180.0,
+  "parser_issue_count": 0,
+  "repeated_timestamp_events": 0,
+  "sequence_gap_events": 0,
+  "suspected_reset_events": 0,
+  "timing_reference_interval_count": 998,
+  "total_d_frames": 999,
+  "typical_sampling_interval_ms": 60.0,
+  "unparsed_message_kind_counts": {}
+}
+```
+
+All three public samples were measured, rather than assumed continuous:
+
+| Sample | D frames | Estimated missing | Seq gaps/duplicates/backward | Repeated/backward time | Typical interval | Long intervals |
+| --- | ---: | ---: | --- | --- | --- | ---: |
+| breathing | 999 | 0 | 0 / 0 / 0 | 0 / 0 | 60 ms | 0 |
+| hold | 1000 | 0 | 0 / 0 / 0 | 0 / 0 | 60 ms | 0 |
+| leave | 996 | 0 | 0 / 0 / 0 | 0 / 0 | 60 ms | 0 |
+
+Each has zero parser issues and zero frames without usable configuration. Their
+timing reference counts are 998, 999, and 995 respectively; each long-interval
+threshold is 180 ms. Their unparsed-message dictionaries are empty.
+
+### Metric definitions and JSON fields
+
+All adjacency metrics compare consecutive **parsed D frames in file order**,
+even if C, other messages, or malformed rows occur between them. Let `ds` and
+`dt` be current minus previous seq and t_ms. The first D has no predecessor.
+
+| JSON key | Definition |
+| --- | --- |
+| `total_d_frames` | All parsed D frames, including missing/mismatched configuration. |
+| `parser_issue_count` | Number of existing CaptureIssue entries; no re-parsing. |
+| `issue_source_line_count` | Distinct physical source line numbers across those entries. |
+| `estimated_missing_frames` | Sum of `ds - 1` where `ds > 1` and `dt >= 0`; an estimate, not reconstructed data. |
+| `sequence_gap_events` | Number of those positive sequence-gap pairs. |
+| `duplicate_sequence_events` | Pairs with `ds == 0`, regardless of timestamp or payload. Not a global repeated-ID count. |
+| `backward_sequence_events` | Pairs with `ds < 0`; never interpreted as huge positive gaps. |
+| `repeated_timestamp_events` | Pairs with `dt == 0`, regardless of seq. |
+| `backward_timestamp_events` | Pairs with `dt < 0`, regardless of seq. |
+| `suspected_reset_events` | Pairs with `ds < 0` OR `dt < 0`, counted once if both; not proof of a reboot. |
+| `timing_reference_interval_count` | Positive `dt` intervals with `ds == 1`. |
+| `typical_sampling_interval_ms` | Median of reference intervals if there are at least three; otherwise null. |
+| `long_interval_multiplier` | Fixed deterministic policy, 3.0. |
+| `long_interval_threshold_ms` | Typical interval times multiplier, otherwise null. |
+| `long_interval_events` | Forward seq/time pairs (`ds > 0`, `dt > 0`) whose raw dt strictly exceeds the threshold; null without a threshold. Sequence gaps may also be long intervals. |
+| `frames_without_configuration` | Frames with config None; no model defaults inferred. |
+| `bin_count_mismatch_frames` | Frames with config but I or Q count unequal to config.n. |
+| `frames_without_usable_configuration` | Union of missing config, invalid range/scale config, and bin mismatch. Valid config requires finite first_cm/step_mm/scale, first_cm >= 0, and step_mm/n/scale > 0. |
+| `unparsed_message_kind_counts` | Sorted mapping of OtherMessage kind to row count, including E/Y/H/S when present. These payloads are not validated. |
+
+These fields may overlap: a mismatched frame is both unusable and a parser issue,
+and a positive sequence gap may also be a long time gap. Do not sum these counts
+into a composite score. The parser already rejects invalid C messages; usability
+checks also protect captures assembled through the Python structures directly.
+
+### Interpretation and limitations
+
+**Parsing success** means a row fits the supported protocol. **Capture
+completeness** concerns sequence/time continuity of the observed D frames.
+**Signal quality** concerns the radar measurements themselves; this tool does
+not measure noise, motion, SNR, or physiological validity. **AI inference
+accuracy** requires labeled evaluation and cannot be inferred from this report.
+Zero integrity anomalies therefore do not establish signal quality or accuracy.
+
+Missing-frame estimates cannot detect loss before the first or after the last
+observed D. Malformed D rows may contribute both parser issues and inferred seq
+loss. Backward seq/time can reflect restarts, wraparound, or out-of-order rows;
+they are boundaries, and positive seq gaps across backward time are excluded.
+No wraparound or restart is automatically corrected. No duration or sampling
+rate is calculated across suspected resets. `t_ms` remains board uptime.
+
+The median policy requires three reference intervals but cannot prove stable
+cadence: predominantly slow intervals or mixed recording modes can bias it.
+Duplicate/backward pairs are excluded from timing, and seq-gap intervals never
+establish the baseline. A long interval can reflect missing rows or delayed
+output, not a diagnosed hardware fault. C association follows the parser's
+documented first-C backfill assumption. E-only captures have zero analyzed D,
+not a claim that no radar data was recorded.
+
+No filtering, interpolation, automatic repair, signal analysis, charts, model
+experiments, composite score, Parquet export, or HTML reports are provided.
 
 ## Validation
 
