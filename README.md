@@ -169,6 +169,31 @@ flowchart LR
 
 判断は学習済みの AI モデルです。パソコンでは TensorFlow Lite、ボードでは AI 用チップで動きます。くわしくは [ml/README.md](ml/README.md)、[pc/README.md](pc/README.md)、[firmware/README.md](firmware/README.md) に記載されています。
 
+**保存した録画のオフライン解析（開発用）**
+
+```mermaid
+flowchart TD
+  CSV["レーダー録画 CSV"] --> ING["ml.analysis.ingest"]
+  ING --> DATA["schema v1<br>データセット<br>manifest.json<br>frames.parquet<br>events.jsonl<br>quality.json"]
+  DATA --> REPORT["ml.analysis.report"]
+  DATA --> PROFILE["ml.analysis.signal_profile"]
+  REPORT --> HTML["単体 HTML 解析レポート"]
+  PROFILE --> JSON["記述統計 JSON<br>N・中央値<br>p95・RMS"]
+```
+
+保存済みの録画を使う開発用の解析で、ライブの見守りやアラームの経路では動きません。配備済みの CNN モデル、推論の判断、ファームウェア、通知・警告の動作は変更しません。信号プロファイルが示すのは観測された変動で、乳児の呼吸精度を検証した結果ではありません。手順と限界は [解析ガイド](ml/analysis/README.md)、表示例は [公開サンプルのレポートプレビュー](ml/analysis/previews/breathing-desktop.png) にあります。
+
+以下はリポジトリのルートから、オフライン解析用の環境で実行します。追加依存は [ml/analysis/requirements.txt](ml/analysis/requirements.txt) に分けています。
+
+```sh
+python -m pip install -r ml/analysis/requirements.txt
+python -m ml.analysis.ingest recordings/samples/breathing.sample.csv --out-dir analysis_runs/breathing --source-type repository_sample
+python -m ml.analysis.report analysis_runs/breathing --output analysis_runs/breathing_report.html --bin 9
+python -m ml.analysis.signal_profile analysis_runs/breathing --output analysis_runs/breathing_profile.json --bin 9
+```
+
+HTML と統計 JSON は同じ標準データセットを別々に読み取り、元の録画やデータセットを変更しません。生成先の `analysis_runs/` は Git の対象外です。生成データや非公開データはコミットしないでください。既存の出力は上書きせず、置き換える場合だけ各ツールの `--force` を指定します。
+
 ## 動かし方
 ボードを USB でつなぎ、Mac では `ibuki.command`、Windows 10/11 では `ibuki.cmd` をダブルクリックします。ターミナルからも起動できます。準備ができるとブラウザで LIVE 監視画面が自動的に開きます。
 
