@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 
 SCHEMA_VERSION = 1
 FORMAT_NAME = "ibuki.radar.capture"
+SOURCE_TYPES = ("repository_sample", "board_capture", "synthetic", "unknown")
 DATASET_FILES = ("manifest.json", "frames.parquet", "events.jsonl", "quality.json")
 INT64_MIN, INT64_MAX = -(2**63), 2**63 - 1
 

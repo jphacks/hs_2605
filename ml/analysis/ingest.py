@@ -13,7 +13,7 @@ import tempfile
 
 from .protocol import Capture, CaptureFrame, CaptureIssue, Data, parse_capture, parse_e_line
 from .quality import analyze_quality
-from .schema import (DATASET_FILES, FORMAT_NAME, INT64_MAX, INT64_MIN, SCHEMA_VERSION,
+from .schema import (DATASET_FILES, FORMAT_NAME, INT64_MAX, INT64_MIN, SCHEMA_VERSION, SOURCE_TYPES,
                      FrameRecord, frame_schema, require_arrow)
 
 
@@ -50,8 +50,8 @@ def build_capture_dataset(data: bytes, *, source_name: str, session_id: str | No
                           source_type: str = "unknown", scenario: str | None = None,
                           scenario_provenance: str | None = None):
     """Parse once using protocol; original line bytes accompany every event/diagnostic."""
-    if source_type not in ("unknown", "recorded", "synthetic", "replay"):
-        raise ValueError("source_type must be unknown, recorded, synthetic, or replay")
+    if source_type not in SOURCE_TYPES:
+        raise ValueError("source_type must be one of: " + ", ".join(SOURCE_TYPES))
     for name, value in (("source_name", source_name), ("session_id", session_id),
                         ("scenario", scenario), ("scenario_provenance", scenario_provenance)):
         if value is not None and (not isinstance(value, str) or not value.strip()):
@@ -268,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--session-id")
-    parser.add_argument("--source-type", choices=("unknown", "recorded", "synthetic", "replay"), default="unknown")
+    parser.add_argument("--source-type", choices=SOURCE_TYPES, default="unknown")
     parser.add_argument("--scenario")
     parser.add_argument("--scenario-provenance")
     args = parser.parse_args(argv)

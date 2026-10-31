@@ -81,12 +81,28 @@ Each output directory contains exactly:
 
 `schema_version` is `1` and `format` is `ibuki.radar.capture`. The default session
 ID is `sha256:<input hash>`; `--session-id` can supply an explicit identifier.
-`--source-type unknown|recorded|synthetic|replay` defaults to `unknown`.
+`--source-type repository_sample|board_capture|synthetic|unknown` defaults to
+`unknown`. Schema v1 follows the IBUKI 2.0 Development Design v0.2 taxonomy:
+
+| Source type | Meaning |
+| --- | --- |
+| `repository_sample` | Public sample recording included in this repository |
+| `board_capture` | Recording captured from physical radar hardware |
+| `synthetic` | Artificially generated or simulated data |
+| `unknown` | Source has not been verified or declared |
+
+The earlier PR implementation's `recorded` and `replay` values are rejected;
+there are no compatibility aliases or automatic normalization. `recorded` alone
+does not verify hardware origin, and replay is a playback mode that does not
+change the original data provenance. When replaying an existing recording,
+declare its verified original source type or leave it `unknown`.
+`source_type_provenance` remains `operator_declared` for the three known types
+and `unspecified` for `unknown`; a declaration is not independent verification.
 `--scenario` and `--scenario-provenance` record operator declarations; provenance
 without a scenario is rejected. For example:
 
 ```bash
-python -m ml.analysis.ingest recordings/samples/hold.sample.csv --out-dir analysis_runs/declared-hold --source-type recorded --scenario hold --scenario-provenance "operator supplied filename label; timing unverified"
+python -m ml.analysis.ingest recordings/samples/hold.sample.csv --out-dir analysis_runs/declared-hold --source-type repository_sample --scenario hold --scenario-provenance "operator supplied filename label; timing unverified"
 ```
 
 No scenario or source type is inferred from a filename. Scenario metadata always

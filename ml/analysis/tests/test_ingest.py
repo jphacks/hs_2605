@@ -188,7 +188,7 @@ class IngestTests(unittest.TestCase):
                 self.assertEqual((a/name).read_bytes(), (b/name).read_bytes())
             data = b"\xef\xbb\xbfS,0,hello\r\nD,1,100,10,20\r\nC,15,37.5,1,10\r\nY,2,empty,-\r\n"
             source.write_bytes(data)
-            settings = {"session_id": "declared-session", "source_type": "recorded", "scenario": "example",
+            settings = {"session_id": "declared-session", "source_type": "board_capture", "scenario": "example",
                         "scenario_provenance": "operator log, not truth"}
             ingest_recording(source, a, force=True, **settings)
             ingest_recording(source, b, force=True, **settings)
@@ -249,6 +249,48 @@ class IngestTests(unittest.TestCase):
             failed = subprocess.run(command+["--force"], capture_output=True, text=True)
             self.assertEqual(failed.returncode, 2)
             self.assertEqual(original, {name: (out/name).read_bytes() for name in DATASET_FILES})
+
+    def test_canonical_source_types_manifest_cli_and_determinism(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root/"hold.sample.csv"
+            source.write_bytes(b"D,1,0,1,2\nC,15,37.5,1,10\n")
+            for source_type in ("repository_sample", "board_capture", "synthetic", "unknown"):
+                with self.subTest(source_type=source_type):
+                    a, b = root/(source_type+"-a"), root/(source_type+"-b")
+                    ingest_recording(source, a, source_type=source_type)
+                    result = subprocess.run(
+                        [sys.executable, "-m", "ml.analysis.ingest", str(source),
+                         "--out-dir", str(b), "--source-type", source_type],
+                        capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    manifest = load(b)[0]
+                    self.assertEqual(manifest["source_type"], source_type)
+                    self.assertEqual(manifest["source_type_provenance"],
+                                     "unspecified" if source_type == "unknown" else "operator_declared")
+                    self.assertIsNone(manifest["scenario"]["name"])
+                    self.assertFalse(manifest["scenario"]["is_ground_truth"])
+                    for name in DATASET_FILES:
+                        self.assertEqual((a/name).read_bytes(), (b/name).read_bytes())
+
+    def test_invalid_source_types_rejected_without_aliases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, out = root/"capture.csv", root/"out"
+            source.write_bytes(b"D,1,0,1,2\n")
+            for source_type in ("recorded", "replay", "invalid", ""):
+                with self.subTest(source_type=source_type):
+                    with self.assertRaisesRegex(ValueError, "source_type must be one of: repository_sample, board_capture, synthetic, unknown"):
+                        ingest_recording(source, out, source_type=source_type)
+                    result = subprocess.run(
+                        [sys.executable, "-m", "ml.analysis.ingest", str(source),
+                         "--out-dir", str(out), "--source-type", source_type],
+                        capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("invalid choice", result.stderr)
+                    self.assertIn("repository_sample", result.stderr)
+                    self.assertIn("board_capture", result.stderr)
+                    self.assertFalse(out.exists())
 
     def test_invalid_paths_metadata_and_existing_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
