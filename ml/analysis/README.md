@@ -470,6 +470,200 @@ loss changes feature availability. Any new filter/feature must be validated on
 labeled recordings, rather than chosen from filenames or these three examples
 alone. This PR changes no models, live detection, alarms, firmware, or dashboard.
 
+## Offline denoising benchmark
+
+`ml.analysis.denoise` compares unchanged scaled complex I/Q with **causal**
+Butterworth low-pass and band-pass outputs. This is an offline experiment, not
+a recommended filter, classifier, or change to runtime/model inputs.
+
+```sh
+python -m ml.analysis.denoise --synthetic --sample-hz 20 --seed 7 --output synthetic20.png --json > synthetic20.json
+python -m ml.analysis.denoise --synthetic --sample-hz 10 --seed 7 --output synthetic10.png --json > synthetic10.json
+python -m ml.analysis.denoise recordings/samples/breathing.sample.csv --bin 9 --output breathing_filters.png --json > breathing_filters.json
+python -m ml.analysis.denoise recordings/samples/hold.sample.csv --bin 9 --output hold_filters.png --json > hold_filters.json
+python -m ml.analysis.denoise recordings/samples/leave.sample.csv --bin 9 --output leave_filters.png --json > leave_filters.json
+```
+
+`--output` is optional; without it no files are written. JSON goes to stdout;
+PNG success messages go to stderr with `--json`, preserving machine readability.
+Omitting `--json` prints descriptive metrics. Existing PNG paths require
+`--force`, supported output is `.png`, and parent directories must exist.
+PNG encoding happens in memory before exclusive output creation. Validation
+failures create no report and leave an existing report unchanged, even with
+force. Invalid arguments/input produce stderr and exit status 2.
+
+Configurable flags are `--order` (default 2, integer 1-12), `--lowpass-hz`
+(1.5), `--band-low-hz` (0.1), and `--band-high-hz` (1.5). Cutoffs must be finite,
+positive, correctly ordered, and strictly below measured Nyquist. These are
+**exploratory settings, not validated physiological thresholds**. The band-pass
+transformation has twice the transfer-function order specified by `--order`:
+default low-pass is order 2, default band-pass order 4. SciPy represents both
+using second-order sections (SOS).
+
+### Data domain, cadence, and state
+
+The selected bin uses `CaptureFrame.z()` and `Config.ranges_cm()` with no assumed
+scale/geometry. Default bin is 9 (48.75 cm in the public samples). The recording
+validator reuses visualization preparation and whole-capture quality diagnostics.
+It rejects empty/E-only captures, missing/mismatched/changing C, repeated/backward
+seq or time, **any parser issue**, seq gaps, and insufficient/irregular timing.
+Repeated identical C and the parser's documented late first-C association work.
+No gap is bridged, segmented implicitly, or interpolated.
+
+All timestamps are integer board uptime milliseconds. With at least eight samples,
+derive the mean interval from the first/last timestamps. As in PR #4, both largest
+per-interval and cumulative grid deviation must be <= `max(1 ms, 2% of mean
+interval)`. Reject before filtering if either fails. Cadence and deviations are
+reported, and the filter sample rate is derived from that measured interval.
+Admitted small quantization jitter is an explicit approximation, not resampling.
+
+Identical real SOS coefficients filter I and Q separately, implemented as one
+complex `sosfilt` call per mode. No magnitude or projected waveform is filtered.
+Baseline is an unchanged copy. State starts once, using `sosfilt_zi * first_z`,
+the equilibrium for a constant extension of the first observed complex sample.
+This is a documented assumption about pre-recording history; a noisy first sample
+can cause startup artifacts. Low-pass preserves constant input; band-pass removes
+DC. No `filtfilt`, future samples, phase alignment, delay compensation, or state
+reset at analysis-window boundaries is used. Filtering happens over the entire
+accepted recording before metrics or plots.
+
+The existing `project_iq` from PR #4 is reused only for descriptive projected RMS
+**after** filtering, independently per mode; that scalar is not a shared-axis
+reconstruction-error measurement. The unfiltered PR #4 temporal report is also
+included as `source.baseline_temporal`, along with whole-file quality. Existing
+parser, quality, visualization, signal, model, and runtime contracts are unchanged.
+
+### Seeded synthetic ground truth and metrics
+
+The 60-second test case uses actual quantized sample timestamps, clean unit-amplitude
+0.3 Hz sine motion along complex direction `exp(0.6j)`, and exact movement cessation
+at 40 s (a zero crossing). Observed I/Q adds 0.5-amplitude 0.03 Hz drift along
+`exp(1.2j)` and independent I/Q Gaussian noise, sigma 0.6 per component, seeded
+with NumPy `default_rng` (default seed 7). Drift/noise continue after cessation.
+Ground truth deliberately excludes both. Sample rate and seed are configurable;
+rates 10 and 20 Hz were measured, with 12.5 Hz additionally tested. Fixed noise
+variance per sample at different rates is not a matched continuous-noise model,
+so cross-rate differences do not establish a sampling-rate advantage.
+
+All modes use identical evaluation intervals. Metrics are not selected from a
+favorable post-hoc lag or from a spectral concentration score:
+
+| Metric | Definition |
+| --- | --- |
+| `snr_db` | `10*log10(mean(abs(clean)^2) / mean(abs(output-clean)^2))`, over 10 <= t < 40 s. This is reference/error SNR including drift, noise, attenuation and phase error, not isolated stochastic-noise power. Null for zero error/reference power instead of JSON infinity. |
+| `snr_improvement_db` | Mode SNR minus baseline SNR on that same interval. |
+| `reconstruction_rmse` | `sqrt(mean(abs(output-clean)^2))` on 10-40 s, with **no delay compensation**. |
+| `signal_attenuation_db` | Negative 20 log10 gain at the known 0.3 Hz motion; fit sine/cosine plus constant to the **noise-free filtered clean response** and clean reference over 10-40 s. Positive means attenuation; negative would mean gain. |
+| `phase_delay_sec` | Signed, wrapped fitted phase difference divided by `-2*pi*0.3`. A narrowband phase lead can be negative despite strict causality; this is not onset-detection latency. |
+| `group_delay_sec` | Theoretical `-d phase(H)/d angular_frequency` at 0.3 Hz, using SOS response at 0.3 +/- 0.0003 Hz. Not an event-detection latency. |
+| `post_cessation_residual_rms` | RMS of the noise-free clean-only filter response on 40 <= t < 45 s. Isolates memory/ringing from continuing injected noise and drift. |
+| `post_cessation_peak_abs` | Peak magnitude of that clean-only response over 40-45 s. |
+| `post_cessation_observed_rms` | RMS of the noisy/drifting output on 40-45 s; includes nuisance as well as memory. |
+| `settling_time_sec` | First sample after the last post-cessation clean-only magnitude > 0.01 (1% of unit motion). All remaining observed samples must stay below; null if not settled by recording end. No claim about unobserved future. |
+| `startup_rmse` | Noisy output versus clean RMS error over 0 <= t < 10 s; exposes the startup interval omitted from the main active-motion score. |
+
+The clean-only response used for attenuation and ringing has the same causal
+filter/initial-state rule as the noisy output. It is a separate ground-truth
+experiment, never substituted for observed output in the SNR calculation.
+
+Actual seed-7 measurements, order 2 / LP 1.5 Hz / BP 0.1-1.5 Hz:
+
+| Rate | Mode | Reference/error SNR dB | Improvement dB | RMSE | Motion attenuation dB | Phase delay s | Group delay s | Clean residual RMS | Settling s |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 Hz | baseline | -1.8847 | 0 | 0.87846 | 0 | 0 | 0 | 0 | 0 |
+| 10 Hz | lowpass | 1.4096 | 3.2943 | 0.60118 | 0.00514 | 0.14075 | 0.14467 | 0.03999 | 0.5 |
+| 10 Hz | bandpass | 3.1253 | 5.0100 | 0.49342 | 0.00319 | -0.11846 | 0.42659 | 0.19937 | 8.1 |
+| 20 Hz | baseline | -2.2684 | 0 | 0.91813 | 0 | 0 | 0 | 0 | 0 |
+| 20 Hz | lowpass | 1.9188 | 4.1871 | 0.56695 | 0.00646 | 0.14923 | 0.15306 | 0.03612 | 0.5 |
+| 20 Hz | bandpass | 5.8463 | 8.1147 | 0.36072 | 0.00262 | -0.11053 | 0.43465 | 0.19923 | 8.1 |
+
+Thus lower active-motion error can coexist with longer memory after movement
+stops. At 20 Hz the clean-only residual peaks are about 0.2774 (LP) and 0.4660
+(BP), versus 0 baseline. Startup RMSE is 0.9261/0.5390/0.4133 for baseline/LP/BP.
+These findings depend on this motion/drift/noise mix, seed, cessation phase, and
+chosen cutoffs. They do not pick a universally better filter.
+
+### Descriptive real-recording results
+
+The same parameters and bin 9 (48.75 cm) were used for all three recordings;
+sample rates were measured individually (about 16.641 Hz). All 999/1000/996 D
+frames respectively pass cadence/integrity/configuration checks. No filenames
+are used to label exact breathing/hold/cessation intervals. Truth-dependent metrics
+above are explicitly null for real recordings: no SNR improvement, attenuation,
+reconstruction accuracy, or cessation-ring time is inferred.
+
+| Sample | Mode | Whole-file complex variation RMS | RMS change from original I/Q | Power fraction above 1.5 Hz |
+| --- | --- | ---: | ---: | ---: |
+| breathing | baseline | 377.4619 | 0 | 0.31378 |
+| breathing | lowpass | 307.9223 | 330.2131 | 0.08104 |
+| breathing | bandpass | 285.5036 | 349.3846 | 0.08204 |
+| hold | baseline | 30.6705 | 0 | 0.02632 |
+| hold | lowpass | 29.8985 | 11.1492 | 0.00560 |
+| hold | bandpass | 11.3222 | 38.7146 | 0.04380 |
+| leave | baseline | 8.2581 | 0 | 0.65373 |
+| leave | lowpass | 6.1620 | 7.2533 | 0.15791 |
+| leave | bandpass | 5.3379 | 9.1808 | 0.16871 |
+
+Variation RMS is centered complex RMS over the entire output; change RMS is
+`sqrt(mean(abs(output-original)^2))` including DC/phase changes, **not** distortion
+against truth. `mean_i`/`mean_q` expose DC removal. The high-frequency fraction
+uses centered Hann one-sided I and Q PSDs summed together, DC excluded; numerator
+is bins above the configured LP cutoff, denominator all positive-frequency bins.
+For no measurable power the fraction is null. A fraction can increase after BP
+because its low-frequency denominator decreased (as in hold), so it is not a
+noise reduction score. Useful motion can also be removed. Fixed-bin comparisons
+have distance/reflector confounders and these three unlabeled captures cannot
+select a filter or establish improved apnea detection or AI/medical accuracy.
+
+### Reports, API, and future on-device implications
+
+The PNG uses Agg with no GUI: three side-by-side I/Q panels with common vertical
+limits, before/after centered I/Q spectra, and a metric table. Synthetic reports
+also include a known-cessation I-component zoom and clean-I overlay. The observed
+zoom still contains drift/noise; the table's clean-only residual explicitly
+isolates filter memory. All raw time coordinates are preserved. Plotted PSD is
+summed I/Q power, never a silently substituted magnitude/projection spectrum.
+
+```python
+from ml.analysis.protocol import read_capture
+from ml.analysis.denoise import FilterParameters, benchmark_capture, benchmark_synthetic, render_report
+
+settings = FilterParameters(order=2, lowpass_hz=1.5, band_low_hz=0.1, band_high_hz=1.5)
+experiment = benchmark_synthetic(sample_hz=20, seed=7, parameters=settings)
+real = benchmark_capture(read_capture("recordings/samples/hold.sample.csv"), 9, settings)
+metrics = experiment.to_dict()  # detached JSON-compatible dictionary
+render_report(experiment, "synthetic20.png")
+```
+
+`DenoisingComparison` retains observed elapsed times, mode arrays, optional clean
+truth, and the numeric report. Report keys include source/seed/selected distance,
+observed count, original first/last t_ms, cadence diagnostics, parameters, explicit
+signal-domain/initial-state descriptions, common evaluation intervals, and per-mode
+metrics. Baseline temporal/quality reports appear only for real captures. JSON
+has stable sorted keys and no generated date/time; NumPy/SciPy versions can affect
+floating-point or seeded-generator reproducibility across environments. PNG
+appearance can additionally depend on Matplotlib/fonts. Five actual CLI PNG/JSON
+reports were generated for review (10/20 Hz synthetic plus three samples) and
+kept outside tracked source; no large binary artifacts are committed.
+
+`ml/features.py` intentionally uses simple, stateless-window arithmetic for later
+on-device execution. Adding these IIR filters there would require continuous
+state per antenna/bin/I/Q channel, reconnect/reset handling, cadence validation,
+and a specified initialization policy. A direct-form SOS has two states and
+roughly five multiplies/four additions per real sample; filtering both I and Q
+doubles that arithmetic. Default LP uses one SOS and BP two, so each bin needs
+four/eight real state values respectively. These are structural operation/state
+counts, not measured runtime benchmarks. Float64 offline behavior does not
+validate embedded precision, memory, CPU cost, or quantization stability.
+
+Causal delay is frequency-dependent, and low cutoff state can keep oscillating
+after motion stops. This can matter to alarm timing and to CNN feature
+distributions. Any future adoption would need labeled evaluation, training/input
+consistency, state reset tests, and target-board cost/precision measurements.
+This PR makes none of those runtime/model changes and automatically selects no
+winning filter. Processing stays in memory and no interpolation, model training,
+classifier, medical judgment, 3D work, or live dashboard is added.
+
 ## Validation
 
 ```sh
