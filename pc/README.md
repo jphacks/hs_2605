@@ -324,6 +324,10 @@ The session asks for a name and saves to `recordings/<name>/`; three of us recor
 
 ### If something doesn't work
 
+For offline D/C parsing, raw integer I/Q, configuration association, and row-level
+errors, see the [radar capture parser guide](../ml/analysis/README.md). It works
+with the public recordings without connecting a board.
+
 `board_connected` is false: check the cable. If it's plugged in, another program probably has the port, so close the viewer or start it with `--server`.
 
 The log says "Brain ... FAILED to load": `pc/ibuki/brain.py` has an error. The message names it, and the server falls back to the placeholder.
