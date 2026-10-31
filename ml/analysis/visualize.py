@@ -74,7 +74,8 @@ def prepare_visualization(capture: Capture, bin_index: int = 0) -> Visualization
                              start, segments, quality)
 
 
-def build_figure(data: VisualizationData, title: str = "Radar capture"):
+def build_figure(data: VisualizationData, title: str = "Radar capture", *,
+                 include_summary: bool = True, frame_kind: str = "D"):
     """Build an Agg figure with discrete time columns, I/Q, and whole-file counts."""
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.collections import LineCollection
@@ -83,8 +84,9 @@ def build_figure(data: VisualizationData, title: str = "Radar capture"):
 
     figure = Figure(figsize=(13, 10), layout="constrained")
     FigureCanvasAgg(figure)
-    axes = figure.subplots(3, 1, gridspec_kw={"height_ratios": [3, 2, 1.8]})
-    heat, trace, summary = axes
+    axes = figure.subplots(3 if include_summary else 2, 1,
+                           gridspec_kw={"height_ratios": [3, 2, 1.8] if include_summary else [3, 2]})
+    heat, trace = axes[:2]
     half_step = data.config.step_mm / 20
     lower = data.distances_cm - half_step
     upper = data.distances_cm + half_step
@@ -119,9 +121,16 @@ def build_figure(data: VisualizationData, title: str = "Radar capture"):
     trace.set_title(f"Bin {k} at {data.distances_cm[k]:g} cm - raw scaled I/Q")
     trace.legend(loc="upper right")
     trace.grid(alpha=.2)
-    xlabel = f"Elapsed seconds from first plotted D (board t_ms = {data.start_t_ms}; not Unix time)"
+    xlabel = f"Elapsed seconds from first plotted {frame_kind} (board t_ms = {data.start_t_ms}; not Unix time)"
     heat.set_xlabel(xlabel)
     trace.set_xlabel(xlabel)
+    if include_summary:
+        _draw_summary(axes[2], data)
+    figure.suptitle(shorten(title, width=100, placeholder="..."), fontsize=15)
+    return figure
+
+
+def _draw_summary(summary, data):
     q = data.quality
     long = "unavailable" if q.long_interval_events is None else str(q.long_interval_events)
     threshold = "unavailable" if q.long_interval_threshold_ms is None else f"{q.long_interval_threshold_ms:g} ms"
@@ -140,8 +149,6 @@ def build_figure(data: VisualizationData, title: str = "Radar capture"):
         f"{len(data.trace_segments)} I/Q segment(s).\n"
         "Colors show signal variation, not breathing, displacement, or AI accuracy.")
     summary.text(0, .94, details, va="top", transform=summary.transAxes, fontsize=10, linespacing=1.65)
-    figure.suptitle(shorten(title, width=100, placeholder="..."), fontsize=15)
-    return figure
 
 
 def render_report(capture: Capture, output, bin_index: int = 0, *,
