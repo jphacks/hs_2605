@@ -206,14 +206,17 @@ flowchart LR
 #### API・データ
 * ntfy（スマートフォン（iPhone）への通知）
 * WebSocket（パソコンからダッシュボードへの配信）
+* オフラインのデータ形式：Apache Parquet（標準データセットのフレーム保存）、JSON / JSON Lines（manifest、イベント、品質診断、記述統計の出力）
+* オフラインデータの照合：SHA-256（入力・成果物の整合性確認と来歴の追跡。出所の真正性を保証するものではありません）
 
 #### フレームワーク・ライブラリ・モジュール
 * ファームウェア：ModusToolbox 3.9、Arm GNU Toolchain 14.2、CMSIS-DSP、XENSIV BGT60TRxx ドライバ
-* サーバーと Brain：Python、FastAPI、uvicorn、websockets、NumPy、SciPy、pyserial、python-dotenv、requests
+* サーバーと Brain：Python、FastAPI、uvicorn、websockets、NumPy（オフラインの信号・統計解析にも使用）、SciPy、pyserial、python-dotenv、requests
 * ダッシュボード：React、TypeScript、Vite、Recharts
 * AI：TensorFlow / Keras、TensorFlow Lite（LiteRT）、Arm Vela、ModusToolbox ML（mtb-ml）
 * ボードの Wi-Fi：FreeRTOS、lwIP、Mbed TLS、Infineon Wi-Fi Connection Manager、Enterprise Security（PEAP）、HTTP Client
-* テストと道具：unittest、Node.js のテストランナー、GitHub Actions、matplotlib、macOS の say
+* オフライン解析：PyArrow（Parquet 処理専用の追加依存。PC の本番実行・ファームウェアには追加しません）、Matplotlib（レーダーの可視化と HTML レポートへの図の埋め込み）
+* テストと道具：unittest、Node.js のテストランナー、GitHub Actions、macOS の say
 
 #### デバイス
 * Infineon PSOC Edge E84 AI Kit（XENSIV BGT60TR13C 60 GHz レーダー、Ethos-U55、CYW55513 Wi-Fi、SHT4x、BMI270）
@@ -244,6 +247,13 @@ flowchart LR
 * **ダッシュボードの新デザイン**：昼と夜のテーマ。[web/](web/)（[#77](https://github.com/jphacks/hs_2605/pull/77)）
 * **ダッシュボードの「ボードの様子」**：判定している AI、ボードの AI の判断、ボードの Wi-Fi、温度・湿度、ボードの状態を表示します。停止ボタンのペアリング、スマートフォンの画面の確認。[BoardPanel.tsx](web/src/BoardPanel.tsx)（[#94](https://github.com/jphacks/hs_2605/pull/94)、[#95](https://github.com/jphacks/hs_2605/pull/95)）
 * **Windows 対応**：`ibuki.cmd` とアラーム音。（[#66](https://github.com/jphacks/hs_2605/pull/66)）
+* **録画の読み取りと品質診断**：元の録画を変更せずに読み取り、シーケンスの欠落、ボード起動後の時刻、パース時の診断、欠測数の推定を確認できます。[protocol.py](ml/analysis/protocol.py)、[quality.py](ml/analysis/quality.py)（[#105](https://github.com/jphacks/hs_2605/pull/105)、[#106](https://github.com/jphacks/hs_2605/pull/106)）
+* **録画の可視化**：記録された時刻を使い、欠測を補間せずに距離・時間の変動ヒートマップと選んだ距離ビンの I/Q 波形を表示します。[visualize.py](ml/analysis/visualize.py)（[#107](https://github.com/jphacks/hs_2605/pull/107)）
+* **時系列診断とノイズ除去の比較実験**：変動・周期性、フィルターのノイズ低減と歪み、固定 CNN の入力・予測の変化を調べるオフラインの開発用ツールです。呼吸精度の向上、最適フィルター、臨床的な改善を実証したものではありません。[signal.py](ml/analysis/signal.py)、[denoise.py](ml/analysis/denoise.py)、[model_impact.py](ml/analysis/model_impact.py)（[#108](https://github.com/jphacks/hs_2605/pull/108)、[#109](https://github.com/jphacks/hs_2605/pull/109)、[#110](https://github.com/jphacks/hs_2605/pull/110)）
+* **ラベル付き CNN 評価の仕組み**：距離ビンごとの分類評価と、処理前後で正誤が変わる事例の比較を実装しました。ただし、確認した環境には独立した検証用 CSV/JSON ペアがなく、実データでのラベル付き分類精度やノイズ除去による改善は未測定です。[labeled_impact.py](ml/analysis/labeled_impact.py)（[#111](https://github.com/jphacks/hs_2605/pull/111)）
+* **録画の標準データセット化**：元の録画を変更せず、生の I/Q、`source_type` と来歴、入力・成果物の SHA-256 を保持する schema v1 を用意しました。`manifest.json`（構成・来歴）、`frames.parquet`（フレーム）、`events.jsonl`（イベント）、`quality.json`（品質診断）に分けて保存します。[ingest.py](ml/analysis/ingest.py)、[schema.py](ml/analysis/schema.py)（[#112](https://github.com/jphacks/hs_2605/pull/112)）
+* **単体 HTML 解析レポート**：成果物の整合性を検証し、品質診断、距離・時間のヒートマップ、選択ビンの I/Q、サンプリング時系列、イベントを確認できます。サーバー・CDN・インターネット接続なしで開けます。[report.py](ml/analysis/report.py)、[公開サンプルのプレビュー](ml/analysis/previews/breathing-desktop.png)（[#113](https://github.com/jphacks/hs_2605/pull/113)）
+* **観測信号の記述統計**：schema v1 の使用可能な距離ビンごとに、サンプル数、変動の大きさの中央値・p95・RMS を計算します。リセット、時刻・シーケンスの異常、欠測、設定の変化を区切り、来歴・処理対象範囲・ハッシュ・解析不可の理由を含む再現可能な JSON を出力します。公開の breathing・hold・leave 録画で処理を確認しましたが、ファイル名は正解ラベルではありません。分類器や呼吸検出器ではなく、SNR 改善や医療性能の検証でもありません。[signal_profile.py](ml/analysis/signal_profile.py)、[解析ガイド](ml/analysis/README.md)（[#114](https://github.com/jphacks/hs_2605/pull/114)）
 
 ## English summary
 息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Trained models (two small CNNs, 8-bit) make the decisions, in the app with TensorFlow Lite and on the board's own AI chip (Ethos-U55); the board can also send the alert itself over Wi-Fi, without the laptop. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 20 minutes of an adult working beside the board gave no false "no breathing" alert.
