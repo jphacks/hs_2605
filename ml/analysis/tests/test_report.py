@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -256,6 +257,30 @@ class ReportTests(unittest.TestCase):
         result = subprocess.run([sys.executable, '-m', 'ml.analysis.report', str(self.source), '--output', str(self.output)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
         self.assertIn('dataset directory', result.stderr)
+
+    def test_invalid_event_base64_after_rehash_api_and_cli(self):
+        events_path = self.dataset/'events.jsonl'
+        events = [json.loads(line) for line in events_path.read_text().splitlines()]
+        for invalid in ('%%%%', 'AA=', '\u03c0'):
+            with self.subTest(invalid=invalid):
+                events[0]['raw_bytes_base64'] = invalid
+                events_path.write_text(''.join(json.dumps(event)+'\n' for event in events))
+                rehash(self.dataset, 'events.jsonl')
+                message = 'events.jsonl source line 1 has invalid Base64 in raw_bytes_base64'
+                with patch('ml.analysis.report.require_arrow', side_effect=AssertionError('Native I/O must not start')):
+                    with self.assertRaisesRegex(ValueError, message) as caught:
+                        load_dataset(self.dataset)
+                self.assertIs(type(caught.exception), ValueError)
+                with self.assertRaisesRegex(ValueError, message):
+                    render_report(self.dataset, self.output)
+                result = subprocess.run(
+                    [sys.executable, '-m', 'ml.analysis.report', str(self.dataset),
+                     '--output', str(self.output)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertNotIn('Traceback', result.stderr)
+                self.assertEqual(result.stdout, '')
+                self.assertFalse(self.output.exists())
 
     def test_nonfinite_json_duplicate_keys_and_quality_event_mismatch(self):
         original = (self.dataset/'quality.json').read_bytes()

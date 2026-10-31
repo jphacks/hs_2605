@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from bisect import bisect_right
 from dataclasses import dataclass, fields
 import hashlib
@@ -108,6 +109,24 @@ def load_dataset(directory: str | Path) -> ReportDataset:
                  and _number(config.get("first_cm")) and _number(config.get("step_mm"), positive=True)
                  and _integer(config.get("n"), 1) and _number(config.get("scale"), positive=True), "invalid observed C configuration")
         previous = config["source_line"]
+    # Reject malformed event bytes before starting native Parquet I/O, so this
+    # error path exits through the CLI's ordinary ValueError handling only.
+    events = [_json(line, f"events.jsonl line {k}") for k, line in enumerate(content["events.jsonl"].splitlines(), 1)]
+    for event in events:
+        _require(isinstance(event, dict) and type(event.get("schema_version")) is int
+                 and event["schema_version"] == SCHEMA_VERSION and event.get("session_id") == session["id"]
+                 and _integer(event.get("source_line"), 1) and event["source_line"] <= counts["source_lines"], "invalid event identity/source line")
+        _require(all(isinstance(event.get(k), str) for k in ("event_type", "origin", "raw", "raw_bytes_base64"))
+                 and isinstance(event.get("detail"), dict), "invalid event fields")
+        _require(event["origin"] in ("recorded_message", "explicit_board_status", "inferred_from_frames", "ingestion_diagnostic"), "unknown event origin")
+        try:
+            raw = base64.b64decode(event["raw_bytes_base64"], validate=True).decode(
+                "utf-8-sig" if event["source_line"] == 1 else "utf-8", errors="replace")
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError(f"Invalid canonical dataset: events.jsonl source line {event['source_line']} "
+                             "has invalid Base64 in raw_bytes_base64") from exc
+        _require(raw == event["raw"] and event.get("message_type") == (raw.strip().split(",", 1)[0].strip() or None), "event raw payload mismatch")
+        _require((event["event_type"] == "radar_restart_status") == (event["origin"] == "explicit_board_status"), "explicit restart event origin mismatch")
     pa, pq = require_arrow()
     try:
         table = pq.read_table(pa.BufferReader(content["frames.parquet"]))
@@ -146,21 +165,6 @@ def load_dataset(directory: str | Path) -> ReportDataset:
         _require(row["wire_encoding"] == ("decimal_integer_pairs" if kind == "D" else "base64_int16_le")
                  and row["value_divisor"] == ((cfg["scale"] if cfg else None) if kind == "D" else 1)
                  and row["scaled_values_available"] is (kind == "E" or status == "known"), "frame unit/scale semantics mismatch")
-    events = [_json(line, f"events.jsonl line {k}") for k, line in enumerate(content["events.jsonl"].splitlines(), 1)]
-    for event in events:
-        _require(isinstance(event, dict) and type(event.get("schema_version")) is int
-                 and event["schema_version"] == SCHEMA_VERSION and event.get("session_id") == session["id"]
-                 and _integer(event.get("source_line"), 1) and event["source_line"] <= counts["source_lines"], "invalid event identity/source line")
-        _require(all(isinstance(event.get(k), str) for k in ("event_type", "origin", "raw", "raw_bytes_base64"))
-                 and isinstance(event.get("detail"), dict), "invalid event fields")
-        _require(event["origin"] in ("recorded_message", "explicit_board_status", "inferred_from_frames", "ingestion_diagnostic"), "unknown event origin")
-        try:
-            raw = base64.b64decode(event["raw_bytes_base64"], validate=True).decode(
-                "utf-8-sig" if event["source_line"] == 1 else "utf-8", errors="replace")
-        except ValueError as exc:
-            raise ValueError("Invalid canonical dataset: invalid event raw bytes") from exc
-        _require(raw == event["raw"] and event.get("message_type") == (raw.strip().split(",", 1)[0].strip() or None), "event raw payload mismatch")
-        _require((event["event_type"] == "radar_restart_status") == (event["origin"] == "explicit_board_status"), "explicit restart event origin mismatch")
     quality = _json(content["quality.json"], "quality.json")
     _require(isinstance(quality, dict) and type(quality.get("schema_version")) is int
              and quality["schema_version"] == SCHEMA_VERSION, "invalid quality schema")
