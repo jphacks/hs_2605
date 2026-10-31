@@ -301,6 +301,175 @@ breathing, respiratory rate, chest displacement, medical status, or AI accuracy.
 No filtering, automatic noise removal, classification, live dashboard, 3D,
 three-antenna direction plotting, Parquet, or HTML report is implemented.
 
+## Temporal signal diagnostics
+
+`ml.analysis.signal` explores variation and spectral structure before choosing
+filters or engineering new features. It reuses the parser and whole-file
+`analyze_quality` report and requires only the existing NumPy/SciPy packages.
+
+```sh
+python -m ml.analysis.signal recordings/samples/breathing.sample.csv --bin 9 --window-sec 12 --hop-sec 3 --json
+python -m ml.analysis.signal recordings/samples/hold.sample.csv --bin 9 --window-sec 12 --hop-sec 3 --json
+python -m ml.analysis.signal recordings/samples/leave.sample.csv --bin 9 --window-sec 12 --hop-sec 3 --json
+```
+
+Without `--json`, the CLI prints a compact per-window summary. JSON is sorted,
+deterministic for the same input/environment, and contains no generated wall-clock
+time. Output goes only to stdout, never to automatically created files. Missing
+input, invalid bin/window/hop, and unsupported captures produce stderr and exit
+status 2. Empty/E-only files, absent/mismatched/changing C, nonfinite values,
+duplicate/backward seq, repeated/backward time and suspected restarts are rejected.
+Positive sequence gaps and irregular positive timestamps remain analyzable, with
+explicitly unavailable spectral results in affected windows.
+
+```python
+from ml.analysis.protocol import read_capture
+from ml.analysis.signal import analyze_signal
+
+report = analyze_signal(read_capture("recordings/samples/breathing.sample.csv"),
+                        bin_index=9, window_sec=12, hop_sec=3)
+results = report.to_dict()
+```
+
+### Windows and signal definition
+
+Window starts are anchored to the first parsed D's **board uptime**, every hop
+through the last observed D: `[start_t_ms, start_t_ms + window_ms)`. Right-boundary
+samples belong to the next window, not the previous one. Positive window/hop
+lengths must resolve to whole milliseconds. Overlap is permitted; overlapping
+windows are not independent observations. No resampling or samples are invented.
+Windows falling in a gap can contain zero samples. Tail windows are retained:
+`complete_window` means the requested end is at or before the capture's last
+observed timestamp, not a promise that all expected samples exist. Partial
+windows can have RMS but never spectral peaks. The last start may coincide with
+the last D, producing a one-sample window. Requested start/end and observed
+first/last timestamps are separate fields; all are uptime, not Unix time.
+
+The 12-second default relates to `ml.features.WINDOW = 200`, approximately 12 s
+at the board's nominal cadence. The existing model uses a fixed **sample count**;
+these diagnostics use actual elapsed time. They are not interchangeable after
+loss or variable cadence. No model constants are used as a sampling rate.
+
+For the selected bin, scaled complex values are `CaptureFrame.z()[bin_index]`.
+With `c = z - mean(z)`, define:
+
+- `rms_variation = sqrt(mean(abs(c)**2))`, in scaled radar units.
+- Project onto `axis = angle(sum(c**2))/2`, using
+  `wave = real(c * exp(-1j*axis))`, then
+  `projected_rms = sqrt(mean(wave**2))` in the same units.
+
+This is the same single-bin projection as `ml.features.window_features`, verified
+against its actual model feature output. Here it is used without neighbor
+normalization, paired-sample decimation, or logarithmic transforms. Its sign is
+arbitrary and is not calibrated displacement. Constant inputs explicitly produce
+zero variation/projection. Fewer than two samples gives null RMS. Means and RMS
+are unweighted over observed samples, not time-weighted estimates; gaps and
+irregular timing therefore change which observations contribute.
+
+### Conservative spectral policy
+
+The projected real signal is examined only when all these conditions hold:
+
+- At least eight observed samples and a complete requested window.
+- Consecutive selected seq values (delta exactly one).
+- No parser issue source line between the first and last selected D.
+- Positive, approximately uniform observed time spacing.
+- First/last selected samples within 1.5 measured intervals of the requested
+  boundaries, to avoid analyzing an apparently full window with uncovered edges.
+
+The measured interval is `(last_t_ms - first_t_ms) / (N-1)`. Both the largest
+interval deviation from this mean **and** the largest deviation from the implied
+uniform grid must be at most `max(1 ms, 0.02 * measured_interval_ms)`. This policy
+admits small millisecond quantization jitter but rejects larger irregularity and
+accumulated timing drift. Thresholds, measured interval, and deviation magnitudes
+are exposed. Timestamp validation happens before spectral calculation. Admitted
+jitter is an approximation, not proof of exact uniform sampling.
+
+For eligible nonconstant windows, SciPy's Hann `periodogram` uses
+`fs = 1000 / measured_interval_ms`, no additional detrending, no zero padding,
+and spectrum scaling. The projected wave is amplitude-normalized only for numeric
+stability; this does not change peak location or power ratios. DC is excluded.
+
+- `dominant_frequency_hz` is the largest remaining periodogram bin, over the
+  entire positive range through Nyquist; there is no respiratory band assumption.
+- `spectral_resolution_hz = fs / N`; the reported peak lies on this discrete grid.
+- `spectral_concentration` is power in the peak bin and its immediate available
+  neighbors (radius one), divided by all positive-frequency power. It is in
+  [0, 1], is affected by Hann leakage and window length, and is not a calibrated
+  probability, significance test, or composite quality score.
+
+No filtering, interpolation, denoising, or peak-to-respiratory-rate conversion
+is performed. Even very weak nonconstant input can have a dominant bin. Trends
+can dominate the lowest nonzero bin. A short record or broad peak does not
+establish periodicity merely because a maximum exists.
+
+### JSON fields and unavailable values
+
+Top-level fields are `bin_index`, `distance_cm`, effective `window_sec` and
+`hop_sec`, `spectral_policy` (minimum sample count, jitter tolerances, Hann/DC/
+concentration policy), existing whole-capture `quality`, and ordered `windows`.
+Each window contains:
+
+| Fields | Meaning |
+| --- | --- |
+| `window_start_t_ms`, `window_end_t_ms` | Requested half-open interval in board uptime milliseconds. |
+| `observed_start_t_ms`, `observed_end_t_ms` | First/last included D uptime; null if empty. |
+| `observed_samples`, `complete_window` | Observed count and temporal-boundary coverage as defined above. |
+| `rms_variation`, `projected_rms` | Complex-centered and projected RMS; null with fewer than two samples. |
+| `sampling_interval_ms` | Mean observed spacing; measurable even when FFT is rejected, so not necessarily the underlying cadence. |
+| `interval_tolerance_ms` | Effective spacing/grid tolerance. |
+| `max_interval_deviation_ms`, `max_grid_deviation_ms` | Measured timing deviations, null with fewer than two samples. |
+| `spectral_status` | Explicit eligibility/result reason below. |
+| `spectral_resolution_hz`, `dominant_frequency_hz`, `spectral_concentration` | Available spectral outputs; otherwise null. |
+
+Status checks run in order: `insufficient_samples`, `partial_window`,
+`sequence_gap`, `parser_issues`, `irregular_timing`, `incomplete_coverage`, then
+`constant_signal` or `available`. A window can have multiple problems; its status
+names the first applicable reason. Existing quality metrics still describe the
+entire file, not just a selected window. Captures are loaded in memory and windows
+are emitted at every hop, including gaps; use sensible hop sizes for long files.
+
+### Measured public-sample comparison
+
+The following actual measurements use **bin 9 (48.75 cm)**, 12-second windows,
+and 3-second hop. RMS is complex-centered, in scaled radar units. Times in this
+table are seconds from the first D, not asserted breath-hold/leave event labels.
+
+| Sample | Median RMS over complete windows | 0-12 s RMS | 24-36 s RMS | 45-57 s RMS |
+| --- | ---: | ---: | ---: | ---: |
+| breathing | 371.7680 | 287.9260 | 375.2042 | 395.4441 |
+| hold | 15.0202 | 19.8027 | 9.6672 | 13.7083 |
+| leave | 4.6580 | 9.0779 | 0.9515 | 0.9862 |
+
+For those same windows (peak Hz / spectral concentration):
+
+| Sample | 0-12 s | 24-36 s | 45-57 s |
+| --- | --- | --- | --- |
+| breathing | 0.0832 / 0.2005 | 0.4992 / 0.3125 | 0.6656 / 0.5927 |
+| hold | 0.0832 / 0.3953 | 0.2496 / 0.6174 | 0.3328 / 0.2548 |
+| leave | 0.1664 / 0.5054 | 3.9936 / 0.0717 | 6.3233 / 0.0858 |
+
+For example, breathing's first requested window is `[774777, 786777)` ms,
+contains 200 samples through 786735 ms, has projected RMS 214.5069, measured
+interval 60.09045 ms, and frequency resolution about 0.08321 Hz. There are 16/17/16
+spectrally eligible complete windows in breathing/hold/leave. Breathing and leave
+each have four tail partial windows. Hold has three partial windows and a final
+one-sample window (insufficient samples), because its last D is just beyond 60 s.
+
+The hold file still varies; its name supplies no exact hold interval. The selected
+distance bin is also a confounder: different recordings can have their strongest
+reflector at different ranges. These measurements do not demonstrate that the
+features classify breathing or apnea. In leave, later selected windows have lower
+variation and more diffuse spectral power despite a numerical peak at higher
+frequencies; a peak alone must not be treated as a physiological rate.
+
+These findings can guide later work: compare multiple bins and labeled intervals,
+inspect low-frequency drift before selecting detrending/filter policies, evaluate
+short-window frequency resolution and peak concentration, and measure how timing
+loss changes feature availability. Any new filter/feature must be validated on
+labeled recordings, rather than chosen from filenames or these three examples
+alone. This PR changes no models, live detection, alarms, firmware, or dashboard.
+
 ## Validation
 
 ```sh
