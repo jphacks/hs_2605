@@ -95,3 +95,34 @@ def analyze_quality(capture: Capture) -> QualityReport:
         bin_count_mismatch_frames=mismatches,
         unparsed_message_kind_counts=dict(sorted(Counter(
             message.kind for _, message in capture.other_messages).items())))
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Print a report to stdout; input errors go to stderr with exit status 2."""
+    import argparse
+    import json
+    from .protocol import read_capture
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", help="raw radar recording path")
+    parser.add_argument("--json", action="store_true", help="emit deterministic JSON")
+    args = parser.parse_args(argv)
+    try:
+        report = analyze_quality(read_capture(args.path))
+    except OSError as exc:
+        parser.exit(2, f"error: cannot read {args.path!r}: {exc}\n")
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True, allow_nan=False))
+    else:
+        print("Radar capture integrity (t_ms is board uptime, not Unix time)")
+        if report.total_d_frames == 0:
+            print("No parsed D frames; timing metrics are unavailable.")
+        for name, value in report.to_dict().items():
+            print(f"{name.replace('_', ' ')}: {'unavailable' if value is None else value}")
+        print("Missing frames are sequence-derived estimates; no data is repaired.")
+        print("Capture integrity does not establish signal quality or AI accuracy.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
