@@ -664,6 +664,182 @@ This PR makes none of those runtime/model changes and automatically selects no
 winning filter. Processing stays in memory and no interpolation, model training,
 classifier, medical judgment, 3D work, or live dashboard is added.
 
+## CNN sensitivity to denoising
+
+`ml.analysis.model_impact` measures **feature drift** and **prediction drift**
+when the same exported 1D `breath_slot` CNN sees original, causal low-pass, and
+causal band-pass I/Q. It does not train, replace, or modify the model. Here
+"sensitivity" means response to an input perturbation, not the labeled
+classification statistic. No LiteRT, TensorFlow, GPU, or radar is required.
+
+```sh
+python -m ml.analysis.model_impact recordings/samples/breathing.sample.csv --bin 9 --json
+python -m ml.analysis.model_impact recordings/samples/hold.sample.csv --bin 9 --hop 8 --max-windows 12 --json
+python -m ml.analysis.model_impact recordings/samples/leave.sample.csv --bin 9 --output leave_model_impact.png --json > leave_model_impact.json
+```
+
+Without `--json`, a descriptive summary is printed. PNG output is optional,
+headless, and never created automatically. JSON goes to stdout; a PNG success
+message goes to stderr in JSON mode. Existing PNGs require `--force`. Invalid
+capture/options, missing input/model artifacts, and output errors produce stderr
+and status 2. Validation failures create no PNG. Parent directories must exist.
+
+### Model input compatibility and continuous filtering
+
+The analysis reuses parser/quality validation and PR #5 cadence checks, rejecting
+malformed rows, seq gaps, resets, repeated/backward time, irregular timing, and
+missing/mismatched/changing configuration. In addition, it requires the trained
+model's `C,15,37.5,24,10` configuration. The range grid is derived from existing
+`ml.features` constants/`slot_cm`; scale 10 is required because training/live D
+readers divide by `SCALE=10`. Accepting another scale while claiming equivalence
+to those readers would be misleading. At least `WINDOW=200` observed D samples
+are required. No interpolation or geometry conversion is performed.
+
+`CaptureFrame.z()` supplies scaled complex I/Q. For **all 24 bins**, PR #5's
+`filter_iq` is applied once over the entire accepted recording with identical
+settings and measured sample rate. State is initialized once per bin/mode using
+the first-sample steady-state rule, never at individual CNN windows. Default
+settings remain order 2, LP 1.5 Hz, BP 0.1-1.5 Hz; matching `--order`,
+`--lowpass-hz`, `--band-low-hz`, and `--band-high-hz` flags are supported.
+
+The unchanged `ml.features.window_features()` produces each condition's tensor:
+24 bins x 100 steps x 15 interleaved channels from the same 200 sample indices.
+This preserves mean subtraction/projection, five-bin neighborhood normalization,
+level/amount transforms, edge padding and paired-sample averaging. Tests compare
+baseline arrays/features exactly with `ml.features.read_csv()` plus the existing
+feature function, verify all-bin filtering, and distinguish continuous filtering
+from an incorrectly reset late window. No alternate feature definition is used.
+
+`--bin` selects only the displayed curve and per-bin summary (default 9, 48.75 cm).
+It **does not restrict filtering or inference**: all 24 bins, including neighboring
+context bins, remain in every evaluated window. The existing 1D model is loaded
+explicitly via `ml.runtime.Model("breath_slot")`, not `ml.runtime.load`, so the
+same full-precision NumPy weights are used for all three conditions even when
+LiteRT is installed. Results are not asserted identical to live int8 inference.
+No 2D state model, alarm logic, or complete live pipeline is reproduced.
+
+### Bounded, aligned evaluation policy
+
+`--hop` is a positive integer **sample count**, default 8, matching the existing
+feature-window hop and live 1D evaluation schedule. Candidate ends are exclusive
+indices `200, 200+hop, ... <= observed_D_count`. For each end, the interval is
+`[end-200, end)`, with actual source line numbers and first/last included uptime
+recorded. `evaluation_t_ms` is the last included D's board uptime, not Unix time.
+
+`--max-windows` is a positive cap, default 12. For M candidates choose
+K = min(M, max_windows) ranks, with rank j = floor(j*(M-1)/(K-1)). K > 1 includes
+first and last candidates; K=1 selects the first. No randomness or resampling is
+used. Selection is shared by all conditions. Increasing the cap to at least M
+evaluates every candidate window; this remains overlapping-window inference,
+not independently labeled trials. Reports explicitly include M, K, hop, the
+selected indices, 24 evaluated bins, and K*24 predictions **per condition**.
+Filtering the complete recording does not mean all candidate windows were inferred.
+
+The default cap bounds feature/inference tensors to 12 x 24 x 100 x 15 per
+condition; complete raw/filtered arrays are still held in memory. The first
+evaluated feature window includes causal-filter startup effects; no warm-up is
+silently discarded. Choosing another hop/cap/bin or filter setting can change
+the summaries. Deterministic spread sampling is a cost policy, not proof that
+the subset represents every rare event in a recording.
+
+### Metrics and report fields
+
+All differences compare a condition against the **unfiltered** tensor/predictions
+at identical windows/bins; baseline differences and flips are zero by definition.
+
+- Feature metrics are the mean and 95th percentile of elementwise absolute
+  differences, plus element counts. They are also split by the existing channel
+  families (`wave = channels 0::3`, `level = 1::3`, `amount = 2::3`). Counts include
+  all five neighborhood channels and padded edge context, not just the central
+  bin's scalar. All-bin and selected-bin summaries are separate. Differences
+  preserve the model's numeric channel scales and do not measure correctness.
+- Prediction metrics are mean and 95th percentile absolute probability
+  difference, mean probability, positive counts, flip counts/percent, and up/down
+  flips. The convention is `p >= 0.5`, matching the existing `ml/train.py`
+  threshold. A flip is disagreement with the unfiltered decision, not a corrected
+  prediction. Percent = 100*flips/(evaluated windows*bins); selected-bin percent
+  instead uses evaluated-window count. P95 is an elementwise percentile, not a
+  confidence interval. A few large changes can make MAE exceed P95.
+
+JSON top-level keys are `model`, `parameters`, `selected_bin`, `recording`,
+`evaluation`, `feature_drift`, `prediction_drift`, `windows`, and `limitations`.
+`model` names the runtime/export representation and SHA-256 of the exact JSON/NPZ
+artifact bytes loaded. `--model-dir` can select an exported artifact directory;
+the default is the committed `ml/data/models`, and missing/malformed artifacts
+fail explicitly. Changing directories does not switch models between conditions.
+JSON-layer artifact hashes can reflect checkout newline conversions; binary
+weight hashes identify the evaluated weights. Recording quality/cadence and
+explicit candidate coverage remain separate from feature/prediction drift.
+
+Every window records start/exclusive-end sample indices, source line bounds,
+actual `start_t_ms` and `evaluation_t_ms`, all 24 probabilities for each condition,
+and the selected-bin probabilities. No generated wall-clock metadata appears.
+The optional PNG plots selected-bin probabilities against actual evaluation
+times on a fixed 0-1 scale; marker-connecting lines are visual guides, not inferred
+intermediate outputs. It includes both selected/all-bin metrics and coverage.
+Near-zero/one probabilities can overlap visually; JSON retains full precision.
+
+```python
+from ml.analysis.protocol import read_capture
+from ml.analysis.model_impact import analyze_model_impact, prepare_features
+
+capture = read_capture("recordings/samples/breathing.sample.csv")
+report = analyze_model_impact(capture, bin_index=9, hop_samples=8, max_windows=12)
+# prepare_features exposes aligned feature tensors/whole-recording filtered I/Q
+# for numeric inspection, without running or changing the model.
+```
+
+### Actual public-sample results
+
+The following use committed NumPy `breath_slot` weights (NPZ SHA-256
+`4b51fb3ce7fffa14a113a6f39a313e07e726f474e83d5a3b53b05949e6d643fc`), defaults
+above, and selected bin 9. Breathing/hold/leave contain 999/1000/996 D frames and
+100/101/100 candidate windows. **Only 12 windows per file** were evaluated: 288
+probabilities per condition over all bins, not a complete candidate-window run.
+Each all-bin feature comparison covers 432,000 elements (144,000 per family).
+
+All-bin feature drift relative to original (absolute difference):
+
+| Recording | Filter | MAE | P95 | Wave MAE | Level MAE | Amount MAE |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| breathing | LP | 0.195707 | 0.731095 | 0.327054 | 0.204529 | 0.055537 |
+| breathing | BP | 0.221193 | 0.817426 | 0.369776 | 0.229315 | 0.064488 |
+| hold | LP | 0.146832 | 0.570779 | 0.237273 | 0.163254 | 0.039970 |
+| hold | BP | 0.251597 | 0.940362 | 0.429227 | 0.253910 | 0.071654 |
+| leave | LP | 0.231263 | 0.907098 | 0.448751 | 0.207716 | 0.037322 |
+| leave | BP | 0.295926 | 1.128229 | 0.570841 | 0.264282 | 0.052655 |
+
+All-bin prediction drift (288 predictions per row):
+
+| Recording | Filter | Probability MAE | P95 | Flips | Percent | Up / down |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| breathing | LP | 0.013206 | 0.061805 | 3 | 1.0417% | 2 / 1 |
+| breathing | BP | 0.020405 | 0.125248 | 6 | 2.0833% | 4 / 2 |
+| hold | LP | 0.015606 | 0.047268 | 4 | 1.3889% | 2 / 2 |
+| hold | BP | 0.035632 | 0.146148 | 11 | 3.8194% | 9 / 2 |
+| leave | LP | 0.010538 | 0.003546 | 3 | 1.0417% | 1 / 2 |
+| leave | BP | 0.010343 | 0.003372 | 3 | 1.0417% | 2 / 1 |
+
+Selected bin 9 (12 predictions per condition) has zero threshold flips in every
+file, but nonzero probability drift. Its mean probabilities are:
+
+| Recording | Original | LP | BP |
+| --- | ---: | ---: | ---: |
+| breathing | 0.999843 | 0.999478 | 0.999803 |
+| hold | 0.002065 | 0.001703 | 0.001433 |
+| leave | 0.000123 | 0.000062 | 0.000093 |
+
+These near-zero/one values explain visually overlapping selected-bin curves;
+they do not establish calibration, robustness, or correctness across other bins.
+The filenames supply no complete per-window labels, and fixed-bin comparisons
+also have reflector/distance confounders. Feature drift, prediction drift and
+labeled accuracy are different quantities. No accuracy, precision, recall,
+classification sensitivity/specificity, corrected predictions, improved apnea
+detection, or best filter is claimed. A future labeled evaluation must decide
+whether the observed feature/probability/threshold changes help or harm detection.
+No retraining, weight changes, live model inference changes, alarm logic, firmware,
+training pipeline, or React dashboard change is included.
+
 ## Validation
 
 ```sh
