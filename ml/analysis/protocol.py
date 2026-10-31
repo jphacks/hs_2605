@@ -45,6 +45,41 @@ Message = Config | Data | OtherMessage
 
 
 @dataclass(frozen=True)
+class AntennaData:
+    """E wire integers already in value units, indexed [antenna][nearest-first bin]."""
+    seq: int
+    t_ms: int
+    i: tuple[tuple[int, ...], ...]
+    q: tuple[tuple[int, ...], ...]
+
+
+def parse_e_line(line: str) -> AntennaData:
+    """Strict optional E decoder; existing parse_line/parse_capture behavior is unchanged.
+
+    Exactly 3 antennas x 24 bins x I/Q, signed int16 little-endian, no C.scale.
+    """
+    import base64
+    import struct
+
+    p = [part.strip() for part in line.strip().split(",")]
+    if len(p) != 4 or p[0] != "E":
+        raise ValueError("E requires seq, t_ms and one base64 payload")
+    seq, t_ms = _integer(p[1], "seq"), _integer(p[2], "t_ms")
+    if seq < 0 or t_ms < 0:
+        raise ValueError("seq and t_ms must be nonnegative")
+    try:
+        payload = base64.b64decode(p[3], validate=True)
+    except ValueError as exc:
+        raise ValueError("E payload is not valid base64") from exc
+    if len(payload) != 3 * 24 * 2 * 2:
+        raise ValueError("E payload must contain 288 bytes (3 antennas x 24 bins x int16 I/Q)")
+    values = struct.unpack("<144h", payload)
+    i = tuple(tuple(values[a*48 + k*2] for k in range(24)) for a in range(3))
+    q = tuple(tuple(values[a*48 + k*2 + 1] for k in range(24)) for a in range(3))
+    return AntennaData(seq, t_ms, i, q)
+
+
+@dataclass(frozen=True)
 class CaptureIssue:
     line_number: int
     reason: str
