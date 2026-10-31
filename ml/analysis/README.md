@@ -366,6 +366,164 @@ filtering using evidence. This report does not train a classifier, change runtim
 models/alarms/firmware/web, or establish apnea/alarm performance, medical-device
 validity or infant safety.
 
+## Descriptive signal profiling (Sprint 2)
+
+Profile a verified schema-v1 dataset without reading its original CSV or any
+validation labels/model artifacts:
+
+```bash
+python -m ml.analysis.signal_profile analysis_runs/breathing --output analysis_runs/breathing_profile.json
+# Optional zero-based bin selection; repeat --bin (default: all bins per block):
+python -m ml.analysis.signal_profile analysis_runs/breathing --output analysis_runs/breathing_bin9_profile.json --bin 9
+```
+
+Use the offline requirements/environment described above. No additional
+dependencies are introduced. The module reuses `report.load_dataset` for all
+canonical file/hash/schema validation and `report.prepare_blocks` for D/E
+scaling and homogeneous blocks. It never imports the labeled evaluator or
+reimplements the CNN's wave/level/amount features. It does not run models,
+filtering, threshold tuning or training.
+
+The shared canonical loader reads its single Parquet buffer synchronously and
+closes the reader before later validation errors can terminate a CLI. Hash and
+schema validation, raw values and existing report APIs remain unchanged.
+
+### Analysis units and formulas
+
+Each analysis block is a continuous `VisualizationData.trace_segments` slice
+inside a homogeneous report block. Resets, repeated/backward sequence or board
+time, explicit S restart status and D/E/configuration transitions separate parent
+blocks. Sequence gaps, long intervals and intervening malformed-row diagnostics
+separate trace segments using the existing visualization policy. The mean is
+recomputed for each continuous analysis block; no statistic combines segments
+across a gap. This differs deliberately from the HTML heatmap's parent-block
+mean when that parent has multiple traces.
+
+For N actual observed samples of distance bin k, let:
+
+```text
+z[j,k] = scaled complex I/Q from the existing block adapter
+mu[k]  = sum(z[j,k], j=0..N-1) / N
+v[j,k] = abs(z[j,k] - mu[k])
+sample_count = N
+median_variation_magnitude = median(v[:,k])
+p95_variation_magnitude    = linear empirical 0.95 quantile of v[:,k]
+rms_variation_magnitude    = sqrt(sum(v[j,k]^2, j=0..N-1) / N)
+```
+
+The shared `visualize.variation_magnitude` computes v for both tools. For p95,
+sort the N magnitudes, let h=(N-1)*0.95, and interpolate between sorted positions
+floor(h) and ceil(h). That is interpolation of an empirical **quantile**, not
+interpolation of missing radar measurements. To avoid overflow when squaring,
+statistics are calculated after division by each bin's maximum magnitude, then
+multiplied by that maximum. All-zero magnitudes return zero. This numerical
+rescaling does not normalize the output signal or change the stated formulas.
+
+All magnitude statistics are in **scaled radar value units**, not millimeters,
+power, SNR or calibrated motion. D integers use observed C.scale; E int16 values
+are already scaled and use divisor 1. Only antenna 0 is profiled for both types;
+other E antennas remain in the source artifact and their count is recorded.
+Geometry is taken only from compatible observed C settings, including the
+ingestion policy that first-valid-C backfills initial frames. No distances or
+scales are invented. Single-sample variation is zero by construction; it does
+not establish stillness or absence of breathing.
+
+Samples have equal weight, not elapsed-time weight. Positive irregular intervals
+can remain within a segment if the shared gap policy does not split them. No
+sampling rate is assumed; timestamps remain board uptime milliseconds, never
+Unix time. There is no sample filling, interpolation, resampling, FFT or cadence
+correction.
+
+### Output, coverage and provenance
+
+The JSON has its own `format: ibuki.radar.signal_profile` and `profile_version: 1`;
+the canonical dataset schema remains unchanged. It includes session/source and
+scenario provenance, original filename/input SHA-256, all observed C settings,
+verified artifact hashes from the manifest (frames/events/quality), dataset
+writer information, NumPy version, and the authoritative complete quality
+summary. These hashes establish consistency, not authenticity; no original CSV
+is rehashed or used as a fallback.
+
+`blocks` retain parent/trace IDs, source lines, sequence/uptime endpoints,
+selected/recorded antenna counts, geometry and scale semantics. Frame row
+indices are zero-based, with `frame_row_end_exclusive` exclusive; source lines
+are original 1-based physical lines. Every exported frame belongs to exactly
+one available or unavailable block. `coverage.analyzed_frames` plus
+`coverage.unavailable_frames` equals the exported frame count. Malformed rows
+that ingestion could not export remain visible in the copied quality diagnostics.
+
+Missing/incompatible geometry or non-finite prepared values produce
+`status: unavailable`, an explicit reason and `bin_statistics: null`; they are
+not turned into zero-valued statistics. Empty datasets have no blocks and an
+explicit reason. `--bin` accepts distinct nonnegative integers and rejects bins
+outside any usable parent block; omit it to accommodate changing bin counts.
+Upper range cannot be verified for unavailable geometry, and no statistics are
+invented there. Bin selection affects columns, not which observed frames are
+counted within a usable block.
+
+Output must be a separate `.json` outside the canonical directory. Existing
+output requires `--force`; symlink output is rejected, and forced writes stage
+and replace the file rather than writing through a hard link. The output parent
+must exist. Source artifacts/recordings are never modified. JSON uses stable
+key/bin/block order, finite numbers and no wall-clock timestamp or output path;
+identical artifacts/settings/environment produce byte-identical output.
+Keep all generated profiles in ignored `analysis_runs/`.
+
+### Public-sample observations — descriptive only
+
+Actual commands used the repository-sample canonical artifacts generated during
+the Sprint 1 workflow, with all 24 bins profiled:
+
+```bash
+python -m ml.analysis.signal_profile analysis_runs/sprint1-final/breathing --output analysis_runs/sprint1-final/breathing_profile.json
+python -m ml.analysis.signal_profile analysis_runs/sprint1-final/hold --output analysis_runs/sprint1-final/hold_profile.json
+python -m ml.analysis.signal_profile analysis_runs/sprint1-final/leave --output analysis_runs/sprint1-final/leave_profile.json
+```
+
+Each sample produced one analysis block, zero unavailable frames and zero row
+diagnostics. A consistent example, bin 9 at 48.75 cm, yielded these values
+(rounded to three decimals, scaled radar value units):
+
+| File label only | Observed samples | Median | p95 | RMS |
+| --- | ---: | ---: | ---: | ---: |
+| breathing | 999 | 311.593 | 662.516 | 377.462 |
+| hold | 1,000 | 27.762 | 47.347 | 30.670 |
+| leave | 996 | 2.735 | 14.653 | 8.258 |
+
+These describe observed variation in that bin across each entire recording.
+The same distance need not contain the same target in different recordings.
+File labels do not establish breath-hold intervals, subject state, ground truth,
+noise levels or an optimal bin/filter. No classification accuracy, synthetic
+accuracy, SNR improvement, model performance, medical validation or safety claim
+follows from this table. No condition ranking or threshold is selected.
+
+Tests use small unlabeled wire fixtures with analytically known statistics and
+all three public samples. They cover formulas, constants/singletons, gaps,
+resets/repeated time, irregular cadence, D/E transitions and scale, missing or
+mismatched C, invalid bins/timestamps, hash rejection, complete coverage,
+unchanged input bytes/mtime, CLI behavior and deterministic output:
+
+```bash
+python -m unittest ml.analysis.tests.test_signal_profile -v
+python -m unittest discover -s ml/analysis/tests -t . -v
+python -m unittest discover -s pc/tests -t pc -v
+```
+
+Further descriptive investigations can compare explicitly selected time ranges
+or verify recording provenance. Filtering proposals, labels and model evaluation
+remain separate work; this PR leaves the labeled evaluator from PR #111 intact.
+
+Executed locally with Python 3.11.5 / PyArrow 24.0.0: profiling tests 14 passed,
+full analysis 125 passed, web tests 69 passed and web build passed (existing
+bundle-size warning). The PC suite initially had 71 passes and one failure:
+`tests.test_server.ServerTest.test_alert_turns_led_on_and_survives_ntfy_failure`
+at `pc/tests/test_server.py:110`, missing the one-shot
+`{"type":"alert","reason":"no_breath","since_s":10}` WebSocket message while
+ALERT status messages were present. Its isolated rerun passed (1 test, 16.535 s):
+`python -m unittest tests.test_server.ServerTest.test_alert_turns_led_on_and_survives_ntfy_failure -v`
+from `pc/`. PC code/tests were unchanged. Full remote PC/web regression results
+are recorded in the PR, including any retry evidence.
+
 ## Relationship to existing readers
 
 `pc/ibuki/serial_reader.py` remains the live transport/parser: it silently ignores
