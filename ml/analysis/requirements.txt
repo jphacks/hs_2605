@@ -1,0 +1,2 @@
+# Optional offline canonical-ingestion dependency. Not part of the PC runtime.
+pyarrow>=18,<25
