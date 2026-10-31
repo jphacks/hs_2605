@@ -54,6 +54,177 @@ A D/C bin-count mismatch is reported while retaining the D frame's raw integers;
 `z()` refuses conversion. Inspect `capture.issues` before downstream analysis.
 The reader loads the capture in memory to associate late configuration.
 
+## Canonical ingestion (schema v1)
+
+Install Parquet support **only in the offline analysis environment**; it is not
+added to the production PC requirements:
+
+```bash
+python -m pip install -r ml/analysis/requirements.txt
+python -m ml.analysis.ingest recordings/samples/breathing.sample.csv --out-dir analysis_runs/breathing
+python -m ml.analysis.ingest recordings/samples/hold.sample.csv --out-dir analysis_runs/hold
+python -m ml.analysis.ingest recordings/samples/leave.sample.csv --out-dir analysis_runs/leave
+```
+
+The input is read without modification. `analysis_runs/` is ignored by Git;
+keep private/generated datasets there and do not force-add them. No HTML report,
+filtering, resampling, model evaluation or runtime change is performed.
+
+Each output directory contains exactly:
+
+| Artifact | Contents |
+| --- | --- |
+| `manifest.json` | Schema/format, session ID, input basename/byte count/SHA-256, declared provenance, observed configurations with source lines, counts, writer settings and artifact SHA-256 hashes |
+| `frames.parquet` | Typed D/E frames in original source order, including raw integer arrays and configuration associations |
+| `events.jsonl` | One JSON object per configuration, recorded non-frame message, malformed-row diagnostic or inferred anomaly |
+| `quality.json` | Row diagnostics, unchanged legacy D quality, combined exported D/E quality and separate explicit/inferred status counts |
+
+`schema_version` is `1` and `format` is `ibuki.radar.capture`. The default session
+ID is `sha256:<input hash>`; `--session-id` can supply an explicit identifier.
+`--source-type repository_sample|board_capture|synthetic|unknown` defaults to
+`unknown`. Schema v1 follows the IBUKI 2.0 Development Design v0.2 taxonomy:
+
+| Source type | Meaning |
+| --- | --- |
+| `repository_sample` | Public sample recording included in this repository |
+| `board_capture` | Recording captured from physical radar hardware |
+| `synthetic` | Artificially generated or simulated data |
+| `unknown` | Source has not been verified or declared |
+
+The earlier PR implementation's `recorded` and `replay` values are rejected;
+there are no compatibility aliases or automatic normalization. `recorded` alone
+does not verify hardware origin, and replay is a playback mode that does not
+change the original data provenance. When replaying an existing recording,
+declare its verified original source type or leave it `unknown`.
+`source_type_provenance` remains `operator_declared` for the three known types
+and `unspecified` for `unknown`; a declaration is not independent verification.
+`--scenario` and `--scenario-provenance` record operator declarations; provenance
+without a scenario is rejected. For example:
+
+```bash
+python -m ml.analysis.ingest recordings/samples/hold.sample.csv --out-dir analysis_runs/declared-hold --source-type repository_sample --scenario hold --scenario-provenance "operator supplied filename label; timing unverified"
+```
+
+No scenario or source type is inferred from a filename. Scenario metadata always
+has `is_ground_truth: false`; neither a filename nor a recorded Y message
+establishes medical truth, labeled breath-hold intervals or sensor accuracy.
+The input hash identifies the actual bytes, including encoding and line endings.
+No acquisition time, subject identity or dataset origin absent from the recording
+is invented. Repeated observed C configurations are retained in the manifest and
+events rather than collapsed.
+
+### Frame columns and units
+
+| Columns | Arrow types / meaning |
+| --- | --- |
+| `schema_version`, `session_id` | Non-null int16 and string |
+| `source_line`, `message_type` | Non-null int64, string; physical source line (1-based), D or E |
+| `seq`, `board_uptime_ms` | Non-null int64; original sequence and milliseconds since board boot, **not Unix time** |
+| `antenna_count`, `bin_count` | Non-null int8, int32; actual frame dimensions |
+| `raw_i`, `raw_q` | Non-null nested lists of int64, indexed `[antenna][nearest-first bin]`; no float conversion |
+| `wire_encoding` | Non-null string: `decimal_integer_pairs` (D) or `base64_int16_le` (E) |
+| `value_divisor` | Nullable float64; observed C.scale for D, exactly 1 for E |
+| `scaled_values_available` | Non-null bool; whether value conversion is supported |
+| `configuration_status` | Non-null string: `known`, `missing_config` or `bin_mismatch` |
+| `config_source_line`, `config_bin_count` | Nullable int64; associated C row and declared bin count |
+| `first_cm`, `step_mm`, `config_scale` | Nullable float64; original observed C parameters |
+
+D stores one antenna. For a usable D configuration, form complex values as
+`raw_i / value_divisor + 1j * raw_q / value_divisor`. This matches
+`CaptureFrame.z()` and the public samples' existing `ml.features.read_csv`
+interpretation (within floating point rounding). Without C, D raw integers are
+retained, the divisor/geometry are null and conversion is unavailable. A bin
+mismatch retains the observed parameters and frame but marks conversion
+unavailable; consumers must check `scaled_values_available`.
+
+E strictly requires a base64 payload of 288 bytes: three antennas, 24 bins each,
+interleaved I/Q, little-endian signed int16. Wire offsets are
+`2 * (antenna * 48 + bin * 2 + component)` bytes, where component 0 is I and 1 is
+Q. Values are stored exactly as int64 and are **already in value units**: form
+`raw_i + 1j * raw_q`, never divide by C.scale. This agrees with
+`ml.antennas.read_e` and `ml.features.read_csv` (the latter keeps antenna 0).
+E values remain usable without C, but geometry remains null. No physical
+displacement calibration is implied by these value units.
+
+Both frame types use the existing configuration policy: the first valid C also
+backfills preceding frames, then later valid C applies forward. This assumes the
+first observed settings applied before they arrived; it cannot verify that
+history. `config_source_line` makes this assumption visible. Range geometry is
+`first_cm + bin * step_mm / 10`, only when configuration is present and compatible.
+Malformed C does not replace valid C. The additive `protocol.parse_e_line` decoder
+leaves the existing D/C `parse_line`/`parse_capture` interfaces unchanged.
+
+### Events, diagnostics and quality
+
+Events carry schema/session IDs, `source_line`, `message_type`, `event_type`,
+`origin`, `raw`, `raw_bytes_base64` and a `detail` object. Y/H/S/B and unknown
+nonempty messages retain their full payload without interpretation. C events
+also contain decoded configuration. `raw` preserves whitespace (excluding the
+line terminator); `raw_bytes_base64` preserves original row bytes, including an
+initial BOM or invalid UTF-8. Invalid UTF-8 is replaced in the readable text only.
+
+Malformed D/C/E, invalid base64, blank rows and bin mismatches appear in both
+events and `quality.json` with source lines/reasons. Frames outside the schema's
+int64/int32 bounds cannot be exported; their raw rows remain as `schema_range`
+diagnostics, with no clipping. Empty files yield a typed empty Parquet table,
+empty events and zero counts.
+
+`S,<time>,radar restart...` status messages have
+`event_type: radar_restart_status` and `origin: explicit_board_status`. These
+report the board's message, without proving restart completion. Sequence/time
+gaps, duplicates, backwards values and long intervals have
+`origin: inferred_from_frames` and separate event types. They are integrity
+observations and are never relabeled as explicit restart messages.
+
+`quality.d_quality` is exactly the existing parser/quality result for D; it
+continues to list E as uninterpreted. `quality.frame_quality` reuses the same
+quality calculation over exported D and E frames together in source order, with
+`total_frames` and `reported_issue_count`. E antenna 0 is used only for the
+existing bin/config checks; all three antennas remain in Parquet. For mixed
+D/E streams these two views can legitimately report different sequence gaps.
+Combined quality assumes both message types share a sequence/time domain; no
+repair, sorting by time, interpolation or inferred sample insertion occurs.
+
+### Reproducibility and safe output
+
+Identical source bytes/name, metadata settings and writer environment produce
+byte-identical artifacts; tests compare all four files. JSON keys and events
+have stable ordering, UTF-8/LF output and no NaN/Infinity or wall-clock timestamps.
+There are no absolute input/output paths in the manifest. Parquet uses fixed
+writer options (2.6, uncompressed, no dictionary, 4,096 rows/group, data page 1.0)
+and records the actual PyArrow version. Cross-version byte identity is not
+promised; preserve the writer version when reproducing hashes.
+
+An existing output is rejected unless `--force` is supplied. Even with force,
+replacement only accepts an empty directory or a complete managed v1 bundle;
+unrelated files, symlinks and outputs containing the original input are rejected.
+The complete bundle is staged before directory replacement, with rollback if
+the final rename fails. Use one writer per output directory; replacement is not
+a cross-process transaction. Parsing/export currently holds a recording in
+memory. Missing PyArrow, invalid input paths and unsafe output paths exit with a
+clear error; malformed rows instead produce an auditable successful dataset.
+
+Observed public-sample conversions with PyArrow 24.0.0:
+
+| Input | Frames (D) | Configuration events | Diagnostics |
+| --- | ---: | ---: | ---: |
+| `breathing.sample.csv` | 999 | 12 | 0 |
+| `hold.sample.csv` | 1,000 | 12 | 0 |
+| `leave.sample.csv` | 996 | 12 | 0 |
+
+These counts describe file conversion, not physiological performance. E behavior
+is verified with small synthetic wire fixtures because these samples contain D.
+Run ingestion and existing analysis tests after installing offline requirements:
+
+```bash
+python -m unittest discover -s ml/analysis/tests -t . -v
+python -m unittest discover -s pc/tests -t pc -v
+```
+
+Future work can consume this versioned dataset for an offline HTML report;
+that report and changes to training, runtime models, alarms or firmware are
+outside this conversion PR.
+
 ## Relationship to existing readers
 
 `pc/ibuki/serial_reader.py` remains the live transport/parser: it silently ignores
