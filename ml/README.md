@@ -99,6 +99,11 @@ IBUKI_SIREN=0 ./ibuki.command --replay ml/data/synth/alone/<ファイル名>.csv
 
 # ml: baby breathing data and the AI model
 
+For offline per-slot CNN accuracy comparisons under denoising, see the
+[labeled evaluation guide](analysis/README.md#labeled-per-slot-denoising-evaluation).
+It uses the committed NumPy model and optional existing CSV/JSON session pairs;
+these slot metrics are separate from the state-model/alarm results below.
+
 We can't record a baby that stops breathing. So this folder combines **real babies' breathing timing** with **real recordings of our room made by our board** to build baby-like data. On that data it trains two small AI models and compares them with the current Brain under the same conditions:
 
 1. **Breathing model**: for each distance, "is something breathing here right now?" (from 12 s of echo movement)

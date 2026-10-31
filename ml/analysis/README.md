@@ -840,6 +840,204 @@ whether the observed feature/probability/threshold changes help or harm detectio
 No retraining, weight changes, live model inference changes, alarm logic, firmware,
 training pipeline, or React dashboard change is included.
 
+## Labeled per-slot denoising evaluation
+
+`ml.analysis.labeled_impact` extends the sensitivity study to **labeled** examples
+from existing synthetic-session CSV + matching JSON truth files. It evaluates the
+same fixed NumPy `breath_slot` weights, feature function, threshold 0.5, filters,
+and labeled examples in all conditions. No training, tuning loop, download, dataset
+generation, runtime/Brain change, or automatic filter selection is performed.
+
+### Data availability and exact commands
+
+The default exploratory split is **val**, in `ml/data/val/<kind>/*.csv` with a
+same-stem `.json` beside every CSV. `--data-root` names the directory containing
+`val/` and/or `test/`, not the split directory itself. Existing `ml.synth` sessions
+use this layout. Discovery follows `ml.train.examples`: sorted `split/*/*.csv`.
+
+```sh
+python -m ml.analysis.labeled_impact --split val --json
+python -m ml.analysis.labeled_impact --data-root /path/to/existing/ml-data --split val --hop 8 --max-windows 12 --seed 5 --json
+python -m ml.analysis.labeled_impact --split val --output val_confusion.png --json > val_labeled_impact.json
+```
+
+At implementation time, this checkout contained the committed model artifacts
+but **no val or test session pairs**. The actual command
+`python -m ml.analysis.labeled_impact --split val --json` exited 2 with
+`No labeled sessions found ... Supply existing val/<kind>/*.csv and matching
+.json truth files ...`. **No real dataset accuracy, precision, recall, F1, error
+counts or filter improvement was measured.** Unit-test fixtures verify behavior;
+their artificial labels/scores are not reported as research results.
+
+To evaluate, supply already-existing session pairs and their truth. See
+[the ML data setup](../README.md#how-to-run) for the historical split/generation
+recipe. That recipe requires locally available breath annotations and authorized
+base recordings; this evaluator never obtains them or calls `ml.air400`/`ml.synth`
+automatically. Missing/empty splits fail with actionable instructions, never fall
+back to public filenames, invent labels, or switch to another split. Missing
+matching JSON or invalid selected sessions abort instead of silently dropping
+failures from the denominator. Keep datasets/private recordings and reports with
+private provenance local; none are committed by this workflow.
+
+### Label policy and alignment
+
+The evaluator imports `BREATHING_WITHIN_S`, `STOPPED_FOR_S`, `FAR_SLOTS`,
+`PARENT_BODY_SLOTS`, `FAR_PER_WINDOW`, and `slot_of()` directly from `ml.train`.
+Importing these definitions does not invoke TensorFlow or training. Labels are:
+
+| Slot | Inclusion/label |
+| --- | --- |
+| Baby center, since_breath_s < 5 | Positive: `baby_breathing`. |
+| Baby center, since_breath_s >= 8 | Negative: `baby_stopped`. |
+| Baby center, 5 <= since_breath_s < 8 | Exclude as ambiguous, including exactly 5 s. Exactly 8 s is stopped. |
+| Baby center with null/NaN age | Exclude as unlabeled. Existing synth truth can contain NaN before the first breath. |
+| Parent center, parent present and truth.base does not contain `rec_hold` | Positive: `parent`, as assumed by the existing training labeler. |
+| Parent center in `rec_hold` source | Exclude, not label as stopped: parent's stop timing is unknown. |
+| Far slots | Negative: at least 3 bin indices from baby AND at least 4 from parent if present. |
+| Other slots near actors | Exclude as ambiguous/unlabeled spatial context. |
+
+As in training, only two eligible far slots per window are sampled without
+replacement (or fewer if unavailable), using one seeded NumPy generator across
+sorted selected sessions/windows, default seed 5. The choice is made **once**
+before any inference and shared by baseline/LP/BP. Unchosen eligible far slots
+are explicitly counted as `far_not_sampled`. A held parent's location still
+excludes surrounding slots from far sampling; missing parent labels do not make
+that region negative. The source `base` field, not the session CSV name, controls
+the existing `rec_hold` rule. The policy assumes genuine `ml.synth`-format source
+semantics; arbitrary user metadata is not independently verified.
+
+One conservative addition to legacy labeling excludes a shared baby/parent center
+as `overlapping_centers` rather than assigning duplicate/conflicting labels to
+one bin. Tests verify exact legacy feature/label/group equivalence on a fixture
+without this ambiguity. Other exclusion reasons distinguish transition age,
+unknown age, parent hold, spatial ambiguity and far subsampling. Per selected
+window, labeled examples plus excluded slots account for all 24 bins.
+
+Truth requires `base`, finite baby/optional-parent distances, `since_breath_s`,
+and `t_ms`. Both arrays must match the number of parsed D frames; every truth
+timestamp must exactly equal the corresponding D uptime. There is no nearest-time
+matching, truncation, or interpolation. Invalid negative/infinite ages or out-of-bin
+actor distances fail explicitly. Null/NaN ages are allowed only as unlabeled ages;
+output JSON remains strict and never contains NaN.
+
+For feature window `[start_index, end_index_exclusive)`, labels use
+**`since_breath_s[end_index_exclusive - 1]`**, aligned with the last D and its
+actual timestamp. This matches `ml.features.windows`, which yields the inclusive
+last index. No majority/mean label across the 200-sample window is substituted.
+The report records both indices and `label_t_ms` so the alignment is auditable.
+
+### Paired inference and coverage
+
+Existing `prepare_features` validates the trained `C,15,37.5,24,10` geometry,
+continuity, parser issues, and cadence. All 24 bins are filtered over the full
+accepted session once with continuous first-sample steady-state causal state;
+no analysis-window resets or new preprocessing definitions are introduced.
+Existing `window_features()` creates identical aligned model tensors. Only the
+shared labeled rows are passed to the same loaded `ml.runtime.Model` instance
+under all three conditions. No label selection depends on model predictions.
+
+Default hop is 8 samples and cap is 12 windows per session, with PR #6's evenly
+spread deterministic candidate selection. `--hop` and `--max-windows` change
+validation exploration; `--max-sessions` optionally chooses an explicitly reported
+sorted prefix of validation sessions. With all windows selected, the far sampling
+order matches the training labeler for ordinary, non-overlapping actor centers.
+With a window cap, skipped windows do not consume RNG draws: changing coverage
+or session order can change subsequent far choices. Seeds and manifests are
+reported; a bounded subset must not be described as whole-recording accuracy.
+
+Each session reports observed frames, candidate/evaluated windows, 24 filtered
+and feature-context bins, actually scored bin indices, labeled example counts,
+exclusions and quality/cadence. Every labeled example has a stable session/frame/
+bin ID, group, truth label, actual label timestamp and all three probabilities.
+Session CSV/truth SHA-256, declared subject/kind/base/origin, model artifact hashes,
+parameters, threshold, label rules, seed and a protocol hash identify the run.
+Dataset origin is synthetic-session labels plus declared source metadata, not a
+claim that provenance/held-out independence was verified.
+
+### Classification metrics and paired correctness changes
+
+Per-session and micro-pooled aggregate metrics are reported for each condition,
+both overall and separately for `baby_breathing`, `baby_stopped`, `parent`, `far`.
+All use `p >= 0.5`. Confusion matrix rows are true `[0,1]`, columns predicted
+`[0,1]`: **`[[TN, FP], [FN, TP]]`**. Counts include sample/positive/negative totals.
+
+- Precision = TP/(TP+FP); recall = TP/(TP+FN).
+- F1 = 2TP/(2TP+FP+FN); accuracy = (TP+TN)/N.
+- A zero denominator returns `null`, including entirely absent groups. A ratio
+  with a nonzero denominator and zero numerator correctly returns 0. These are
+  count-derived F1 values, not an average of separately imputed precision/recall.
+
+Single-class group breakdowns naturally have undefined ratios (for example recall
+for only negative far slots). Aggregates sum confusion counts, not session scores
+or group percentages. Far subsampling changes class prevalence: these scores
+describe the specified training-style labeled subset, not every radar slot in a
+natural deployment. Overlapping windows, bins, and reused room recordings are
+correlated, so example count is not a count of independent clinical trials.
+
+Paired baseline-versus-LP/BP results identify baseline errors fixed, previously
+correct examples made wrong, both-correct and both-wrong cases, and net error-count
+change. Changed example IDs link to the session records for inspection. Group
+breakdowns are separate. A small net improvement is not an automatic winner or a
+statistical/generalization claim; fixing some errors can introduce others.
+
+### Explicit test split and frozen settings
+
+Validation is exploratory. **Only an explicit `--split test` opens test data**:
+
+```sh
+python -m ml.analysis.labeled_impact --split test --json
+```
+
+Before any test-data I/O, the tool requires the predeclared defaults: order 2,
+LP 1.5 Hz, BP 0.1-1.5 Hz, hop 8, cap 12 windows/session, far seed 5, all sessions,
+fixed committed model and threshold 0.5. It rejects nondefault filter/selection/
+seed settings or a session prefix on test, directing exploration to val instead.
+There is no threshold/model selector or test-based parameter search. The protocol
+hash and explicit split are recorded. This is a fixed baseline experiment, not
+support for moving validation-tuned arbitrary parameters onto test after peeking.
+The tool cannot verify users' earlier experiments, original train/test overlap,
+or the truth of declared subjects. Supply/audit provenance before claiming an
+independent held-out result; do not tune settings from test scores.
+
+### CLI, API and validation status
+
+```python
+from ml.analysis.labeled_impact import evaluate_labeled
+
+report = evaluate_labeled(data_root="ml/data", split="val", hop_samples=8,
+                          max_windows=12, seed=5)
+# Fails clearly if the optional dataset is absent; no placeholder scores.
+```
+
+JSON keys include `dataset`, `model`, `protocol`, `protocol_sha256`, `coverage`,
+`exclusions`, `aggregate`, `sessions`, and `limitations`. JSON is deterministic for
+identical files/options/environment, with sorted keys and no wall-clock timestamp.
+Only explicit `--output` writes a headless PNG of the three **count** confusion
+matrices; `--force` is required to overwrite. Generated JSON can be redirected by
+the caller. File/label/configuration errors return status 2, not partial scores.
+
+The normal unittest discovery includes small temporary synthetic fixtures,
+committed NumPy model inference, train-labeler equivalence, boundary/alignment,
+ambiguity/parent/far exclusions, arithmetic/undefined ratios, identical paired
+sampling, aggregate coverage, fixed test settings, deterministic CLI JSON, missing
+data and PNG protection. It needs no ignored sessions, downloads, TensorFlow or GPU.
+Fixture model scores are not presented as actual dataset evaluation results.
+
+### Interpretation and next work
+
+Per-slot classification accuracy against synthetic-session labels is distinct
+from apnea-event detection, 2D state-model performance, false alarms per hour,
+alarm latency, and medical-device validation. The unmodified full-precision 1D
+CNN is evaluated here; no equivalence to deployed int8/state/alarm behavior or
+improved safety is claimed.
+
+Next work requires the authorized existing val session pairs and a provenance/
+split audit, then running the documented exploratory evaluation and reviewing
+paired errors across sessions. Meaningful claims also need uncertainty accounting
+for correlated windows and source domains. Only a separately pre-fixed protocol
+should be evaluated on explicit held-out test data. No filter winner, threshold
+tuning, new model training, firmware/runtime change or deployment is part of this PR.
+
 ## Validation
 
 ```sh
