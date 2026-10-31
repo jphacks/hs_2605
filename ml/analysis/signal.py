@@ -1,10 +1,11 @@
 """Exploratory windowed radar diagnostics; frequencies are not breathing labels."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import math
 
 import numpy as np
+from scipy.signal import periodogram
 
 from .protocol import Capture
 from .quality import QualityReport, analyze_quality
@@ -20,6 +21,14 @@ class WindowMetrics:
     complete_window: bool
     rms_variation: float | None
     projected_rms: float | None
+    spectral_status: str = "insufficient_samples"
+    sampling_interval_ms: float | None = None
+    interval_tolerance_ms: float | None = None
+    max_interval_deviation_ms: float | None = None
+    max_grid_deviation_ms: float | None = None
+    spectral_resolution_hz: float | None = None
+    dominant_frequency_hz: float | None = None
+    spectral_concentration: float | None = None
 
 
 @dataclass(frozen=True)
@@ -29,6 +38,7 @@ class SignalReport:
     window_sec: float
     hop_sec: float
     quality: QualityReport
+    spectral_policy: dict
     windows: tuple[WindowMetrics, ...]
 
     def to_dict(self) -> dict:
@@ -62,6 +72,53 @@ def _milliseconds(value: float, name: str) -> int:
     if round(milliseconds) < 1:
         raise ValueError(f"{name} must be at least 0.001 seconds")
     return round(milliseconds)
+
+
+def _with_spectrum(metrics: WindowMetrics, times: list[int], sequences: list[int],
+                   z: np.ndarray, has_issue: bool) -> WindowMetrics:
+    """Reject gaps/jitter before evaluating a Hann periodogram on measured cadence."""
+    if len(z) < 2:
+        return metrics
+    relative = np.array([t - times[0] for t in times], dtype=float)
+    interval = float(relative[-1] / (len(z) - 1))
+    tolerance = max(1.0, .02 * interval)
+    interval_error = float(np.max(np.abs(np.diff(relative) - interval)))
+    grid_error = float(np.max(np.abs(relative - np.arange(len(z)) * interval)))
+    metrics = replace(metrics, sampling_interval_ms=interval, interval_tolerance_ms=tolerance,
+                      max_interval_deviation_ms=interval_error, max_grid_deviation_ms=grid_error)
+    status = None
+    if len(z) < 8:
+        status = "insufficient_samples"
+    elif not metrics.complete_window:
+        status = "partial_window"
+    elif any(b != a + 1 for a, b in zip(sequences, sequences[1:])):
+        status = "sequence_gap"
+    elif has_issue:
+        status = "parser_issues"
+    elif interval_error > tolerance or grid_error > tolerance:
+        status = "irregular_timing"
+    elif (times[0] - metrics.window_start_t_ms > 1.5 * interval
+          or metrics.window_end_t_ms - times[-1] > 1.5 * interval):
+        status = "incomplete_coverage"
+    if status is not None:
+        return replace(metrics, spectral_status=status)
+    wave = project_iq(z)
+    amplitude = float(np.max(np.abs(wave)))
+    if amplitude == 0:
+        return replace(metrics, spectral_status="constant_signal")
+    # Normalize only for numeric stability; ratios and peak frequency are unchanged.
+    fs = 1000 / interval
+    frequencies, power = periodogram(wave / amplitude, fs=fs, window="hann",
+                                     detrend=False, scaling="spectrum")
+    power[0] = 0  # exclude DC from both peak and concentration denominator
+    total = float(power.sum())
+    if not math.isfinite(total) or total <= 0:
+        return replace(metrics, spectral_status="constant_signal")
+    peak = int(np.argmax(power))
+    concentration = float(power[max(1, peak - 1):peak + 2].sum() / total)
+    return replace(metrics, spectral_status="available", spectral_resolution_hz=fs / len(z),
+                   dominant_frequency_hz=float(frequencies[peak]),
+                   spectral_concentration=min(1.0, max(0.0, concentration)))
 
 
 def analyze_signal(capture: Capture, bin_index: int = 0, *,
@@ -110,10 +167,52 @@ def analyze_signal(capture: Capture, bin_index: int = 0, *,
                 projected_rms = float(np.sqrt(np.mean(project_iq(z) ** 2)))
             if not math.isfinite(rms) or not math.isfinite(projected_rms):
                 raise ValueError("Signal variation overflowed; values must be numerically representable")
-        windows.append(WindowMetrics(
+        metrics = WindowMetrics(
             first + start, first + end,
             capture.frames[left].data.t_ms if len(z) else None,
             capture.frames[right - 1].data.t_ms if len(z) else None,
-            len(z), end <= offsets[-1], rms, projected_rms))
+            len(z), end <= offsets[-1], rms, projected_rms)
+        selected = capture.frames[left:right]
+        has_issue = bool(selected) and any(selected[0].line_number < issue.line_number
+                                          < selected[-1].line_number for issue in capture.issues)
+        windows.append(_with_spectrum(metrics, [f.data.t_ms for f in selected],
+                                      [f.data.seq for f in selected], z, has_issue))
     return SignalReport(bin_index, distance, window_ms / 1000, hop_ms / 1000,
-                        quality, tuple(windows))
+                        quality, {"minimum_samples": 8, "relative_timing_tolerance": .02,
+                                  "absolute_timing_tolerance_ms": 1.0,
+                                  "periodogram_window": "hann", "exclude_dc": True,
+                                  "concentration_peak_radius_bins": 1}, tuple(windows))
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    import json
+    from .protocol import read_capture
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path")
+    parser.add_argument("--bin", type=int, default=0, dest="bin_index")
+    parser.add_argument("--window-sec", type=float, default=12)
+    parser.add_argument("--hop-sec", type=float, default=3)
+    parser.add_argument("--json", action="store_true", help="emit deterministic JSON")
+    args = parser.parse_args(argv)
+    try:
+        report = analyze_signal(read_capture(args.path), args.bin_index,
+                                window_sec=args.window_sec, hop_sec=args.hop_sec)
+    except (OSError, ValueError, OverflowError) as exc:
+        parser.exit(2, f"error: {exc}\n")
+    if args.json:
+        print(json.dumps(report.to_dict(), sort_keys=True, indent=2, allow_nan=False))
+    else:
+        print(f"Exploratory signal diagnostics: bin {report.bin_index}, {report.distance_cm:g} cm")
+        print("Board uptime windows; frequency peaks are not breathing or apnea classifications.")
+        for window in report.windows:
+            print(f"[{window.window_start_t_ms}, {window.window_end_t_ms}) ms: "
+                  f"n={window.observed_samples}, RMS={window.rms_variation}, "
+                  f"peak_hz={window.dominant_frequency_hz}, "
+                  f"concentration={window.spectral_concentration}, {window.spectral_status}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
