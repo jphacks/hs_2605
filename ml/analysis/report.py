@@ -129,7 +129,10 @@ def load_dataset(directory: str | Path) -> ReportDataset:
         _require((event["event_type"] == "radar_restart_status") == (event["origin"] == "explicit_board_status"), "explicit restart event origin mismatch")
     pa, pq = require_arrow()
     try:
-        table = pq.read_table(pa.BufferReader(content["frames.parquet"]))
+        # A single in-memory artifact needs no asynchronous dataset scanner.
+        # Finish/close native reads before validation can exit via ValueError.
+        with pq.ParquetFile(pa.BufferReader(content["frames.parquet"])) as parquet:
+            table = parquet.read(use_threads=False)
     except Exception as exc:
         raise ValueError(f"Invalid frames.parquet: {exc}") from exc
     # Parquet normalizes nested list child names from 'item' to 'element'.
