@@ -225,6 +225,147 @@ Future work can consume this versioned dataset for an offline HTML report;
 that report and changes to training, runtime models, alarms or firmware are
 outside this conversion PR.
 
+## Standalone HTML report: end-to-end Sprint 1 workflow
+
+The HTML report consumes the four canonical artifacts, **not the original CSV**.
+Use the existing NumPy/Matplotlib environment plus the offline Parquet dependency.
+Run from the repository root:
+
+```bash
+python -m pip install -r ml/analysis/requirements.txt
+python -m ml.analysis.ingest recordings/samples/breathing.sample.csv --out-dir analysis_runs/breathing --source-type repository_sample
+python -m ml.analysis.report analysis_runs/breathing --output analysis_runs/breathing_report.html --bin 9
+```
+
+Repeat for the other public recordings, with separate outputs:
+
+```bash
+python -m ml.analysis.ingest recordings/samples/hold.sample.csv --out-dir analysis_runs/hold --source-type repository_sample
+python -m ml.analysis.report analysis_runs/hold --output analysis_runs/hold_report.html --bin 9
+python -m ml.analysis.ingest recordings/samples/leave.sample.csv --out-dir analysis_runs/leave --source-type repository_sample
+python -m ml.analysis.report analysis_runs/leave --output analysis_runs/leave_report.html --bin 9
+```
+
+Open the HTML directly in a browser. It embeds PNG figures and CSS and requires
+no server, JavaScript, CDN or internet connection. Metadata and original event
+payloads are escaped as text. Desktop and mobile previews below use only the
+public breathing sample (not private recordings):
+
+| Desktop signal panels | Mobile overview |
+| --- | --- |
+| [![Desktop signal panels](previews/breathing-desktop.png)](previews/breathing-desktop.png) | [![Mobile overview](previews/breathing-mobile.png)](previews/breathing-mobile.png) |
+
+The six sections show dataset/provenance metadata, authoritative quality
+diagnostics, a range-time variation heatmap, selected-bin scaled I/Q, the
+sampling timeline/source events, and interpretation limits. Bin indices are
+zero-based; bin 9 in these samples is 48.75 cm. This is a selected distance,
+not a guarantee that the same target occupies that bin in every recording.
+
+### Validation before rendering
+
+`load_dataset(directory)` checks format `ibuki.radar.capture`, schema version 1,
+all four regular files, and SHA-256 for frames/events/quality against the
+manifest. It validates the expected Arrow types/nullability and schema metadata,
+array dimensions, integer ranges, sequence/uptime values, D/E unit semantics,
+configuration association, event fields and manifest/quality counts. Parquet's
+equivalent nested-list child names `item`/`element` are allowed. Duplicate JSON
+keys and non-finite JSON numbers are rejected. Unsupported/corrupt input exits
+with an error; there is no CSV fallback or repair.
+
+Hashes check consistency against the manifest, not provenance authenticity or
+signatures. The original input SHA-256 is displayed as recorded in the manifest;
+the report never accesses the original recording to verify it. Source/scenario
+declarations retain ingestion semantics; filenames and Y messages are not truth.
+
+### Plot and quality interpretation
+
+- `quality.json.frame_quality` supplies the combined D/E integrity metrics;
+  the report does not replace them with newly calculated whole-session metrics.
+  Exported raw frames may include incompatible configuration. Rejected D/E rows
+  are counted from diagnostic source lines absent from exported frames; C/blank
+  errors and retained bin mismatches are not additional missing frames.
+- Scaled I/Q and `abs(z - mean(z, axis=0))` reuse `prepare_visualization`.
+  D divides integers by observed C.scale. E uses already-scaled int16 values,
+  never C.scale, and displays antenna 0 only. All antennas stay in Parquet.
+- Configuration and D/E transitions, repeated/backward sequence or timestamps,
+  and explicit S radar-restart status split independent plotting blocks. Existing
+  visualization logic breaks trace connections across sequence/timing gaps and
+  malformed rows. Each block has its own temporal mean and color scale, so
+  colors across blocks are not directly comparable. Singleton blocks have zero
+  variation relative to their own mean; that does not establish no movement.
+- Heatmap strokes are individual observations at recorded timestamps, not filled
+  time cells. No interpolation is performed. Each block's time origin is shown
+  as board uptime; timestamps are not Unix time. The sampling timeline plots
+  actual uptime offsets in physical source order without connecting points.
+  Explicit S markers use only a parseable recorded S timestamp; inferred anomaly
+  markers use actual frame timestamps. Unknown timestamps remain unavailable.
+- Missing/incompatible geometry, invalid bin selection for a block or values
+  that cannot be plotted produce an explicit unavailable reason alongside the
+  available overview, quality and events. Empty datasets retain diagnostics.
+  E-only datasets with compatible C geometry are supported; without C, the
+  report does not invent distances even though E value units are known.
+
+### Output safety and determinism
+
+Write reports **outside** the managed dataset directory, as siblings in the
+examples. Output inside a dataset is rejected, including with `--force`, so the
+four-file ingestion bundle remains safe for subsequent ingestion operations.
+Existing HTML is protected unless report `--force` is explicitly supplied;
+input datasets/recordings are never modified. Output must end in `.html`, its
+parent directory must exist, and symlink outputs are rejected. Forced writes
+replace a staged file rather than modifying a hard-linked source in place.
+
+For identical artifacts/settings and the same plotting/font environment, HTML
+bytes are deterministic. There are no generated wall-clock timestamps or
+absolute input/output paths. Cross-version PNG byte identity is not promised.
+Reports and datasets in `analysis_runs/` remain ignored by Git; only the two
+representative public-sample screenshot previews are committed. The report
+loads artifacts and figures in memory; many discontinuities create many blocks
+and may produce a large HTML file. Narrow screens scroll graphs/tables inside
+their panels to preserve readable labels.
+
+### Executed validation and Sprint 1 checklist
+
+Python 3.11.5 / PyArrow 24.0.0 on Windows: report tests 14 passed, full analysis
+suite 110 passed, PC tests 72 passed, web tests 69 passed, web build passed
+(existing bundle-size warning). Commands:
+
+```bash
+python -m unittest ml.analysis.tests.test_report -v
+python -m unittest discover -s ml/analysis/tests -t . -v
+python -m unittest discover -s pc/tests -t pc -v
+# From web/:
+npm test
+npm run build
+```
+
+Actual CLI conversions/reports were generated under
+`analysis_runs/sprint1-final/`, using the commands above with that output prefix:
+
+| Public sample | Frames D/E | Events | Row diagnostics | Estimated missing | HTML bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| breathing | 999 / 0 | 12 | 0 | 0 | 419,553 |
+| hold | 1,000 / 0 | 12 | 0 | 0 | 347,496 |
+| leave | 996 / 0 | 12 | 0 | 0 | 232,647 |
+
+All three reports were opened in headless Chrome at 1,440px and 390px widths.
+All figures loaded, no external HTTP requests or page errors occurred, and
+there was no page-level horizontal overflow. Graphs and event tables scroll
+inside their panels on mobile. Signal panels were visually inspected for all
+three samples; a different signal shape does not establish breathing accuracy.
+
+- [x] Canonical ingestion and versioned provenance (merged ingestion PR).
+- [x] Hash/schema validation and authoritative integrity diagnostics.
+- [x] Self-contained report, range-time/IQ and sampling timeline.
+- [x] Safe separate output, deterministic bytes, edge/regression tests.
+- [x] Public-sample conversion and desktop/mobile visual review.
+
+Sprint 2 work remains separate: collect/verify dataset provenance and labels,
+perform properly labeled signal/model evaluations, and investigate features or
+filtering using evidence. This report does not train a classifier, change runtime
+models/alarms/firmware/web, or establish apnea/alarm performance, medical-device
+validity or infant safety.
+
 ## Relationship to existing readers
 
 `pc/ibuki/serial_reader.py` remains the live transport/parser: it silently ignores
