@@ -193,8 +193,113 @@ output, not a diagnosed hardware fault. C association follows the parser's
 documented first-C backfill assumption. E-only captures have zero analyzed D,
 not a claim that no radar data was recorded.
 
-No filtering, interpolation, automatic repair, signal analysis, charts, model
-experiments, composite score, Parquet export, or HTML reports are provided.
+Quality diagnostics do not filter, interpolate, repair, or evaluate signals or
+models. Offline inspection plots are available separately below.
+
+## Offline capture visualization
+
+Generate a headless PNG overview with NumPy and Matplotlib (already in the PC
+requirements). No hardware, TensorFlow, model inference, or GUI is involved.
+
+```sh
+python -m ml.analysis.visualize recordings/samples/breathing.sample.csv --output breathing_overview.png --bin 10
+python -m ml.analysis.visualize recordings/samples/hold.sample.csv --output hold_overview.png --bin 10
+python -m ml.analysis.visualize recordings/samples/leave.sample.csv --output leave_overview.png --bin 10
+```
+
+The output is a 1950 x 1500 PNG with three panels:
+
+1. **Discrete time/distance heatmap.** Each observed complex value `z` comes
+   from `CaptureFrame.z()`. For each bin, subtract its unweighted temporal mean
+   over the parsed D frames, then color by `abs(z - mean(z))` in scaled radar
+   units. The magma color bar maps darker to smaller and brighter to larger
+   variation. It uses a separate linear color range per report, not a shared
+   scale across files. Subtracting the mean defines this display metric; it is
+   not a signal filtering or noise-removal pipeline.
+2. **Selected-bin I/Q.** Blue is the real component (I), orange the imaginary
+   component (Q), both scaled by C.scale without centering or filtering. Bin
+   selection is zero-based, default 0; valid indices are 0 through C.n - 1.
+   Distance is obtained from `Config.ranges_cm()` and included in the title.
+   The public samples have `C,15.0,37.5,24,10`, so bin 10 is 52.5 cm. Neither
+   that bin count nor its geometry/scale is built into the implementation.
+3. **Entire-recording integrity summary.** Values come directly from
+   `analyze_quality(capture)`, including total parsed D, parser issues, estimated
+   missing frames, seq gaps/duplicates/backward movement, suspected resets,
+   repeated/backward times, long intervals/threshold, and unusable configuration.
+   The plotted frame count and number of I/Q segments are displayed separately.
+   Malformed rows are excluded from the plots but retained in the whole-file
+   parser issue count. No composite score is calculated.
+
+Both plots use `(t_ms - first_plotted_t_ms) / 1000`, subtracting integer uptime
+before converting to seconds. Labels state the first D's board uptime and that
+it is not Unix time. There is no uniform-time assumption. Heatmap columns are
+vertical strokes at actual timestamps, with a fixed display width (0.8 points),
+not rectangles filling estimated time intervals. Distance strokes span half a
+configured bin step on either side of the bin center. Blank time intervals are
+not filled with invented data; finite image resolution can overlap dense
+columns. The heatmap is deliberately discrete rather than interpolated.
+
+I/Q markers show every observed D. Connecting lines are broken at sequence gaps,
+at parser issue lines between D frames, and at timestamp intervals exceeding
+the quality report's long-interval threshold. If that threshold is unavailable,
+line drawing conservatively uses three times the smallest observed positive
+interval; this display policy does not modify the quality report. Line segments
+are visual guides, not reconstructed intermediate measurements. A single D is
+supported as one column/marker with unavailable timing metrics.
+
+### Python API and file handling
+
+```python
+from ml.analysis.protocol import read_capture
+from ml.analysis.visualize import prepare_visualization, render_report
+
+capture = read_capture("recordings/samples/breathing.sample.csv")
+data = prepare_visualization(capture, bin_index=10)
+print(data.distances_cm[10], data.z.shape)
+# 52.5 (999, 24)
+render_report(capture, "breathing_overview.png", bin_index=10)
+```
+
+`prepare_visualization` returns actual elapsed coordinates, physical distances,
+scaled complex values, variation values, contiguous trace slices, and the
+whole-capture quality report. `build_figure(data)` returns a Figure using an Agg
+canvas; `render_report` renders entirely in memory before opening its PNG output.
+No pyplot global figures or GUI windows are created. Existing files are protected
+by exclusive creation unless `--force` (Python: `force=True`) is supplied.
+Validation failures leave an existing output unchanged, even with force.
+Only `.png` is accepted; output parent directories must already exist. CLI
+success prints the output path. Input, validation, or output errors print to
+stderr and exit with status 2. No output is created on failed validation.
+
+### Supported captures and limits
+
+One consistent D configuration is supported. Repeated identical C messages and
+the parser's documented late first-C association are valid. The tool rejects:
+
+- Empty/no-D/E-only captures (three-antenna E payloads are not visualized).
+- Missing/unusable configuration or I/Q bin-count mismatches.
+- Any observed C geometry or scale change, including a trailing changed C.
+- Duplicate/backward seq, suspected restarts, and repeated/backward timestamps.
+- Out-of-range/noninteger bin indices and nonfinite numeric preparations.
+
+Malformed rows may coexist with usable D frames; their count and plot exclusions
+are explicit. E/Y/H/S payloads are not decoded, and their presence does not imply
+that those messages were analyzed. The report covers only parsed D values.
+The complete capture, complex matrix, and plot are kept in memory; large files
+can need substantial memory. There is no downsampling or automatic repair.
+
+Actual review examples were generated for all three public samples with bin 10:
+999/1000/996 plotted frames, distances 15 to 101.25 cm (bin centers), and zero
+reported parser/continuity/configuration anomalies. The measured 60 ms typical
+interval gives a 180 ms long-gap threshold in each summary. In the leave sample,
+the plots show a change near 23 seconds; this is an observed signal change, not
+an inferred event label. Generated binaries are kept outside tracked source.
+
+These plots support later signal analysis by exposing distance regions and time
+intervals worth investigating alongside recording integrity. They do not measure
+breathing, respiratory rate, chest displacement, medical status, or AI accuracy.
+No filtering, automatic noise removal, classification, live dashboard, 3D,
+three-antenna direction plotting, Parquet, or HTML report is implemented.
 
 ## Validation
 
