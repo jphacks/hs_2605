@@ -22,6 +22,12 @@ class VisualizationData:
     quality: QualityReport
 
 
+def variation_magnitude(z: np.ndarray) -> np.ndarray:
+    """Absolute complex deviation from the observed per-bin temporal mean."""
+    with np.errstate(over="ignore", invalid="ignore"):
+        return np.abs(z - z.mean(axis=0))
+
+
 def prepare_visualization(capture: Capture, bin_index: int = 0) -> VisualizationData:
     """Prepare actual sample coordinates and |z - temporal mean(z)| per bin.
 
@@ -51,7 +57,7 @@ def prepare_visualization(capture: Capture, bin_index: int = 0) -> Visualization
     except (ValueError, OverflowError) as exc:
         raise ValueError(f"Cannot scale I/Q values: {exc}") from exc
     with np.errstate(over="ignore", invalid="ignore"):
-        variation = np.abs(z - z.mean(axis=0))
+        variation = variation_magnitude(z)
         distances = np.asarray(config.ranges_cm())
     if not all(np.isfinite(values).all() for values in (elapsed, distances, z, variation)):
         raise ValueError("Scaled values, distances and elapsed times must be finite")
