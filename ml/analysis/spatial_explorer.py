@@ -74,7 +74,7 @@ def build_html(result: dict) -> str:
     for char, replacement in (("&", "\\u0026"), ("<", "\\u003c"), (">", "\\u003e"),
                               ("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
         encoded = encoded.replace(char, replacement)
-    return _PAGE.replace("__IBUKI_DATA__", encoded)
+    return _PAGE.replace("__IBUKI_PLAYBACK__", _PLAYBACK_JS).replace("__IBUKI_DATA__", encoded)
 
 
 def render_explorer(directory: str | Path, output: str | Path) -> Path:
@@ -100,6 +100,63 @@ def render_explorer(directory: str | Path, output: str | Path) -> Path:
     return target
 
 
+_PLAYBACK_JS = """
+// One selected index, one timer and one notification path for every control.
+function createPlayback(windows, onChange, options = {}) {
+ const delay = options.setTimeout || globalThis.setTimeout;
+ const cancel = options.clearTimeout || globalThis.clearTimeout;
+ const blocked = options.blockedReason || (() => null);
+ let selected = 0, playing = false, timer = null, stopReason = 'initial';
+ const snapshot = () => ({selected, playing, stopReason});
+ const publish = () => onChange(snapshot());
+ function sameSegment(a, b) {
+  return ['parent_block_index','trace_index'].every(key => Number.isInteger(a[key]) && a[key]>0 && a[key]===b[key])
+   && Number.isFinite(a.reference_board_uptime_ms) && a.reference_board_uptime_ms>=0
+   && Number.isFinite(b.reference_board_uptime_ms) && b.reference_board_uptime_ms>a.reference_board_uptime_ms
+   && Number.isInteger(a.source_line_start) && Number.isInteger(a.source_line_end)
+   && Number.isInteger(b.source_line_start) && Number.isInteger(b.source_line_end)
+   && a.source_line_start>0 && a.source_line_end>=a.source_line_start
+   && b.source_line_start>a.source_line_start && b.source_line_end>a.source_line_end;
+ }
+ function pause(reason = 'pause') {
+  if(timer!==null) cancel(timer);
+  timer=null; playing=false; stopReason=reason; publish();
+ }
+ function nextStop() {
+  if(selected>=windows.length-1) return 'end';
+  if(!sameSegment(windows[selected], windows[selected+1])) return 'boundary';
+  return blocked();
+ }
+ function schedule() {
+  const id=delay(()=>{
+   if(timer!==id || !playing) return; // Ignore a cancelled/stale callback.
+   timer=null;
+   const reason=nextStop();
+   if(reason) { pause(reason); return; }
+   selected+=1;
+   const after=nextStop();
+   if(after) { pause(after); return; }
+   publish(); schedule();
+  }, 1000);
+  timer=id;
+ }
+ function play() {
+  if(playing) return;
+  const reason=nextStop();
+  if(reason) { pause(reason); return; }
+  playing=true; stopReason=null; publish(); schedule();
+ }
+ function select(index) {
+  if(!Number.isInteger(index) || index<0 || index>=windows.length) return;
+  selected=index; pause('manual');
+ }
+ return {snapshot, play, pause, select,
+  previous:()=>select(Math.max(0,selected-1)),
+  next:()=>select(Math.min(windows.length-1,selected+1))};
+}
+"""
+
+
 _PAGE = """<!doctype html>
 <html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
@@ -110,6 +167,7 @@ _PAGE = """<!doctype html>
 [hidden]{display:none!important}.safety{position:sticky;top:0;z-index:3;background:#e9eedf;border-bottom:1px solid #c4cebb;padding:10px 20px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.03em}
 .shell{max-width:1180px;margin:auto;padding:32px 28px 40px}.brand{font-size:13px;letter-spacing:.1em;color:var(--muted);margin:0 0 8px}h1{font-size:clamp(26px,3vw,38px);letter-spacing:-.035em;line-height:1.25;margin:0 0 12px}h2{font-size:20px;line-height:1.4;margin:0}p{margin:8px 0 16px}.lede{color:var(--muted);max-width:820px}.intro{padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:24px;margin:24px 0}.intro p{margin:8px 0 0;max-width:650px}button,select{font:inherit}button{border:0;border-radius:9px;background:var(--ink);color:white;padding:12px 20px;font-weight:700;cursor:pointer;flex-shrink:0}button:hover{background:#356052}button:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #ac6822;outline-offset:4px}a{color:var(--truth);text-underline-offset:3px}select{max-width:100%;min-width:0;background:var(--paper);border:1px solid #a5b4a7;border-radius:8px;color:var(--ink);padding:10px;width:100%}.toolbar{display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:20px;margin:24px 0 18px}.toolbar label{font-weight:700;display:block;margin-bottom:6px}.toolbar p{color:var(--muted);font-size:14px;margin:0}.stats{display:flex;gap:20px;flex-wrap:wrap;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:14px}.stats strong{font-size:23px;margin-right:5px}.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(310px,1fr);gap:20px;align-items:start}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;min-width:0}.map-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.map-head a{font-size:14px;white-space:nowrap}.hint{font-size:13px;color:var(--muted);margin:6px 0}.map{display:block;width:100%;height:auto;margin:8px 0;overflow:visible}.ring{fill:none;stroke:#d6dfd3;stroke-width:1.2}.axis{stroke:#c6d1c2;stroke-width:1;stroke-dasharray:4 5}.map text{font-family:inherit;fill:var(--muted);font-size:16px}.marker{cursor:pointer;outline:none}.marker .halo{fill:none;stroke:transparent;stroke-width:4}.marker[aria-pressed="true"] .halo{stroke:var(--ink);stroke-dasharray:3 3}.marker:focus-visible .halo{stroke:#ac6822;stroke-width:5}.legend{display:flex;gap:14px 20px;flex-wrap:wrap;font-size:14px}.legend span{display:flex;align-items:center;gap:8px}.dot{display:inline-block;width:15px;height:15px;border:3px solid var(--truth);border-radius:50%;flex:none}.diamond{display:inline-block;width:12px;height:12px;background:var(--estimate);transform:rotate(45deg);margin:0 3px;flex:none}.eyebrow{font-size:13px;color:var(--muted);margin:0 0 8px}.state{display:inline-block;font-size:13px;font-weight:700;padding:5px 10px;border-radius:6px;background:var(--sage);margin:12px 0}.notice{background:#f8eedc;border-left:3px solid #b97b34;padding:12px;font-size:14px;margin:12px 0 18px}.measure{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.measure>div{background:#f3f5ed;border-radius:9px;padding:12px}.measure h3{font-size:13px;margin:0 0 8px;color:var(--muted)}dl{margin:0}dt{font-size:13px;color:var(--muted)}dd{margin:0 0 6px;font-size:20px;font-weight:600}.difference{border-top:1px solid var(--line);padding-top:16px}.difference dl{display:grid;grid-template-columns:1fr auto;gap:5px 12px;align-items:baseline}.difference dd{font-size:18px}details{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}summary{cursor:pointer;font-weight:600;font-size:14px}pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0 0;max-height:340px;overflow:auto;background:#f0f2eb;padding:12px;border-radius:8px}.footnote{font-size:13px;color:var(--muted);margin-top:24px}.provenance{margin-top:24px}noscript p{padding:20px;background:#f8eedc}footer{margin-top:24px;font-size:13px;color:var(--muted)}
 .map-head{flex-wrap:wrap}#inspection{scroll-margin-top:65px}
+.playback{margin:0 0 20px;padding:18px 20px;background:var(--paper);border:1px solid var(--line);border-radius:12px}.playback-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.secondary{background:var(--sage);color:var(--ink);border:1px solid #a5b4a7}.secondary:hover{background:#d8e3d4}button:disabled{opacity:.5;cursor:default}button:disabled:hover{background:var(--ink)}button.secondary:disabled:hover{background:var(--sage)}.playback label{display:block;font-weight:700;margin-top:16px}input[type=range]{width:100%;margin:10px 0;accent-color:var(--truth);min-height:28px;cursor:pointer}input:focus-visible{outline:3px solid #ac6822;outline-offset:4px}.playback-status{font-size:14px;font-weight:700;margin:10px 0}.playback p:last-child{margin-bottom:0}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(max-width:760px){.shell{padding:24px 18px}.intro{display:block;padding:20px}.intro button{width:100%;margin-top:20px}.toolbar{grid-template-columns:1fr;gap:10px}.grid{grid-template-columns:1fr}.card{padding:18px}.stats{gap:8px 18px}.stats strong{font-size:20px}.map text{font-size:19px}.legend{font-size:13px;gap:10px}h2{font-size:19px}.measure{gap:8px}dd{font-size:19px}.safety{font-size:12px;padding:9px 12px}.map-head a{font-size:13px}}
 </style>
 <div class="safety">シミュレーション / SYNTHETIC DATA · 実測ではありません</div>
@@ -122,7 +180,14 @@ _PAGE = """<!doctype html>
 <noscript><p>このファイルの操作には JavaScript が必要です。外部への通信は行いません。</p></noscript>
 <section id="workspace" hidden aria-label="位置推定の比較">
 <div class="stats" aria-label="評価区間の集計"><span><strong id="total">—</strong>区間</span><span><strong id="available">—</strong>推定あり</span><span><strong id="unavailable">—</strong>推定できません</span></div>
-<div class="toolbar"><div><label for="window-select">調べる区間</label><select id="window-select"></select></div><p>時間の再生ではなく、計算済みの区間を一つずつ選びます。欠測を補間せず、点どうしもつなぎません。</p></div>
+<div class="toolbar"><div><label for="window-select">調べる区間</label><select id="window-select"></select></div><p>計算済みの解析窓を選びます。隣り合う窓の観測期間は重なる場合があります。欠測や位置の間を補間しません。</p></div>
+<section class="playback" aria-label="計算済み区間のデモ再生">
+<div class="playback-actions"><button id="play" type="button">再生</button><button id="pause" class="secondary" type="button" disabled>一時停止</button><button id="previous" class="secondary" type="button">前へ</button><button id="next" class="secondary" type="button">次へ</button></div>
+<p id="playback-status" class="playback-status" role="status" aria-live="polite">一時停止</p>
+<label for="timeline">評価区間の目盛り</label><input id="timeline" type="range" min="0" max="0" step="1" value="0">
+<p class="hint" id="time-readout"></p><p class="hint" id="playback-message"></p>
+<p class="hint">デモ再生は目安 1 秒に 1 区間。実測時間の倍率ではありません。目盛りは区間番号で、実測時間に比例しません。</p>
+</section>
 <div class="grid">
 <section class="card" aria-labelledby="map-title"><div class="map-head"><h2 id="map-title">レーダーから見た位置</h2><a href="#inspection">選択した結果を見る</a></div>
 <p class="hint">上が前方、下が後方。距離は cm、レーダーが原点です。</p>
@@ -144,6 +209,7 @@ _PAGE = """<!doctype html>
 <script type="application/json" id="explorer-data">__IBUKI_DATA__</script>
 <script>
 "use strict";
+__IBUKI_PLAYBACK__
 const data=JSON.parse(document.getElementById('explorer-data').textContent);
 const windows=data.windows, byId=id=>document.getElementById(id), svgNS='http://www.w3.org/2000/svg';
 const number=(v,digits=2)=>v===null||v===undefined?'—':Number(v).toFixed(digits);
@@ -168,15 +234,24 @@ function marker(position,index,isEstimate){
  svg('circle',{cx:x,cy:y,r:21,class:'halo'},group);
  if(isEstimate)svg('path',{d:`M${x} ${y-10} l10 10 l-10 10 l-10 -10 Z`,fill:'#a45424',stroke:'#fffef9','stroke-width':2},group);
  else svg('circle',{cx:x,cy:y,r:14,fill:'#fffef9',stroke:'#287269','stroke-width':3},group);
- group.addEventListener('click',()=>selectWindow(index));
- group.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selectWindow(index);}});
+ group.addEventListener('click',()=>player.select(index));
+ group.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();player.select(index);}});
  markerElements.push({group,index});
 }
 windows.forEach((w,index)=>{const option=document.createElement('option');option.value=index;option.textContent=`区間 ${index+1} · ${w.estimation_available?'推定あり':'推定できません'}`;byId('window-select').appendChild(option);marker(w.truth_position_cm,index,false);if(w.estimation_available)marker(w.position_cm,index,true);});
 const reasons={insufficient_moving_signal:'動きの信号が小さく、位置を推定できません。',low_pair_01_coherence:'アンテナ 0–1 の信号の対応が弱いため、位置を推定できません。',insufficient_samples_for_window:'この区間は解析に必要な観測数が足りません。'};
-function selectWindow(index){
+function renderSelection(state){
+ const index=state.selected;
  const w=windows[index],has=w.estimation_available;
  byId('window-select').value=index;
+ byId('timeline').value=index;
+ byId('play').disabled=state.playing||index===windows.length-1||reducedMotion.matches;
+ byId('pause').disabled=!state.playing;
+ byId('previous').disabled=index===0;
+ byId('next').disabled=index===windows.length-1;
+ byId('playback-status').textContent=`${state.playing?'再生中':'一時停止'} · 区間 ${index+1} / ${windows.length}`;
+ const messages={initial:'再生は自動で始まりません。',pause:'表示を一時停止しました。',manual:'手動で区間を選びました。再生は停止中です。',end:'最後の区間で停止しました。',boundary:'データの区切りで停止しました。「次へ」や目盛りで別の区間を選べます。',hidden:'ページが非表示になったため停止しました。戻っても自動では再開しません。',reduced:'動きを抑える設定のため、自動再生は無効です。前後のボタンや目盛りで選べます。'};
+ byId('playback-message').textContent=reducedMotion.matches?messages.reduced:(messages[state.stopReason]||'同じ連続区間の中で、計算済みの窓を順に表示しています。');
  for(const m of markerElements){m.group.setAttribute('aria-pressed',String(m.index===index));m.group.style.opacity=m.index===index?'1':'.35';}
  // Raise selected markers without connecting points or interpolating gaps.
  for(const m of markerElements.filter(m=>m.index===index))byId('markers').appendChild(m.group);
@@ -196,8 +271,19 @@ function selectWindow(index){
 }
 byId('provenance').textContent=JSON.stringify({synthetic:data.synthetic,hardware_validated:data.hardware_validated,source_type:data.source_type,source_type_provenance:data.source_type_provenance,input_sha256:data.input_sha256,verified_artifact_hashes:data.verified_artifact_hashes,explorer:data.explorer,parameters:data.parameters,data_quality:data.data_quality,simulation_configuration:data.simulation.configuration,antenna_x_wavelengths:data.simulation.antenna_x_wavelengths},null,2);
 byId('total').textContent=data.summary.total_windows;byId('available').textContent=data.summary.available_windows;byId('unavailable').textContent=data.summary.unavailable_windows;
-byId('window-select').addEventListener('change',event=>selectWindow(Number(event.target.value)));
-byId('start').addEventListener('click',()=>{byId('workspace').hidden=false;byId('welcome').hidden=true;selectWindow(0);byId('window-select').focus();});
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+const player=createPlayback(windows,renderSelection,{blockedReason:()=>document.hidden?'hidden':reducedMotion.matches?'reduced':null});
+byId('timeline').max=windows.length-1;
+byId('window-select').addEventListener('change',event=>player.select(Number(event.target.value)));
+byId('timeline').addEventListener('input',event=>player.select(Number(event.target.value)));
+byId('play').addEventListener('click',()=>player.play());
+byId('pause').addEventListener('click',()=>player.pause());
+byId('previous').addEventListener('click',()=>player.previous());
+byId('next').addEventListener('click',()=>player.next());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)player.pause('hidden');});
+window.addEventListener('pagehide',()=>player.pause('hidden'));
+reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)player.pause('reduced');else renderSelection(player.snapshot());});
+byId('start').addEventListener('click',()=>{byId('workspace').hidden=false;byId('welcome').hidden=true;player.select(0);byId('window-select').focus();});
 </script>
 </html>"""
 
