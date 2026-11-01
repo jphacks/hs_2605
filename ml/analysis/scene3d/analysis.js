@@ -53,7 +53,10 @@ export function initializeAnalysis(){
     byId('map-selection').textContent=`表示中：区間 ${index+1} / ${windows.length} · ${availability}`;
     for(const [group,position,kind] of [[reference,w.truth_position_cm,'truth'],[estimate,w.position_cm,'estimate']]){
       group.toggleAttribute('hidden',position===null);
-      if(position===null){group.removeAttribute('transform');continue;}
+      if(position===null){
+        for(const name of ['transform','data-window','data-x-cm','data-y-cm','aria-label'])group.removeAttribute(name);
+        continue;
+      }
       const [x,y]=xy(position);group.setAttribute('transform',`translate(${x} ${y})`);
       group.dataset.window=index;group.dataset.xCm=position.x;group.dataset.yCm=position.y;
       group.setAttribute('aria-label',`${kind==='truth'?'設定':'推定'}位置。距離 ${number(radius(position))} cm、角度 ${number(kind==='truth'?w.configured_angle_deg:w.estimated_angle_deg,1)} 度`);
@@ -77,5 +80,23 @@ export function initializeAnalysis(){
   });
   byId('timeline').max=windows.length-1;
   byId('provenance').textContent=JSON.stringify({synthetic:data.synthetic,hardware_validated:data.hardware_validated,source_type:data.source_type,source_type_provenance:data.source_type_provenance,input_sha256:data.input_sha256,verified_artifact_hashes:data.verified_artifact_hashes,explorer:data.explorer,parameters:data.parameters,data_quality:data.data_quality,simulation_configuration:data.simulation.configuration,antenna_x_wavelengths:data.simulation.antenna_x_wavelengths},null,2);
-  renderSelection({selected:0,playing:false,stopReason:'initial'});
+  // The exact Explorer state machine is injected by Python before this bundle.
+  // Only this adapter is view-specific: one selected window and one timer.
+  const player=createPlayback(windows,renderSelection,{blockedReason:()=>document.hidden?'hidden':reducedMotion.matches?'reduced':null});
+  let started=false;
+  const start=byId('analysis-start');start.hidden=false;
+  start.addEventListener('click',()=>{
+    started=true;start.hidden=true;byId('analysis-controls').hidden=false;
+    player.select(0);byId('window-select').focus({preventScroll:true});
+  });
+  byId('window-select').addEventListener('change',event=>player.select(Number(event.target.value)));
+  byId('timeline').addEventListener('input',event=>player.select(Number(event.target.value)));
+  byId('play').addEventListener('click',()=>{if(started)player.play();});
+  byId('pause').addEventListener('click',()=>player.pause());
+  byId('previous').addEventListener('click',()=>player.previous());
+  byId('next').addEventListener('click',()=>player.next());
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)player.pause('hidden');});
+  window.addEventListener('pagehide',()=>player.pause('hidden'));
+  reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)player.pause('reduced');else renderSelection(player.snapshot());});
+  renderSelection(player.snapshot());
 }

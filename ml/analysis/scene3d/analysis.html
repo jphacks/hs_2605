@@ -8,7 +8,7 @@
 <button id="analysis-start" type="button" aria-controls="analysis-controls" hidden>解析デモを開始</button>
 <div id="analysis-controls" hidden>
 <label for="window-select">調べる区間</label><select id="window-select"></select>
-<div class="playback-actions"><button id="play" type="button" aria-label="評価区間のデモを再生">再生</button><button id="pause" type="button" disabled>一時停止</button><button id="previous" type="button">前へ</button><button id="next" type="button">次へ</button></div>
+<div class="playback-actions"><button id="play" type="button" aria-label="評価区間のデモを再生" aria-controls="analysis-map analysis-details">再生</button><button id="pause" type="button" aria-label="デモ再生を一時停止" aria-controls="analysis-map analysis-details" disabled>一時停止</button><button id="previous" type="button" aria-label="前の評価区間へ" aria-controls="analysis-map analysis-details">前へ</button><button id="next" type="button" aria-label="次の評価区間へ" aria-controls="analysis-map analysis-details">次へ</button></div>
 <label class="visually-hidden" for="timeline">評価区間の目盛り</label><input id="timeline" type="range" min="0" max="0" step="1" value="0">
 <p id="playback-message" class="hint"></p><p class="hint">計算済みの窓を1秒ごとに切り替えます。実測時間の倍率ではありません。補間しません。</p>
 </div>
