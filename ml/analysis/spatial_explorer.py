@@ -87,7 +87,7 @@ def render_explorer(directory: str | Path, output: str | Path) -> Path:
     if target.suffix.lower() != ".html":
         raise ValueError("Output must have a .html extension")
     case = Path(directory).resolve()
-    canonical = case / "canonical"
+    canonical = (case / "canonical").resolve()
     if canonical == target or canonical in target.parents:
         raise ValueError("Output must stay outside the canonical dataset directory")
     if target.exists():
