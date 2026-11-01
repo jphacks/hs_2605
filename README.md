@@ -208,8 +208,10 @@ flowchart TD
   ING --> DATA["schema v1<br>データセット<br>manifest.json<br>frames.parquet<br>events.jsonl<br>quality.json"]
   DATA --> REPORT["ml.analysis.report"]
   DATA --> PROFILE["ml.analysis.signal_profile"]
+  DATA --> STFT["ml.analysis.spectrogram"]
   REPORT --> HTML["単体 HTML 解析レポート"]
   PROFILE --> JSON["記述統計 JSON<br>N・中央値<br>p95・RMS"]
+  STFT --> PNG["STFT スペクトログラム PNG<br>解析条件・結果 JSON"]
 ```
 
 保存済みの録画を使う開発用の解析で、ライブの見守りやアラームの経路では動きません。配備済みの CNN モデル、推論の判断、ファームウェア、通知・警告の動作は変更しません。信号プロファイルが示すのは観測された変動で、乳児の呼吸精度を検証した結果ではありません。手順と限界は [解析ガイド](ml/analysis/README.md)、表示例は [公開サンプルのレポートプレビュー](ml/analysis/previews/breathing-desktop.png) にあります。
@@ -223,7 +225,21 @@ python -m ml.analysis.report analysis_runs/breathing --output analysis_runs/brea
 python -m ml.analysis.signal_profile analysis_runs/breathing --output analysis_runs/breathing_profile.json --bin 9
 ```
 
-HTML と統計 JSON は同じ標準データセットを別々に読み取り、元の録画やデータセットを変更しません。生成先の `analysis_runs/` は Git の対象外です。生成データや非公開データはコミットしないでください。既存の出力は上書きせず、置き換える場合だけ各ツールの `--force` を指定します。
+HTML・統計 JSON・スペクトログラムは同じ標準データセットを別々に読み取り、元の録画やデータセットを変更しません。生成先の `analysis_runs/` は Git の対象外です。生成データや非公開データはコミットしないでください。既存の出力は上書きせず、置き換える場合だけ各ツールの `--force` を指定します。
+
+### 合成データの位置評価と 3D デモ
+
+実機の IBUKI は、レーダーの測定と AI 推論を使って見守り・通知を行います。一方、オフラインの解析・デモは保存録画や合成データ、説明用の 3D 模型を扱い、ライブの測定・警告とは別の経路です。
+
+合成した 3 アンテナの信号で位置推定を試し、設定位置と推定位置を [2D Radar Explorer](ml/analysis/previews/explorer-ux-after-desktop.png) や [3D のベッド模型](ml/analysis/previews/scene3d-plane-default.png) で見比べられます。これは合成データの実験で、実空間の 3D 復元や乳児の追跡を検証したものではありません。
+
+製品紹介モードでは、**設置する → 見守る → 知らせる**を手動で進め、3D のベッド・センサー、説明用の波、スマートフォン通知の例を確認できます。実測データは読み込まず、通知も送信しません。
+
+```sh
+python -m ml.analysis.spatial_scene3d --showcase --output analysis_runs/ibuki_showcase.html
+```
+
+リポジトリのルートから実行すると、レーダーボード・録画・サーバー・インターネット接続なしで開ける単体 HTML を生成します。既存ファイルは上書きしないため、新しい出力名を指定してください。詳しい手順と限界は [解析ガイド](ml/analysis/README.md) にあります。
 
 ## 動かし方
 ボードを USB でつなぎ、Mac では `ibuki.command`、Windows 10/11 では `ibuki.cmd` をダブルクリックします。ターミナルからも起動できます。準備ができるとブラウザで LIVE 監視画面が自動的に開きます。
@@ -268,7 +284,7 @@ HTML と統計 JSON は同じ標準データセットを別々に読み取り、
 | [ファームウェア](firmware/README.md) | PSOC Edge E84、レーダー、ボード上の AI・Wi-Fi |
 | [ダッシュボード](web/README.md) | React / TypeScript の画面と開発手順 |
 | [AI モデルとデータ](ml/README.md) | モデルの構成、データ、学習・評価手順と前提 |
-| [オフライン解析](ml/analysis/README.md) | 標準データセット、品質診断、可視化、記述統計・実験の限界 |
+| [オフライン解析](ml/analysis/README.md) | 標準データ、信号解析・STFT、合成位置評価、2D/3D 可視化と製品紹介デモ |
 | [セキュリティ](SECURITY.md) | 脅威モデル、通知の認証、データと秘密の取り扱い |
 
 ## 開発技術
@@ -286,6 +302,7 @@ HTML と統計 JSON は同じ標準データセットを別々に読み取り、
 * AI：TensorFlow / Keras、TensorFlow Lite（LiteRT）、Arm Vela、ModusToolbox ML（mtb-ml）
 * ボードの Wi-Fi：FreeRTOS、lwIP、Mbed TLS、Infineon Wi-Fi Connection Manager、Enterprise Security（PEAP）、HTTP Client
 * オフライン解析：PyArrow（Parquet 処理専用の追加依存。PC の本番実行・ファームウェアには追加しません）、Matplotlib（レーダーの可視化と HTML レポートへの図の埋め込み）
+* オフライン 3D 可視化・製品紹介：Three.js（3D 描画）、OrbitControls（回転・拡大縮小）、esbuild（単体 HTML 用のビルド時バンドル）。ファームウェアやライブ監視の必須依存ではありません。
 * テストと道具：unittest、Node.js のテストランナー、GitHub Actions、macOS の say
 
 #### デバイス
@@ -317,13 +334,18 @@ HTML と統計 JSON は同じ標準データセットを別々に読み取り、
 * **ダッシュボードの新デザイン**：昼と夜のテーマ。[web/](web/)（[#77](https://github.com/jphacks/hs_2605/pull/77)）
 * **ダッシュボードの「ボードの様子」**：判定している AI、ボードの AI の判断、ボードの Wi-Fi、温度・湿度、ボードの状態を表示します。停止ボタンのペアリング、スマートフォンの画面の確認。[BoardPanel.tsx](web/src/BoardPanel.tsx)（[#94](https://github.com/jphacks/hs_2605/pull/94)、[#95](https://github.com/jphacks/hs_2605/pull/95)）
 * **Windows 対応**：`ibuki.cmd` とアラーム音。（[#66](https://github.com/jphacks/hs_2605/pull/66)）
-* **録画の読み取りと品質診断**：元の録画を変更せずに読み取り、シーケンスの欠落、ボード起動後の時刻、パース時の診断、欠測数の推定を確認できます。[protocol.py](ml/analysis/protocol.py)、[quality.py](ml/analysis/quality.py)（[#105](https://github.com/jphacks/hs_2605/pull/105)、[#106](https://github.com/jphacks/hs_2605/pull/106)）
-* **録画の可視化**：記録された時刻を使い、欠測を補間せずに距離・時間の変動ヒートマップと選んだ距離ビンの I/Q 波形を表示します。[visualize.py](ml/analysis/visualize.py)（[#107](https://github.com/jphacks/hs_2605/pull/107)）
-* **時系列診断とノイズ除去の比較実験**：変動・周期性、フィルターのノイズ低減と歪み、固定 CNN の入力・予測の変化を調べるオフラインの開発用ツールです。呼吸精度の向上、最適フィルター、臨床的な改善を実証したものではありません。[signal.py](ml/analysis/signal.py)、[denoise.py](ml/analysis/denoise.py)、[model_impact.py](ml/analysis/model_impact.py)（[#108](https://github.com/jphacks/hs_2605/pull/108)、[#109](https://github.com/jphacks/hs_2605/pull/109)、[#110](https://github.com/jphacks/hs_2605/pull/110)）
-* **ラベル付き CNN 評価の仕組み**：距離ビンごとの分類評価と、処理前後で正誤が変わる事例の比較を実装しました。ただし、確認した環境には独立した検証用 CSV/JSON ペアがなく、実データでのラベル付き分類精度やノイズ除去による改善は未測定です。[labeled_impact.py](ml/analysis/labeled_impact.py)（[#111](https://github.com/jphacks/hs_2605/pull/111)）
-* **録画の標準データセット化**：元の録画を変更せず、生の I/Q、`source_type` と来歴、入力・成果物の SHA-256 を保持する schema v1 を用意しました。`manifest.json`（構成・来歴）、`frames.parquet`（フレーム）、`events.jsonl`（イベント）、`quality.json`（品質診断）に分けて保存します。[ingest.py](ml/analysis/ingest.py)、[schema.py](ml/analysis/schema.py)（[#112](https://github.com/jphacks/hs_2605/pull/112)）
-* **単体 HTML 解析レポート**：成果物の整合性を検証し、品質診断、距離・時間のヒートマップ、選択ビンの I/Q、サンプリング時系列、イベントを確認できます。サーバー・CDN・インターネット接続なしで開けます。[report.py](ml/analysis/report.py)、[公開サンプルのプレビュー](ml/analysis/previews/breathing-desktop.png)（[#113](https://github.com/jphacks/hs_2605/pull/113)）
-* **観測信号の記述統計**：schema v1 の使用可能な距離ビンごとに、サンプル数、変動の大きさの中央値・p95・RMS を計算します。リセット、時刻・シーケンスの異常、欠測、設定の変化を区切り、来歴・処理対象範囲・ハッシュ・解析不可の理由を含む再現可能な JSON を出力します。公開の breathing・hold・leave 録画で処理を確認しましたが、ファイル名は正解ラベルではありません。分類器や呼吸検出器ではなく、SNR 改善や医療性能の検証でもありません。[signal_profile.py](ml/analysis/signal_profile.py)、[解析ガイド](ml/analysis/README.md)（[#114](https://github.com/jphacks/hs_2605/pull/114)）
+* **録画の読み取りと品質診断**：元録画を保ち、欠測・シーケンス・ボード起動後の時刻を診断します。[protocol.py](ml/analysis/protocol.py)、[quality.py](ml/analysis/quality.py)（[#105](https://github.com/jphacks/hs_2605/pull/105)、[#106](https://github.com/jphacks/hs_2605/pull/106)）
+* **録画の可視化**：欠測を補間せず、距離×時間の変動ヒートマップと選択ビンの I/Q 波形を表示します。[visualize.py](ml/analysis/visualize.py)（[#107](https://github.com/jphacks/hs_2605/pull/107)）
+* **時系列診断とノイズ除去の比較実験**：変動・周期性、フィルターのノイズ低減と歪み、固定 CNN の入力・予測の変化を比較します。検出精度の改善は実証していません。[signal.py](ml/analysis/signal.py)、[denoise.py](ml/analysis/denoise.py)、[model_impact.py](ml/analysis/model_impact.py)（[#108](https://github.com/jphacks/hs_2605/pull/108)、[#109](https://github.com/jphacks/hs_2605/pull/109)、[#110](https://github.com/jphacks/hs_2605/pull/110)）
+* **ラベル付き CNN 評価の仕組み**：距離ビンごとの分類指標と、処理前後の正誤を比較します。確認環境には独立した検証用 CSV/JSON ペアがなく、実データの分類精度・ノイズ除去効果は未測定です。[labeled_impact.py](ml/analysis/labeled_impact.py)（[#111](https://github.com/jphacks/hs_2605/pull/111)）
+* **録画の標準データセット化**：元録画を保ち、生の I/Q・`source_type`・来歴・入力と成果物の SHA-256 を schema v1 の `manifest.json`、`frames.parquet`、`events.jsonl`、`quality.json` に保存します。[ingest.py](ml/analysis/ingest.py)、[schema.py](ml/analysis/schema.py)（[#112](https://github.com/jphacks/hs_2605/pull/112)）
+* **単体 HTML 解析レポート**：整合性を確認し、信号・品質をまとめた HTML を出力します。サーバーや CDN、インターネット接続なしで開けます。[report.py](ml/analysis/report.py)、[公開サンプルのプレビュー](ml/analysis/previews/breathing-desktop.png)（[#113](https://github.com/jphacks/hs_2605/pull/113)）
+* **観測信号の記述統計**：欠測や設定変更で区切り、ビンごとのサンプル数と変動の中央値・p95・RMS を再現可能な JSON に出力します。呼吸の分類器や医療性能の検証ではありません。[signal_profile.py](ml/analysis/signal_profile.py)、[解析ガイド](ml/analysis/README.md)（[#114](https://github.com/jphacks/hs_2605/pull/114)）
+* **STFT スペクトログラム**：録画信号の周波数が時間とともにどう変わるかを、オフラインの図にします。ピークが呼吸周波数かどうかは別途検証が必要です。[spectrogram.py](ml/analysis/spectrogram.py)（[#116](https://github.com/jphacks/hs_2605/pull/116)）
+* **合成データによる位置評価**：3 アンテナの信号を合成し、距離・方向の推定と設定位置との差を調べます。実環境の測位精度を示すものではありません。[spatial_sim.py](ml/analysis/spatial_sim.py)（[#117](https://github.com/jphacks/hs_2605/pull/117)）
+* **2D Radar Explorer**：設定位置と推定位置、誤差・推定不可を単体 HTML で表示し、評価区間に合わせて再生できます。モバイルとキーボード操作にも対応しています。[spatial_explorer.py](ml/analysis/spatial_explorer.py)、[画面例](ml/analysis/previews/explorer-ux-after-desktop.png)（[#119](https://github.com/jphacks/hs_2605/pull/119)、[#120](https://github.com/jphacks/hs_2605/pull/120)、[#121](https://github.com/jphacks/hs_2605/pull/121)、[#122](https://github.com/jphacks/hs_2605/pull/122)）
+* **操作できる 3D ベッド模型**：Three.js のベッド・センサーを回転・拡大して設置を理解し、合成した位置推定の結果もオフラインの単体 HTML で確認できます。説明用の模型であり、実空間の 3D 復元やライブの乳児追跡ではありません。[spatial_scene3d.py](ml/analysis/spatial_scene3d.py)、[画面例](ml/analysis/previews/scene3d-plane-default.png)（[#123](https://github.com/jphacks/hs_2605/pull/123)、[#124](https://github.com/jphacks/hs_2605/pull/124)、[#125](https://github.com/jphacks/hs_2605/pull/125)）
+* **3 ステップの製品紹介デモ**：**設置する → 見守る → 知らせる**を、3D のベッド・センサー、説明用の波、スマートフォン通知の例で案内します。手動操作・モバイル対応の単体 HTML で、実測データを読み込まず、通知も送信しません。[showcase.js](ml/analysis/scene3d/showcase.js)、[設置の画面](ml/analysis/previews/showcase-step1-desktop.png)、[通知の画面](ml/analysis/previews/showcase-step3-desktop.png)（[#126](https://github.com/jphacks/hs_2605/pull/126)）
 
 ## English summary
 息吹～IBUKI～ watches a sleeping baby's breathing without a camera and without anything touching the baby. A 60 GHz radar next to the crib picks up chest movements of a few millimeters, and a laptop turns them into a breathing wave, a breathing rate and a simple state. If breathing seems to stop, the parents' iPhone gets a notification and the board's LED blinks. Trained models (two small CNNs, 8-bit) make the decisions, in the app with TensorFlow Lite and on the board's own AI chip (Ethos-U55); the board can also send the alert itself over Wi-Fi, without the laptop. Tested on the real board: a paced 10 breaths/min test measured 10.0, and 20 minutes of an adult working beside the board gave no false "no breathing" alert.
