@@ -74,18 +74,27 @@ def _milliseconds(value: float, name: str) -> int:
     return round(milliseconds)
 
 
+def sampling_cadence(times: list[int]) -> dict:
+    """Measured endpoint cadence and local/cumulative deviations; no resampling."""
+    if len(times) < 2 or any(b <= a for a, b in zip(times, times[1:])):
+        raise ValueError("Cadence requires at least two strictly increasing timestamps")
+    relative = np.array([t - times[0] for t in times], dtype=float)
+    interval = float(relative[-1] / (len(times) - 1))
+    tolerance = max(1.0, .02 * interval)
+    interval_error = float(np.max(np.abs(np.diff(relative) - interval)))
+    grid_error = float(np.max(np.abs(relative - np.arange(len(times)) * interval)))
+    return dict(sampling_interval_ms=interval, interval_tolerance_ms=tolerance,
+                max_interval_deviation_ms=interval_error, max_grid_deviation_ms=grid_error)
+
+
 def _with_spectrum(metrics: WindowMetrics, times: list[int], sequences: list[int],
                    z: np.ndarray, has_issue: bool) -> WindowMetrics:
     """Reject gaps/jitter before evaluating a Hann periodogram on measured cadence."""
     if len(z) < 2:
         return metrics
-    relative = np.array([t - times[0] for t in times], dtype=float)
-    interval = float(relative[-1] / (len(z) - 1))
-    tolerance = max(1.0, .02 * interval)
-    interval_error = float(np.max(np.abs(np.diff(relative) - interval)))
-    grid_error = float(np.max(np.abs(relative - np.arange(len(z)) * interval)))
-    metrics = replace(metrics, sampling_interval_ms=interval, interval_tolerance_ms=tolerance,
-                      max_interval_deviation_ms=interval_error, max_grid_deviation_ms=grid_error)
+    timing = sampling_cadence(times)
+    interval, tolerance = timing["sampling_interval_ms"], timing["interval_tolerance_ms"]
+    metrics = replace(metrics, **timing)
     status = None
     if len(z) < 8:
         status = "insufficient_samples"
@@ -95,7 +104,7 @@ def _with_spectrum(metrics: WindowMetrics, times: list[int], sequences: list[int
         status = "sequence_gap"
     elif has_issue:
         status = "parser_issues"
-    elif interval_error > tolerance or grid_error > tolerance:
+    elif timing["max_interval_deviation_ms"] > tolerance or timing["max_grid_deviation_ms"] > tolerance:
         status = "irregular_timing"
     elif (times[0] - metrics.window_start_t_ms > 1.5 * interval
           or metrics.window_end_t_ms - times[-1] > 1.5 * interval):
