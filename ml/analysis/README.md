@@ -826,17 +826,17 @@ before and after starting.
 From the repository root, with the existing offline analysis environment:
 
 ```sh
-python -m ml.analysis.spatial_sim --scenario sweep --out-dir analysis_runs/explorer-demo/sweep
-python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/sweep/case_00 --output analysis_runs/explorer-demo/sweep/explorer.html
+python -m ml.analysis.spatial_sim --scenario sweep --out-dir analysis_runs/playback-demo/sweep
+python -m ml.analysis.spatial_explorer analysis_runs/playback-demo/sweep/case_00 --output analysis_runs/playback-demo/sweep/explorer.html
 ```
 
 These exact commands were executed. Choose fresh directories/filenames if they
-already exist. Open `analysis_runs/explorer-demo/sweep/explorer.html` directly in
+already exist. Open `analysis_runs/playback-demo/sweep/explorer.html` directly in
 a browser (`file://`, double-click); no server or frontend build is required.
 Click **シミュレーションを開始** to reveal the results. The button reveals
 precomputed evaluations; it does not simulate physical hardware in the browser.
 Select a window using **調べる区間**, or click/focus a map marker and press Enter
-or Space. The matching inspection panel updates without any animation or playback.
+or Space. The same selection also drives the playback controls and discrete slider.
 On mobile, **選択した結果を見る** jumps to the selected result below the map.
 
 - Green hollow circles: configured **synthetic reference** positions.
@@ -854,16 +854,63 @@ On mobile, **選択した結果を見る** jumps to the selected result below th
   120-degree discrepancy; a warning explains the front/back ambiguity. Passing
   the signal guards does not establish that an estimate is correct.
 
+### Discrete temporal playback
+
+After revealing the results, playback remains **paused**. Use **再生** / **一時停止**,
+**前へ** / **次へ**, the labeled **評価区間の目盛り** slider, the window dropdown,
+or map markers. Every control uses one selected-window state and one rendering
+path, updating the highlighted markers, window identity, observed time range,
+reference time, configured/estimated values, differences and availability together.
+Manual selection/stepping always pauses playback. At the last window it stops
+without wrapping; select an earlier window explicitly to restart.
+
+The demonstration advances **one precomputed window per nominal 1-second tick**.
+This is not a physical-time playback multiplier: the slider is equally spaced
+window indices, not elapsed-time spacing. Browser scheduling can delay a tick.
+There is no continuous movement, interpolation or prediction between windows.
+Each estimate covers its whole observed window; overlapping windows are not
+independent instantaneous measurements. Both the controls and panel show start/end
+board uptime and the existing earlier-middle reference frame, not Unix time.
+
+Automatic playback stops **before crossing** a `(parent_block_index, trace_index)`
+boundary and displays a Japanese explanation. This preserves gaps, restarts,
+configuration changes and other boundaries from the evaluator. If those IDs,
+increasing source-line references or increasing reference uptime cannot establish
+continuity, automatic progression is disabled conservatively. **次へ**, the slider
+or dropdown may explicitly select the next segment, while remaining paused.
+No continuous path is drawn between any windows, including across segments.
+
+Buttons and the integer-step slider support native keyboard operation with visible
+focus. Selecting a marker with Enter/Space remains supported. The persistent
+synthetic badge stays visible. Hiding/leaving the page cancels the single timer;
+returning does not resume playback. With `prefers-reduced-motion: reduce`, automatic
+playback is disabled (and stopped if already playing); manual navigation remains
+available. There is no autoplay on load or when revealing the workspace.
+
 To reproduce the other inspected cases (each uses a fresh output directory):
 
 ```sh
-python -m ml.analysis.spatial_sim --scenario ambiguous --out-dir analysis_runs/explorer-demo/ambiguous
-python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/ambiguous/case_00 --output analysis_runs/explorer-demo/ambiguous/explorer.html
-python -m ml.analysis.spatial_sim --scenario noisy --out-dir analysis_runs/explorer-demo/noisy
-python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/noisy/case_00 --output analysis_runs/explorer-demo/noisy/explorer.html
-python -m ml.analysis.spatial_sim --scenario constant --out-dir analysis_runs/explorer-demo/constant
-python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/constant/case_00 --output analysis_runs/explorer-demo/constant/explorer.html
+python -m ml.analysis.spatial_sim --scenario single --out-dir analysis_runs/playback-demo/stationary
+python -m ml.analysis.spatial_explorer analysis_runs/playback-demo/stationary/case_00 --output analysis_runs/playback-demo/stationary/explorer.html
+python -m ml.analysis.spatial_sim --scenario ambiguous --out-dir analysis_runs/playback-demo/ambiguous
+python -m ml.analysis.spatial_explorer analysis_runs/playback-demo/ambiguous/case_00 --output analysis_runs/playback-demo/ambiguous/explorer.html
+python -m ml.analysis.spatial_sim --scenario noisy --out-dir analysis_runs/playback-demo/noisy
+python -m ml.analysis.spatial_explorer analysis_runs/playback-demo/noisy/case_00 --output analysis_runs/playback-demo/noisy/explorer.html
 ```
+
+For a reproducible **synthetic test fixture**, remove frame 120 and restart
+sequence/uptime at frame 240 of a newly generated 18-second sweep. The focused
+test helper does this without modifying an existing recording or inventing a
+different data format:
+
+```sh
+python -c "from ml.analysis.tests.test_spatial_explorer import write_discontinuous_case; write_discontinuous_case('analysis_runs/playback-demo/discontinuous/case_00')"
+python -m ml.analysis.spatial_explorer analysis_runs/playback-demo/discontinuous/case_00 --output analysis_runs/playback-demo/discontinuous/explorer.html
+```
+
+Its eight windows form groups of 3, 2 and 3 across a gap and restart. Playback
+stops at windows 3 and 5; explicitly selecting windows 4 and 6 enters the next
+segment. Availability and the 150-degree rear-target error remain unchanged.
 
 ### Inputs, integrity and safe export
 
@@ -908,15 +955,29 @@ generation timestamps or absolute source/output paths.
 
 ### Verified previews and limits
 
-The generated HTML was opened using `file://` in Chrome with networking disabled.
-All four scenarios above were checked at **1280px and 390px**: no horizontal
-overflow, no browser page errors and no HTTP(S) requests. All nine windows per
-scenario were selected and compared to embedded evaluation values; keyboard
-marker selection, unavailable markers and the 120-degree ambiguity were checked.
+The generated playback HTML was opened using `file://` in Chrome 156 with networking
+disabled. Sweep, stationary, noisy/unavailable, rear ambiguity and gap/restart
+cases were checked at **1280px and 390px**: ten scenario/layout checks, with no
+horizontal overflow, browser page errors or HTTP(S) requests. Every window (nine
+per ordinary case, eight in the discontinuity fixture) was selected and compared
+to embedded values. Automatic selection, keyboard buttons/slider/markers, rapid
+play/pause, end and boundary stops, unavailable markers and the 120-degree error
+were checked. A separate native-clock browser check verified actual timer advance
+and reduced-motion media changes; timer-chain tests otherwise use a virtual clock.
+
+Visibility/pagehide handlers were tested with controlled events and a
+`document.hidden` override; OS background-tab throttling and sleep/resume timing
+were **not** benchmarked. Browser checks cover Chrome here, not all browser/assistive
+technology combinations. Early checker runs failed on programmatic-focus versus
+keyboard-focus assumptions and emulated media delivery under polling. The final
+checker uses Tab and isolates native rendering/media checks from virtual clocks,
+allowing a native rendering turn before testing the media-change outcome.
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Synthetic Explorer desktop, selected sweep window](previews/spatial-explorer-desktop.png) | ![Synthetic Explorer mobile, selected sweep window](previews/spatial-explorer-mobile.png) |
+| ![Synthetic playback desktop, synchronized window selection](previews/spatial-playback-desktop.png) | ![Synthetic playback mobile, synchronized window selection](previews/spatial-playback-mobile.png) |
+
+[Playback paused at a data gap](previews/spatial-playback-boundary.png)
 
 [Rear ambiguity inspection](previews/spatial-explorer-ambiguity.png) ·
 [Unavailable noisy-signal inspection](previews/spatial-explorer-unavailable.png)
@@ -924,15 +985,49 @@ marker selection, unavailable markers and the 120-degree ambiguity were checked.
 The committed previews contain public synthetic results only. Unit coverage includes
 provenance/integrity, saved/default evaluation settings, missing geometry, empty
 input, gaps/resets, unavailable and incorrect results, JSON injection boundaries,
-determinism, source preservation, output restrictions and CLI failures.
+determinism, source preservation, output restrictions and CLI failures. New controller
+tests execute the exact shipped JavaScript with Node.js and a deterministic fake
+clock (no browser/build dependency). Those focused JS tests are explicitly skipped
+if optional Node.js is absent; Python ingestion/security tests still run. Node.js
+is already used by this repository's web development and available in the verified
+CI environment; no runtime dependency is added.
+
+```sh
+python -m unittest ml.analysis.tests.test_spatial_explorer -v
+python -m unittest discover -s ml/analysis/tests -t . -v
+python -m unittest discover -s pc/tests -t pc -v
+git diff --check
+```
+
+The optional, committed browser checker requires Playwright/Chrome in a separate
+QA environment; neither is needed to generate or open HTML. The exact verified
+command uses the existing isolated QA install (choose a fresh screenshot directory):
+
+```sh
+node ml/analysis/tests/check_spatial_playback.cjs --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --reports analysis_runs/playback-demo --file explorer-final.html --screenshots analysis_runs/playback-browser-final-v2
+```
+
+Pass another installed Playwright module path via `--playwright`, or omit it if
+`playwright` is on Node's module search path. The checker uses an isolated child
+process for native clock/media checks and saves screenshots/results in the ignored
+directory. It changes no source datasets and never needs a web server/network.
+`--file` defaults to `explorer.html`. The final check above used a fresh export
+named `explorer-final.html` in each case's parent to preserve earlier reports:
+
+```sh
+python -c "from ml.analysis.spatial_explorer import render_explorer; [render_explorer(f'analysis_runs/playback-demo/{name}/case_00', f'analysis_runs/playback-demo/{name}/explorer-final.html') for name in ('sweep','stationary','noisy','ambiguous','discontinuous')]"
+```
+
+For fresh initial exports from the earlier commands, omit `--file` instead.
 
 **Synthetic algorithm tests are not proof of real radar accuracy.** This remains an
 idealized single-target range/horizontal-angle experiment, not room localization,
 full 3D reconstruction, multi-person/body tracking, breathing performance or medical
-validation. The current scope has no timeline, autoplay, temporal synchronization,
-live integration or runtime/model changes. Playback and further accessibility
-polish belong to a later PR; physical evaluation requires independently calibrated
-antenna geometry and real E recordings first.
+validation. This discrete demonstration timeline does not add autoplay, live
+integration, new measurements, runtime/model changes or a raw-I/Q editor. Further
+accessibility polish and other analysis views remain separate work; physical
+evaluation requires independently calibrated antenna geometry and real E recordings
+first.
 
 ## Relationship to existing readers
 
