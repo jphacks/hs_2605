@@ -1,10 +1,41 @@
-# 息吹～IBUKI～ 
+<h1 align="center">息吹 ～ IBUKI ～</h1>
+
+<p align="center">
+  <img src="docs/images/ibuki-hero.webp" width="100%" alt="IBUKI・息吹 — 触れずに、映さずに。アイボリーとセージグリーンの背景に、眠る赤ちゃん、非接触レーダーと呼吸の波を描いたブランドイラスト。実機や実験結果の写真ではありません。">
+</p>
+
+<p align="center">
+  <a href="https://github.com/jphacks/hs_2605"><img src="https://img.shields.io/badge/JPHACKS-2026-335653?style=flat-square&amp;labelColor=335653" alt="JPHACKS 2026"></a>
+  <a href="#awards"><img src="https://img.shields.io/badge/Hiroshima_Hack_Day-Audience_Award-b89a57?style=flat-square&amp;labelColor=335653" alt="Hiroshima Hack Day Audience Award"></a>
+  <a href="https://github.com/jphacks/hs_2605/actions/workflows/tests.yml"><img src="https://github.com/jphacks/hs_2605/actions/workflows/tests.yml/badge.svg" alt="tests — GitHub Actions"></a>
+</p>
+
+<a id="awards"></a>
+<p align="center">🏆 JPHACKS 2026 Hack Day Audience Award（広島会場）受賞</p>
+
+<p align="center">
+  <a href="pc/README.md"><img src="https://img.shields.io/badge/Python-335653?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python — サーバー・信号解析"></a>
+  <a href="firmware/README.md"><img src="https://img.shields.io/badge/C-335653?style=flat-square&amp;logo=c&amp;logoColor=white" alt="C — ファームウェア"></a>
+  <a href="web/README.md"><img src="https://img.shields.io/badge/TypeScript-335653?style=flat-square&amp;logo=typescript&amp;logoColor=white" alt="TypeScript — ダッシュボード"></a>
+  <a href="web/README.md"><img src="https://img.shields.io/badge/React-335653?style=flat-square&amp;logo=react&amp;logoColor=white" alt="React — ダッシュボード"></a>
+</p>
+
+<p align="center">
+  <a href="#デモ動画">Demo Video</a> ·
+  <a href="#しくみ">Architecture</a> ·
+  <a href="#動作確認の結果">Test Results</a> ·
+  <a href="#ドキュメント">Documentation</a>
+</p>
 
 **カメラも、ウェアラブル端末もいらない。非接触センサーで、お休み中の赤ちゃんの呼吸を見守る。**
 
-🏆 JPHACKS 2026 Hack Day Audience Award（広島会場）受賞
+- **触れずに、映さずに。** カメラや体への装着なしで、胸の動きをとらえます。
+- **60 GHz ミリ波レーダー × Edge AI。** PSOC Edge E84 と学習済みモデルで、観測した動きを解析します。
+- **波と状態を、保護者へ。** リアルタイムのダッシュボード、スマートフォンへの通知と LED で知らせます。
 
-[![tests](https://github.com/jphacks/hs_2605/actions/workflows/tests.yml/badge.svg)](https://github.com/jphacks/hs_2605/actions/workflows/tests.yml)
+実機デモ・動作確認は成人で行ったものです。乳児での検証は未実施です。[結果と限界](#動作確認の結果)をご確認ください。
+
+## 実機デモのハイライト
 
 [![デモ動画：息を止めると、スマートフォンに緊急の通知が届く](docs/videos/demo_1_no_breathing.jpg)](https://jphacks.github.io/hs_2605/videos/demo_1_no_breathing.mp4)
 
@@ -225,6 +256,20 @@ HTML と統計 JSON は同じ標準データセットを別々に読み取り、
 録画再生は実機の現在の測定ではありません。`--loop` で繰り返し、`--brain placeholder` など既存のサーバーオプションもそのまま使えます。1 回のテストを終えたら Ctrl+C で止め、次の録画を起動してください。ホールドの警告音は Mac / Windows とも、画面の停止ボタン・サーバーの Enter・ボードの SW1 で止めるまで繰り返します。`IBUKI_SIREN=0` で音を無効にできます。録画でも `.env` の ntfy 設定は有効です。
 
 ファームウェアは [firmware/README.md](firmware/README.md)、サーバーと通知は [pc/README.md](pc/README.md)、ダッシュボードは [web/README.md](web/README.md)、赤ちゃんの呼吸データと開発中の AI モデルは [ml/README.md](ml/README.md) にくわしく書いてあります。
+
+## ドキュメント
+
+目的に合わせて、各コンポーネントの手順・仕様を参照してください。
+
+| ガイド | 内容 |
+|---|---|
+| [はじめに：動かし方](#動かし方) | Mac / Windows での起動、ボードなしの公開録画リプレイ |
+| [PC・Brain・通知](pc/README.md) | サーバー、リアルタイム判定、スマートフォン通知とアラーム |
+| [ファームウェア](firmware/README.md) | PSOC Edge E84、レーダー、ボード上の AI・Wi-Fi |
+| [ダッシュボード](web/README.md) | React / TypeScript の画面と開発手順 |
+| [AI モデルとデータ](ml/README.md) | モデルの構成、データ、学習・評価手順と前提 |
+| [オフライン解析](ml/analysis/README.md) | 標準データセット、品質診断、可視化、記述統計・実験の限界 |
+| [セキュリティ](SECURITY.md) | 脅威モデル、通知の認証、データと秘密の取り扱い |
 
 ## 開発技術
 ### 活用した技術
