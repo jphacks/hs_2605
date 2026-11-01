@@ -819,8 +819,10 @@ tracking, breathing accuracy, infant safety or medical performance.
 radar-like enclosure and a faint illustrative sensing direction. It explains the
 **contactless monitoring concept**, without a camera feed, measurements or live
 connection. The Japanese interface continuously identifies it as an installation
-illustration, not measured data. It is independent of the 2D Explorer below:
-there is no simulation-result loading or synchronization with analysis windows.
+illustration, not measured data. The original no-data installation scene remains
+available. An optional analysis mode connects existing synthetic evaluation
+windows using the same validated loader and playback state machine as the 2D
+Explorer below, on a **separate analysis coordinate plane**.
 
 ### Generate and open
 
@@ -836,7 +838,75 @@ static SVG fallback and the Three.js license are embedded. Only a **new `.html`
 under this checkout's ignored `analysis_runs/`** is accepted. Missing directories
 are created. Existing files and symlink destinations are protected; use a fresh
 filename to export again. Errors return CLI status 2 without a traceback.
-No input artifacts or canonical datasets are modified or read.
+Without `--case`, no dataset is read. Neither mode modifies input artifacts.
+
+### Connect an existing synthetic case
+
+Use an existing, unmodified `spatial_sim` case (not a recording CSV):
+
+```sh
+python -m ml.analysis.spatial_scene3d --case analysis_runs/spatial-demo/sweep/case_00 --output analysis_runs/spatial-demo/sweep/crib_evaluation.html
+```
+
+This mode needs the existing offline analysis dependencies (root
+`requirements.txt` plus `ml/analysis/requirements.txt`). The no-data exporter
+continues to use only the Python standard library. There are no new packages.
+Missing/invalid cases fail clearly; the exporter never downloads, generates or
+repairs input datasets. Output must stay outside `canonical/`.
+
+`spatial_explorer.load_case` validates the synthetic canonical schema/artifact
+hashes and truth agreement, and verifies any saved `evaluation.json` by invoking
+the unchanged evaluator with its saved parameters. As in the 2D Explorer, a case
+without a saved evaluation uses the existing evaluator defaults; the embedded
+`explorer.evaluation_source` identifies that path. This re-evaluation is an
+integrity check, not a new estimator or dataset generation. Modified canonical,
+truth or saved evaluation artifacts that violate those checks are rejected.
+Hashes establish consistency, not independent authenticity or hardware accuracy.
+
+The complete loaded payload, windows in their original order, source provenance,
+input/artifact hashes, parameters, quality and verification metadata are embedded
+unchanged in inert JSON. There is no original-CSV fallback or live data input.
+
+### Inspect and play analysis windows
+
+The crib remains an installation illustration. Beside it (below on mobile), the
+**separate synthetic range/horizontal-angle plane** shows a hollow green circle
+for the configured reference and a filled brown diamond for the existing estimate.
+Both color and shape distinguish them. The axes are the synthetic evaluator's
+coordinates, **not the crib's coordinates**; no height is assigned, no markers are
+placed on the baby, and no physical coordinate transform is invented.
+
+The first window can be inspected immediately. `解析デモを開始` reveals the compact
+controls without autoplay. `再生` advances one precomputed window per second;
+`一時停止` pauses, `前へ` / `次へ` step, `調べる区間` and the discrete slider select
+any window. This interval is presentation cadence, not a recording-time playback
+speed. Manual selection pauses. There is no interpolation or path animation.
+
+Both viewers use the exact same `createPlayback` function from the Explorer:
+one selected index, one timer, stop before crossing discontinuities/gaps/restarts,
+stop at the last window, pause when hidden or leaving the page, and no automatic
+restart. Crossing a boundary requires explicit manual selection. Reduced motion
+disables automatic playback but keeps manual selection and camera controls.
+`視点を戻す` resets only the camera; the selected window is preserved.
+
+The selected window, availability and position difference are visible. Expand
+`詳しく見る` for reference/estimated range and horizontal angle, their differences,
+board-relative times (exclusive end index correctly reads the last included
+frame), source lines, raw diagnostic output and provenance. Values/formats match
+the 2D Explorer; they describe window estimates, not instantaneous positions.
+
+Unavailable estimates have no visible estimated marker and a Japanese reason.
+Incorrect estimates remain incorrect: the rear-ambiguity case still shows its
+original 30° estimate for a 150° reference and 120° angular error. No marker is
+corrected or hidden to make a result look better. Noisy/unavailable results are
+not replaced with plausible coordinates.
+
+WebGL failure or context loss affects only the illustrative crib; the SVG analysis
+plane, selected values and playback remain usable. With JavaScript disabled,
+the static crib diagram and a table of **all** evaluation windows remain readable;
+interactive selection/playback requires JavaScript. No renderer is needed for
+that table. Controls are native keyboard/touch targets with visible focus. Data
+selection never calls scrolling functions or moves focus during playback.
 
 ### Camera controls and fallback
 
@@ -872,8 +942,8 @@ npm ci
 npm run build
 ```
 
-The verified rebuild produced the same 570,076-byte bundle and SHA-256:
-`aa6d9c92c10c260aa62b8066d96a010f5acd2fea4ee68a79be38599c76532443`.
+The data-connected rebuild produced a 577,572-byte bundle with SHA-256:
+`2f98ad7ee7f80459e1418b9097592786180b2a13688b1bceb57ad5dd6df00c84`.
 Identical committed resources produce byte-identical HTML, with no timestamps.
 Rendered pixels can differ across browser/graphics implementations.
 
@@ -907,6 +977,48 @@ Its JSON records actual checks and browser version. Python tests require neither
 Chrome nor npm and run in existing analysis CI. The existing 2D Explorer has its
 own independent unit/browser regression checks; its implementation is unchanged.
 
+### Data-connected verification and previews
+
+Actual offline Chrome 156.0.8078.76 screenshots (software WebGL/SwiftShader):
+
+[Original no-data 3D scene](previews/scene3d-analysis-default.png)
+
+| Selected synthetic window | Later synthetic window |
+| --- | --- |
+| [![Selected reference and estimate beside the illustrative crib](previews/scene3d-analysis-selected.png)](previews/scene3d-analysis-selected.png) | [![Later selected window, same independent crib scene](previews/scene3d-analysis-later.png)](previews/scene3d-analysis-later.png) |
+
+[Unavailable estimate](previews/scene3d-analysis-unavailable.png) ·
+[Preserved rear-direction error](previews/scene3d-analysis-ambiguity.png) ·
+[Mobile](previews/scene3d-analysis-mobile.png) ·
+[WebGL fallback with analysis](previews/scene3d-analysis-fallback.png)
+
+The paired browser checker requires already exported `{scenario}.html` and
+`{scenario}-2d.html` for sweep, stationary, noisy, ambiguous and discontinuous.
+It never creates/regenerates input cases. Export each with the two existing CLIs
+to a fresh directory, for example:
+
+```sh
+python -m ml.analysis.spatial_scene3d --case analysis_runs/playback-demo/sweep/case_00 --output analysis_runs/scene-evaluation/sweep.html
+python -m ml.analysis.spatial_explorer analysis_runs/playback-demo/sweep/case_00 --output analysis_runs/scene-evaluation/sweep-2d.html
+# Repeat for the other four existing cases; preserve the discontinuous fixture.
+node ml/analysis/tests/check_scene3d_analysis.cjs --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --reports analysis_runs/scene-evaluation --screenshots analysis_runs/connected-browser
+python -m unittest ml.analysis.tests.test_scene3d ml.analysis.tests.test_scene3d_analysis ml.analysis.tests.test_spatial_explorer -v
+```
+
+Verified all 25 scenario/viewport combinations (320/390/768/1280/1440px), every
+window's actual displayed values, provenance and drawn marker centers against
+the unchanged 2D view, keyboard/touch controls, camera-selection independence,
+pause/step/end/gap/restart behavior, hidden/pagehide handling, real timer playback
+and native reduced-motion changes. No HTTP(S) requests, unhandled JS errors or
+horizontal overflow were observed. All five cases also passed WebGL-unavailable
+and JavaScript-disabled fallbacks; source byte hashes and mtimes were unchanged.
+Visibility checks use `document.hidden` override plus `visibilitychange`, and a
+persisted `pagehide` event; they are not an OS background-process study. Touch is
+emulated. These checks establish view consistency, not positioning accuracy.
+Screenshot capture uses a fresh native-clock browser view of the same artifact
+and selected index, independent of the virtual playback test clock, so software
+WebGL compositing remains active. These are implementation captures, not mockups.
+
 ### Interpretation and next steps
 
 All scene units, shapes, enclosure, support, placement and sensing direction are
@@ -914,9 +1026,13 @@ arbitrary explanatory geometry. None establishes verified installation safety,
 hardware dimensions, radar field of view, localization, reconstruction, breathing
 detection or medical performance. The sleeping figure is static and supplies no
 artificial breathing values. No first-viewer comprehension study or real-device
-touch/performance validation has been performed. A later separately scoped step
-may link a selected analysis window to illustrative presentation, with explicit
-provenance; this PR does not implement that connection or new estimators.
+touch/performance validation has been performed. Analysis mode only presents
+existing synthetic range/horizontal-angle outputs. It does not establish elevation,
+room/crib calibration, full 3D localization, body tracking, infant breathing
+accuracy or medical performance. Future work could improve inspection of existing
+uncertainty/diagnostics with separately reviewed requirements; a physical mapping
+would first require independent calibration and validation evidence. No such
+mapping or estimator is introduced here.
 
 ## Standalone synthetic Radar Explorer
 
