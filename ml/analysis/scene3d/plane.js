@@ -1,12 +1,8 @@
 // A Three.js layer in the same Scene, viewed independently of the crib.
 // Normalization and z=0 are presentation conventions, never room coordinates.
 import {CanvasTexture, DoubleSide, Group, Mesh, MeshBasicMaterial,
-  OrthographicCamera, PlaneGeometry, RingGeometry, SRGBColorSpace} from 'three';
-
-export const PLOT_RADIUS=1.45;
-export function planePoint(position,extent){
-  return [position.x/extent*PLOT_RADIUS,position.y/extent*PLOT_RADIUS,0];
-}
+  OrthographicCamera, PlaneGeometry, RingGeometry, SRGBColorSpace, Vector3} from 'three';
+import {PLOT_RADIUS,planePoint} from './coordinates.js';
 
 export function createAnalysisPlane(scene){
   const root=new Group();root.name='synthetic-analysis-plane';scene.add(root);
@@ -44,7 +40,7 @@ export function createAnalysisPlane(scene){
   const originY=-.06;
   const reference=mesh(new RingGeometry(.09,.135,48),'#287269',0,0,4);
   reference.name='configured-reference';
-  const estimated=mesh(new PlaneGeometry(.18,.18),'#a45424',0,0,4);
+  const estimated=mesh(new PlaneGeometry(.14,.14),'#a45424',0,0,4);
   estimated.rotation.z=Math.PI/4;estimated.name='estimated-position';
   let guidesCreated=false;
   function update(window,index,total,extent){
@@ -72,7 +68,9 @@ export function createAnalysisPlane(scene){
   }
   // Read-only inspection of actual scene objects for browser parity checks.
   function snapshot(){
-    const project=object=>({position:object.position.toArray(),ndc:object.position.clone().project(camera).toArray(),layer:object.layers.mask});
+    const project=object=>({position:object.position.toArray(),world:object.getWorldPosition(new Vector3()).toArray(),
+      ndc:object.getWorldPosition(new Vector3()).project(camera).toArray(),layer:object.layers.mask,
+      geometry:object.geometry.type,color:object.material.color.getHexString(),rotation:object.rotation.z});
     return {reference:project(reference),estimate:estimated.parent===root?project(estimated):null,
       originY,plotRadius:PLOT_RADIUS,planeDepth:0,layer:1,rootName:root.name};
   }

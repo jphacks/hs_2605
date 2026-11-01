@@ -38,6 +38,7 @@ function showFallback(message){
   labels.forEach(el=>el.hidden=true);
   buttons.forEach(el=>el.disabled=true);
   status.textContent=message;
+  stage.dispatchEvent(new Event('scene-fallback'));
 }
 
 function initialize(){
@@ -52,7 +53,7 @@ function initialize(){
   scene=new Scene();scene.background=new Color('#f4f0e7');
   if(hasAnalysis){
     analysisPlane=createAnalysisPlane(scene);
-    Object.defineProperty(canvas,'ibukiAnalysisPlane',{value:()=>analysisPlane.snapshot()});
+    Object.defineProperty(canvas,'ibukiAnalysisPlane',{value:()=>({...analysisPlane.snapshot(),viewport:viewports().plane})});
   }
   camera=new PerspectiveCamera(40,1,.1,50);
   controls=new OrbitControls(camera,canvas);
