@@ -30,8 +30,11 @@ async function shot(p,name){
     HTMLCanvasElement.prototype.getContext=function(type,...rest){return /webgl/i.test(type)?null:original.call(this,type,...rest);};
   });
   const visible=await context.newPage();
-  await visible.goto(p.url());await visible.click('#analysis-start');
-  await visible.selectOption('#window-select',String((await state(p)).selected));
+  await visible.goto(p.url());
+  if(await p.locator('#analysis-controls').isVisible()){
+    await visible.click('#analysis-start');
+    await visible.selectOption('#window-select',String((await state(p)).selected));
+  }
   if(name==='rear-ambiguity'){
     await visible.locator('#analysis-details summary').click();
     assert.equal(await visible.locator('#angle-difference').isVisible(),true);
@@ -42,6 +45,7 @@ async function shot(p,name){
   await context.close();
 }
 async function selection(p,reference,index){
+  await p.clock.runFor(20); // Flush the one requested WebGL draw, not a second player.
   const w=reference.data.windows[index];
   const current=await state(p);
   assert.equal(current.selected,index);
@@ -60,6 +64,22 @@ async function selection(p,reference,index){
     assert.equal(g.hidden,false);assert.equal(g.index,String(index));
     const actual=g.transform.match(/translate\(([-\d.e+]+) ([-\d.e+]+)\)/).slice(1).map(Number);
     const expected=reference.markers[index][g.kind];near(actual[0],expected[0]);near(actual[1],expected[1]);
+  }
+  if(await p.locator('#scene-stage').getAttribute('data-state')==='webgl'){
+    const plane=await p.locator('#scene-canvas').evaluate(el=>el.ibukiAnalysisPlane());
+    assert.equal(plane.rootName,'synthetic-analysis-plane');assert.equal(plane.planeDepth,0);
+    for(const [kind,marker] of [['truth',plane.reference],['estimate',plane.estimate]]){
+      if(kind==='estimate'&&!w.estimation_available){assert.equal(marker,null);continue;}
+      assert.ok(marker);assert.equal(marker.layer,2);assert.equal(marker.position[2],0);
+      assert.deepEqual(marker.world,marker.position);
+      const expected=reference.markers[index][kind];
+      near(marker.position[0]/plane.plotRadius,(expected[0]-300)/220);
+      near((marker.position[1]-plane.originY)/plane.plotRadius,(285-expected[1])/220);
+      assert.ok(Math.abs(marker.ndc[0])<1&&Math.abs(marker.ndc[1])<1,'3D marker clipped');
+      assert.equal(marker.geometry,kind==='truth'?'RingGeometry':'PlaneGeometry');
+      assert.equal(marker.color,kind==='truth'?'287269':'a45424');
+      if(kind==='estimate')near(marker.rotation,Math.PI/4);
+    }
   }
 }
 (async()=>{
@@ -91,8 +111,15 @@ async function selection(p,reference,index){
       assert.deepEqual(JSON.parse(await p.locator('#scene-data').textContent()),reference[scenario].data);
       assert.equal(await p.locator('#analysis-controls').isVisible(),false);
       await p.clock.runFor(5000);assert.equal((await state(p)).selected,0);assert.equal((await state(p)).playing,false);
+      if(scenario==='sweep'&&width===1280)await shot(p,'default-plane');
       await p.click('#analysis-start');assert.equal(await p.evaluate(()=>document.activeElement.id),'window-select');
       const ref=reference[scenario];await selection(p,ref,0);
+      if(width<=390){
+        const stage=await p.locator('#scene-stage').boundingBox(),controls=await p.locator('.playback-actions').boundingBox();
+        assert.ok(stage.y>=0&&stage.y<12&&controls.y+controls.height<=900,JSON.stringify({stage,controls}));
+      }
+      const idle=await p.locator('#scene-stage').getAttribute('data-render-count');
+      await p.clock.runFor(3000);assert.equal(await p.locator('#scene-stage').getAttribute('data-render-count'),idle);
       if(scenario==='sweep'&&width===1280)await shot(p,'selected-window');
       await p.locator('#next').focus();await p.keyboard.press('Enter');await selection(p,ref,1);
       await p.locator('#previous').focus();await p.keyboard.press('Space');await selection(p,ref,0);
@@ -109,7 +136,29 @@ async function selection(p,reference,index){
       await p.click('#pause');await p.clock.runFor(5000);await selection(p,ref,1);
       // Camera reset and direct camera keyboard changes never select another window.
       await p.click('[data-camera="right"]');await p.clock.runFor(50);
+      await selection(p,ref,1); // Fixed analysis plane is independent of crib orbit.
       await p.click('[data-camera="reset"]');await p.clock.runFor(50);await selection(p,ref,1);
+      if(scenario==='sweep'&&[320,390,1280].includes(width)){
+        const box=await p.locator('#scene-canvas').boundingBox();
+        const x=box.x+box.width*(width<=390?.5:.29),y=box.y+box.height*(width<=390?.2:.5);
+        const camera=()=>p.locator('#scene-stage').getAttribute('data-camera').then(JSON.parse);
+        const initial=await camera();
+        await p.mouse.move(x,y);await p.mouse.down();await p.mouse.move(x+35,y+10,{steps:4});await p.mouse.up();await p.clock.runFor(50);
+        assert.ok(Math.abs((await camera()).azimuth-initial.azimuth)>.01);await selection(p,ref,1);
+        await p.mouse.wheel(0,150);await p.clock.runFor(50);assert.ok((await camera()).distance>initial.distance);
+        await p.click('[data-camera="reset"]');await p.clock.runFor(50);
+        if(width<=390){
+          const cdp=await context.newCDPSession(p);
+          const touch=(type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(([id,tx,ty])=>({id,x:tx,y:ty}))});
+          await touch('touchStart',[[0,x,y]]);await touch('touchMove',[[0,x+35,y+10]]);await touch('touchEnd',[]);await p.clock.runFor(50);
+          assert.ok(Math.abs((await camera()).azimuth-initial.azimuth)>.01);await selection(p,ref,1);
+          await p.click('[data-camera="reset"]');await p.clock.runFor(50);
+          await touch('touchStart',[[0,x-20,y],[1,x+20,y]]);await touch('touchMove',[[0,x-35,y],[1,x+35,y]]);await touch('touchEnd',[]);await p.clock.runFor(50);
+          assert.ok((await camera()).distance<initial.distance);
+        }
+        await p.click('[data-camera="reset"]');await p.clock.runFor(50);near((await camera()).azimuth,initial.azimuth);
+        await selection(p,ref,1);
+      }
       for(let i=0;i<20;i++)await p.evaluate(()=>{document.getElementById('play').click();document.getElementById('pause').click();});
       await p.clock.runFor(5000);await selection(p,ref,1);
       await p.click('#play');await p.clock.runFor(1000);await selection(p,ref,2);
@@ -155,14 +204,16 @@ async function selection(p,reference,index){
         HTMLCanvasElement.prototype.getContext=function(type,...rest){return /webgl/i.test(type)?null:original.call(this,type,...rest);};
       });
       const p=await context.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto(url(scenario));
-      assert.equal(await p.locator('#scene-fallback').isVisible(),true);
       if(javaScriptEnabled){
+        assert.equal(await p.locator('#scene-svg').isVisible(),true);
+        assert.equal(await p.locator('#analysis-map').isVisible(),true);
         await p.click('#analysis-start');
         for(let index=0;index<reference[scenario].data.windows.length;index++){
           await p.selectOption('#window-select',String(index));await selection(p,reference[scenario],index);
         }
         if(scenario==='sweep'){await p.selectOption('#window-select','1');await shot(p,'webgl-fallback');}
       }else{
+        assert.equal(await p.locator('#scene-fallback').isVisible(),true);
         assert.equal(await p.locator('.static-windows tbody tr').count(),reference[scenario].data.windows.length);
         assert.equal(await p.locator('.static-windows').isVisible(),true);
         assert.equal(await p.locator('#analysis-start').isVisible(),false);

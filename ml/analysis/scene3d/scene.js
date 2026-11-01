@@ -8,6 +8,7 @@ import {
 } from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {initializeAnalysis} from './analysis.js';
+import {createAnalysisPlane} from './plane.js';
 
 const stage=document.getElementById('scene-stage');
 const canvas=document.getElementById('scene-canvas');
@@ -17,6 +18,18 @@ const buttons=[...document.querySelectorAll('[data-camera]')];
 const labels=[document.getElementById('crib-label'),document.getElementById('radar-label')];
 let renderer,controls,frame=null,resizeObserver,scene,camera;
 let renderCount=0;
+let analysisPlane=null,requestSceneRender=()=>{};
+const hasAnalysis=!!document.getElementById('scene-data');
+function viewports(){
+  const {width,height}=stage.getBoundingClientRect();
+  if(!hasAnalysis)return {crib:{x:0,y:0,width,height},plane:null};
+  if(width<600){
+    const planeHeight=Math.round(height*.6);
+    return {crib:{x:0,y:planeHeight,width,height:height-planeHeight},plane:{x:0,y:0,width,height:planeHeight}};
+  }
+  const cribWidth=Math.round(width*.58);
+  return {crib:{x:0,y:0,width:cribWidth,height},plane:{x:cribWidth,y:0,width:width-cribWidth,height}};
+}
 
 function showFallback(message){
   stage.dataset.state='fallback';
@@ -25,6 +38,7 @@ function showFallback(message){
   labels.forEach(el=>el.hidden=true);
   buttons.forEach(el=>el.disabled=true);
   status.textContent=message;
+  stage.dispatchEvent(new Event('scene-fallback'));
 }
 
 function initialize(){
@@ -37,6 +51,10 @@ function initialize(){
   renderer.shadowMap.type=PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
   scene=new Scene();scene.background=new Color('#f4f0e7');
+  if(hasAnalysis){
+    analysisPlane=createAnalysisPlane(scene);
+    Object.defineProperty(canvas,'ibukiAnalysisPlane',{value:()=>({...analysisPlane.snapshot(),viewport:viewports().plane})});
+  }
   camera=new PerspectiveCamera(40,1,.1,50);
   controls=new OrbitControls(camera,canvas);
   controls.target.set(.2,.9,0);
@@ -107,7 +125,8 @@ function initialize(){
 
   const anchors=[new Vector3(-.8,1.8,-1.4),new Vector3(2.05,2.6,-.25)];
   function updateLabels(){
-    const bounds=stage.getBoundingClientRect(),placed=[];
+    const stageBounds=stage.getBoundingClientRect(),bounds=viewports().crib,placed=[];
+    const top=stageBounds.height-bounds.y-bounds.height;
     labels.forEach((el,i)=>{
       const point=anchors[i].clone().project(camera);
       el.hidden=point.z< -1||point.z>1||Math.abs(point.x)>1||Math.abs(point.y)>1;
@@ -118,17 +137,27 @@ function initialize(){
       y=MathUtils.clamp(y,8,bounds.height-h-8);
       if(placed.some(p=>Math.abs(x-p.x)<(w+p.w)/2+6&&Math.abs(y-p.y)<h+6))
         y=MathUtils.clamp(y+h+8,8,bounds.height-h-8);
-      el.style.left=`${x}px`;el.style.top=`${y}px`;placed.push({x,y,w});
+      el.style.left=`${bounds.x+x}px`;el.style.top=`${top+y}px`;placed.push({x,y,w});
     });
   }
   function render(){
     frame=null;if(document.hidden||stage.dataset.state!=='webgl')return;
-    renderer.render(scene,camera);updateLabels();
+    const views=viewports();
+    renderer.setScissorTest(true);
+    const draw=(view,viewCamera)=>{
+      renderer.setViewport(view.x,view.y,view.width,view.height);
+      renderer.setScissor(view.x,view.y,view.width,view.height);
+      renderer.render(scene,viewCamera);
+    };
+    draw(views.crib,camera);
+    if(analysisPlane&&views.plane)draw(views.plane,analysisPlane.camera);
+    renderer.setScissorTest(false);updateLabels();
     const view=new Spherical().setFromVector3(camera.position.clone().sub(controls.target));
     stage.dataset.camera=JSON.stringify({azimuth:view.theta,polar:view.phi,distance:view.radius});
     stage.dataset.renderCount=String(++renderCount);
   }
   function requestRender(){if(frame===null&&!document.hidden&&stage.dataset.state==='webgl')frame=requestAnimationFrame(render);}
+  requestSceneRender=requestRender;
   function reset(){
     const distance=camera.aspect<1?9.5:8;
     controls.target.set(.2,.9,0);
@@ -153,7 +182,10 @@ function initialize(){
   function resize(){
     const {width,height}=stage.getBoundingClientRect();
     if(width<=0||height<=0)return;
-    camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height,false);requestRender();
+    const views=viewports();
+    camera.aspect=views.crib.width/views.crib.height;camera.updateProjectionMatrix();
+    if(analysisPlane)analysisPlane.fit(views.plane.width,views.plane.height);
+    renderer.setSize(width,height,false);requestRender();
   }
   controls.addEventListener('change',requestRender);
   buttons.forEach(button=>{button.disabled=false;button.addEventListener('click',()=>changeView(button.dataset.camera));});
@@ -169,6 +201,7 @@ function initialize(){
     if(frame!==null)cancelAnimationFrame(frame);frame=null;
     if(event.persisted)return; // A back/forward-cache restoration keeps controls usable.
     resizeObserver.disconnect();controls.dispose();renderer.dispose();
+    if(analysisPlane)analysisPlane.dispose();
     const geometries=new Set(),materials=new Set();
     scene.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material)materials.add(object.material);});
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
@@ -184,4 +217,6 @@ catch(error){
   showFallback('この環境では 3D を表示できないため、設置イメージの平面図を表示しています。');
 }
 // Analysis stays usable even when WebGL initialization failed.
-initializeAnalysis();
+initializeAnalysis((window,index,total,extent)=>{
+  if(analysisPlane){analysisPlane.update(window,index,total,extent);requestSceneRender();}
+});
