@@ -923,6 +923,15 @@ Actual offline Chrome 156.0.8078.76 captures using software WebGL/SwiftShader:
 [Mobile notification step](previews/showcase-step3-mobile.png) ·
 [WebGL fallback](previews/showcase-fallback.png)
 
+STEP 3 reserves a separate desktop phone-card area beside the model; on mobile
+the same accessible HTML card occupies the result area below the scene. Its
+dotted desktop connector follows the projected sensor label as screen-layout
+artwork, not measured geometry or actual transmission. It is hidden off-screen
+or in fallback. One card and the existing single live-status region avoid duplicate
+notification announcements. STEP 1/2 remain unchanged.
+[1440px desktop](previews/showcase-step3-desktop-1440.png) ·
+[320px mobile](previews/showcase-step3-mobile-320.png)
+
 Step-2 captures show the active explanatory effect; other captures are static.
 These are native-clock implementation screenshots, not mockups. Touch was
 emulated, not tested on an actual handset. The next delivery step is to review
@@ -1135,8 +1144,8 @@ npm ci
 npm run build
 ```
 
-The bundle including optional Showcase Mode is 589,361 bytes, with SHA-256:
-`f03061b65f7fed5c71e24ad6d2c31130ea051fe4f46cdb8d0e82ed139bc5c6c3`.
+The bundle including optional Showcase Mode is 590,543 bytes, with SHA-256:
+`4cd00772bbc1a5c8273fe5be9649f695765bd880c31dc6e9c8e6bb25cadd02fa`.
 Identical committed resources produce byte-identical HTML, with no timestamps.
 Rendered pixels can differ across browser/graphics implementations.
 

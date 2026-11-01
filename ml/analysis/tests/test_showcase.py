@@ -25,6 +25,26 @@ class Document(HTMLParser):
         self.tags.append((tag,dict(attrs)))
 
 
+class NotificationText(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.inside=False
+        self.text=[]
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if dict(attrs).get('id')=='guardian-notification':
+            self.inside=True
+
+    def handle_endtag(self, tag):
+        if tag=='article':
+            self.inside=False
+
+    def handle_data(self, data):
+        if self.inside:
+            self.text.append(data)
+
+
 class ShowcaseTest(unittest.TestCase):
     def setUp(self):
         (ROOT/'analysis_runs').mkdir(exist_ok=True)
@@ -85,6 +105,23 @@ class ShowcaseTest(unittest.TestCase):
         def svg(html):
             return html[html.index('<svg id="scene-fallback"'):html.index('</svg>')+6]
         self.assertEqual(svg(scene.build_html()),svg(scene.build_html(showcase=True)))
+
+    def test_notification_is_single_hidden_non_live_presentation(self):
+        tags=Document(scene.build_html(showcase=True)).tags
+        cards=[a for _,a in tags if a.get('id')=='guardian-notification']
+        self.assertEqual(len(cards),1)
+        self.assertIn('hidden',cards[0])
+        self.assertNotIn('aria-live',cards[0])
+        self.assertNotIn('role',cards[0])
+        live=[a for _,a in tags if a.get('aria-live')]
+        self.assertEqual([a['id'] for a in live],['story-status'])
+        connector=next(a for _,a in tags if a.get('id')=='notification-connector')
+        self.assertEqual(connector['aria-hidden'],'true')
+        self.assertEqual(connector['focusable'],'false')
+
+    def test_notification_has_exact_japanese_copy(self):
+        text=''.join(NotificationText(scene.build_html(showcase=True)).text)
+        self.assertEqual(text,'通知の例 · シミュレーション赤ちゃんの様子を確認してくださいデモ表示 · 実際には送信されません')
 
     def test_missing_showcase_resource_is_actionable(self):
         resources=self.root/'resources'

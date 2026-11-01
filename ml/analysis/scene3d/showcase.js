@@ -8,6 +8,31 @@ export function initializeShowcase(visual){
   const root=document.getElementById('showcase');if(!root)return;
   const byId=id=>document.getElementById(id),reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const motion=byId('show-motion');
+  const notification=byId('guardian-notification'),connector=byId('notification-connector');
+  const desktop=matchMedia('(min-width: 1024px)');
+  // Screen-layout artwork only; neither geometry nor transmission measurements.
+  function updateConnector(){
+    const radar=byId('radar-label'),stage=byId('scene-stage');
+    const invisible=notification.hidden||!desktop.matches||radar.hidden||stage.dataset.state!=='webgl';
+    connector.toggleAttribute('hidden',invisible);
+    if(invisible)return;
+    const bounds=byId('showcase-visual').getBoundingClientRect(),label=radar.getBoundingClientRect(),card=notification.getBoundingClientRect();
+    const x=label.right-bounds.left+4,y=Math.min(label.bottom-bounds.top+12,bounds.height-16);
+    const endX=card.left-bounds.left-6,endY=card.top-bounds.top+card.height*.48;
+    if(x>=endX-12){connector.setAttribute('hidden','');return;}
+    connector.setAttribute('viewBox',`0 0 ${bounds.width} ${bounds.height}`);
+    byId('notification-path').setAttribute('d',`M ${x} ${y} C ${x+(endX-x)*.4} ${y+24}, ${endX-35} ${endY-12}, ${endX} ${endY}`);
+  }
+  const labelObserver=new MutationObserver(updateConnector),layoutObserver=new ResizeObserver(updateConnector);
+  function observeNotification(){
+    labelObserver.disconnect();layoutObserver.disconnect();
+    if(notification.hidden){connector.setAttribute('hidden','');return;}
+    labelObserver.observe(byId('radar-label'),{attributes:true,attributeFilter:['style','hidden']});
+    layoutObserver.observe(byId('showcase-visual'));layoutObserver.observe(notification);updateConnector();
+  }
+  desktop.addEventListener('change',updateConnector);
+  window.addEventListener('pagehide',()=>{labelObserver.disconnect();layoutObserver.disconnect();});
+  window.addEventListener('pageshow',observeNotification);
   function syncMotion(){
     motion.hidden=controller.snapshot().step!==1||!controller.snapshot().started;
     motion.disabled=reduced.matches||!visual.available();
@@ -23,6 +48,9 @@ export function initializeShowcase(visual){
     byId('result-icon').textContent=content.icon;byId('result-title').textContent=content.result;byId('result-message').textContent=content.detail;
     byId('show-visual-note').textContent=content.note;
     byId('story-result').dataset.notification=state.step===2?'simulated':'none';
+    notification.hidden=state.step!==2;
+    byId('result-icon').hidden=state.step===2;byId('result-copy').hidden=state.step===2;
+    observeNotification();
     byId('show-start').hidden=state.started;byId('show-next').hidden=!state.started;
     byId('show-previous').disabled=!state.started||state.step===0;byId('show-next').disabled=state.step===2;byId('show-restart').disabled=!state.started;
     byId('story-status').textContent=state.started?`STEP ${state.step+1} / 3 · ${['設置する','見守る','知らせる'][state.step]}。${state.step===2?'説明はここまでです。「最初から」で見直せます。':'次のステップは手動で選びます。'}`:'開始を押して、3つのステップを自分のペースで確認できます。';
