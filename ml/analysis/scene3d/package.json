@@ -1,0 +1,9 @@
+{
+  "name": "ibuki-offline-crib-scene",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"build": "node build.mjs"},
+  "dependencies": {"three": "0.187.0"},
+  "devDependencies": {"esbuild": "0.28.2"}
+}

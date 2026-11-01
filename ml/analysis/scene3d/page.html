@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="ibuki-scene-bundle-sha256" content="__BUNDLE_SHA256__">
+<title>IBUKI 3D 設置イメージ</title>
+<style>
+:root{color-scheme:light;--ink:#254842;--muted:#52665e;--paper:#fffef9;--line:#c9d1c3;--sage:#e7eee5}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:#f5f3eb;color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI","Yu Gothic",sans-serif}
+.notice{background:#e9eedf;text-align:center;padding:9px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--line)}
+main{max-width:1120px;margin:auto;padding:24px 24px 30px}.brand{font-size:13px;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
+h1{font-size:clamp(25px,3vw,36px);line-height:1.3;letter-spacing:-.03em;margin:0 0 10px}.intro{margin:0 0 18px;color:var(--muted)}
+.scene-frame{border:1px solid var(--line);border-radius:16px;background:var(--paper);overflow:hidden}
+.scene-stage{height:clamp(360px,62vh,600px);position:relative;background:#f4f0e7}
+canvas{width:100%;height:100%;display:block;touch-action:none;outline:none}
+.scene-stage:focus-within{outline:3px solid #ac6822;outline-offset:-4px}
+.scene-label{position:absolute;transform:translateX(-50%);pointer-events:none;white-space:nowrap;padding:5px 10px;border:1px solid #b2c0b0;border-radius:7px;background:#fffef9ed;font-size:13px;font-weight:700}
+.direction-note{display:none;position:absolute;bottom:12px;left:12px;max-width:calc(100% - 24px);pointer-events:none;border-radius:6px;background:#fffef9ed;padding:5px 8px;font-size:12px;color:var(--muted)}
+[data-state="webgl"] .direction-note{display:block}
+#scene-fallback{display:block;width:100%;height:100%}
+.controls{display:flex;justify-content:space-between;gap:16px;padding:14px 16px;border-top:1px solid var(--line)}
+.rotate-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.zoom-controls{display:flex;gap:8px}
+button{font:inherit;font-size:14px;font-weight:600;min-width:48px;min-height:44px;padding:8px 14px;background:var(--sage);color:var(--ink);border:1px solid #6d8274;border-radius:8px;cursor:pointer}
+button:hover{background:#d8e3d4}button:focus-visible,summary:focus-visible{outline:3px solid #ac6822;outline-offset:3px}button:disabled{opacity:.5;cursor:default}.reset{background:var(--ink);color:white}
+.hint{font-size:13px;color:var(--muted);margin:8px 0}#scene-status{font-size:14px;margin:12px 0 6px}.limitations{font-size:13px;color:var(--muted);padding-top:12px;border-top:1px solid var(--line)}
+details{margin-top:16px;font-size:13px}summary{cursor:pointer;min-height:44px;padding:8px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,monospace;max-height:240px;overflow:auto;background:#ecefe5;padding:12px}
+@media(max-width:600px){main{padding:20px 12px}.scene-stage{height:360px}.controls{padding:12px;flex-direction:column;gap:10px}.zoom-controls .reset{flex:1}.scene-label{font-size:12px;padding:4px 7px}button{padding:8px;font-size:14px}.intro{font-size:14px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+<div class="notice">設置イメージ · 実測ではありません</div>
+<main>
+<header><p class="brand">息吹 ｜ カメラを使わない見守りの構想</p><h1>IBUKI 3D 設置イメージ</h1>
+<p class="intro">赤ちゃんのベッドのそばに、レーダーを。触れずに見守る構想を、説明用の模型で見る。</p></header>
+<section class="scene-frame" aria-label="ベビーベッドとレーダーの説明用3D模型">
+<div id="scene-stage" class="scene-stage" data-state="loading" data-render-count="0">
+<canvas id="scene-canvas" hidden tabindex="0" role="img" aria-label="操作できる3D設置イメージ：ベビーベッド、眠る赤ちゃんの模式図、そのそばのレーダーセンサー" aria-describedby="camera-help scene-limitations"></canvas>
+<svg id="scene-fallback" viewBox="0 0 640 460" role="img" aria-labelledby="fallback-title fallback-desc">
+<title id="fallback-title">設置イメージの平面図</title><desc id="fallback-desc">ベビーベッドの中に赤ちゃんの模式図、右側にレーダーセンサー。淡い三角は説明用の方向で、実際の測定範囲ではありません。</desc>
+<rect width="640" height="460" fill="#f4f0e7"/><ellipse cx="300" cy="245" rx="220" ry="190" fill="#e4e7dc"/>
+<rect x="155" y="65" width="215" height="325" rx="14" fill="#dbc5a2" stroke="#a88a61" stroke-width="6"/>
+<rect x="174" y="84" width="177" height="287" rx="20" fill="#fffdf5"/>
+<g stroke="#c6aa83" stroke-width="6"><path d="M156 110h18m-18 40h18m-18 40h18m-18 40h18m-18 40h18m-18 40h18m-18 40h18M351 110h18m-18 40h18m-18 40h18m-18 40h18m-18 40h18m-18 40h18m-18 40h18"/></g>
+<ellipse cx="262" cy="252" rx="41" ry="70" fill="#92ad9a"/><circle cx="262" cy="151" r="31" fill="#e6b996"/>
+<path d="M247 151h10m10 0h10" stroke="#315c53" stroke-width="3" stroke-linecap="round"/>
+<path d="M474 216L355 156v128Z" fill="#7eaa9930" stroke="#698c7d" stroke-dasharray="5 6"/>
+<rect x="472" y="193" width="62" height="46" rx="8" fill="#315c53"/><path d="M490 205v20m13-20v20m13-20v20" stroke="#e9ca82" stroke-width="3"/>
+<g fill="#254842" font-family="system-ui,sans-serif" text-anchor="middle"><text x="262" y="427" font-size="20">ベビーベッド</text><text x="490" y="174" font-size="18">レーダーセンサー</text><text x="490" y="277" font-size="14">説明用の方向</text></g>
+</svg>
+<div id="crib-label" class="scene-label" hidden>ベビーベッド</div><div id="radar-label" class="scene-label" hidden>レーダーセンサー</div>
+<div class="direction-note">淡い領域：説明用の検知方向（実機の視野角ではありません）</div>
+</div>
+<div class="controls" aria-label="視点の操作">
+<div class="rotate-controls" role="group" aria-label="視点を回す">
+<button type="button" data-camera="left" aria-label="視点を左に回す" disabled>左へ</button><button type="button" data-camera="right" aria-label="視点を右に回す" disabled>右へ</button><button type="button" data-camera="up" aria-label="上から見る" disabled>上から</button><button type="button" data-camera="down" aria-label="視点を低くする" disabled>低く</button>
+</div>
+<div class="zoom-controls" role="group" aria-label="拡大と初期表示">
+<button type="button" data-camera="in" aria-label="拡大する" disabled>＋</button><button type="button" data-camera="out" aria-label="縮小する" disabled>−</button><button type="button" data-camera="reset" class="reset" disabled>視点を戻す</button>
+</div></div>
+</section>
+<p id="scene-status" role="status" aria-live="polite">3D の準備中です。平面図でも設置イメージを確認できます。</p>
+<p id="camera-help" class="hint">ドラッグで回転、ホイール・2本指で拡大縮小。キーボードでは矢印キー、＋/−、Home。自動回転や慣性の動きはありません。</p>
+<noscript><p>JavaScript が無効なため、説明用の平面図を表示しています。</p></noscript>
+<p id="scene-limitations" class="limitations">形状・設置位置・大きさ・検知方向は説明用です。実機で検証した構成ではなく、実際の3D座標や呼吸を計測・表示するものではありません。医療性能や安全性の検証結果ではありません。</p>
+<details><summary>表示の技術とライセンス</summary><p>Three.js 0.187.0 をこのファイルに同梱しています。外部の画像・3Dモデル・通信は使いません。画面を操作したときだけ再描画します。</p><pre>__THREE_LICENSE__</pre></details>
+</main>
+<script>__SCENE_BUNDLE__</script></html>
