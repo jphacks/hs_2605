@@ -869,7 +869,7 @@ unchanged in inert JSON. There is no original-CSV fallback or live data input.
 
 ### Inspect and play analysis windows
 
-The crib remains an installation illustration. Beside it (below on mobile), the
+The crib remains an installation illustration. Inside the same WebGL canvas, a
 **separate synthetic range/horizontal-angle plane** shows a hollow green circle
 for the configured reference and a filled brown diamond for the existing estimate.
 Both color and shape distinguish them. The axes are the synthetic evaluator's
@@ -877,7 +877,7 @@ coordinates, **not the crib's coordinates**; no height is assigned, no markers a
 placed on the baby, and no physical coordinate transform is invented.
 
 The first window can be inspected immediately. `解析デモを開始` reveals the compact
-controls without autoplay. `再生` advances one precomputed window per second;
+controls without autoplay and scrolls once to the active visualization. `再生` advances one precomputed window per second;
 `一時停止` pauses, `前へ` / `次へ` step, `調べる区間` and the discrete slider select
 any window. This interval is presentation cadence, not a recording-time playback
 speed. Manual selection pauses. There is no interpolation or path animation.
@@ -901,12 +901,88 @@ original 30° estimate for a 150° reference and 120° angular error. No marker 
 corrected or hidden to make a result look better. Noisy/unavailable results are
 not replaced with plausible coordinates.
 
-WebGL failure or context loss affects only the illustrative crib; the SVG analysis
-plane, selected values and playback remain usable. With JavaScript disabled,
+WebGL failure or context loss switches the active visualization to the existing
+SVG analysis plane, beside the same playback controls and selected values. The
+fallback is explained explicitly. With JavaScript disabled,
 the static crib diagram and a table of **all** evaluation windows remain readable;
 interactive selection/playback requires JavaScript. No renderer is needed for
 that table. Controls are native keyboard/touch targets with visible focus. Data
 selection never calls scrolling functions or moves focus during playback.
+
+### Three.js analysis plane and mobile inspection
+
+The configured and estimated markers now also live in the Three.js scene. A
+separate render layer (1) and front-facing orthographic view isolate this plane
+from the crib's perspective view (layer 0). It is beside the crib on wide screens
+and below it within the same canvas on narrow screens. Camera orbit/zoom operates
+the illustrative crib; the coordinate plane remains readable from the front.
+There is no shared room/crib coordinate system, calibration, occlusion by the
+crib, or movement of the baby's body.
+
+The display convention is explicit. Let `extent_cm` be the same full-case extent
+already used by the SVG viewer. A point `(x_cm, y_cm)` is rendered at:
+
+```text
+x_display = 1.45 * x_cm / extent_cm
+y_display = 1.45 * y_cm / extent_cm - 0.06
+z_display = 0
+```
+
+These are arbitrary rendering units. The fixed depth **is not a measured height
+or elevation**; the offset reserves label space. The fixed orthographic camera
+and responsive viewport fitting are presentation rules, not physical transforms.
+The green reference is a hollow ring; the brown estimate is a square rotated
+45° into a diamond. Range guides retain cm labels from the synthetic evaluator.
+The plane displays the selected window and availability. When unavailable, the
+estimated mesh is removed from the scene; an old position is not retained as a
+visible estimate. Wrong estimates and their errors remain unchanged.
+
+The existing `renderSelection` notification updates SVG, numerical values and
+the Three.js meshes from the **same** selected window. There is no second player,
+selection controller, timer, interpolation, smoothing, estimator or inferred
+coordinate. Drawing remains on demand: selection changes request a frame, while
+paused/idle views do not run a rendering loop. Canvas text uses local system fonts
+and generated textures only. No external assets are loaded.
+
+At 320/390px, the active canvas and compact controls are adjacent in one view
+after the explicit start scroll. Playback and stepping never scroll. Color/shape
+legend, selector, four playback buttons, slider, live status and position
+difference remain together; targets are at least 44px high. Camera controls are
+below, and original detailed values/provenance remain in `詳しく見る`. The original
+SVG can additionally be opened with `SVGの平面図で確認`; after WebGL loss it is moved
+into the primary viewport and remains synchronized. No-JavaScript behavior still
+provides the static illustration and all-window table. The original no-case CLI
+keeps its static installation scene without creating a data plane.
+
+Actual native-clock software-WebGL captures of this implementation:
+
+| Default analysis mode | Two selected windows |
+| --- | --- |
+| [![Illustrative crib and separate Three.js coordinate plane](previews/scene3d-plane-default.png)](previews/scene3d-plane-default.png) | [Window 1](previews/scene3d-plane-selected.png) · [Window 2](previews/scene3d-plane-later.png) |
+
+[Unavailable estimate](previews/scene3d-plane-unavailable.png) ·
+[Uncorrected rear ambiguity](previews/scene3d-plane-ambiguity.png) ·
+[Mobile](previews/scene3d-plane-mobile.png) ·
+[SVG fallback](previews/scene3d-plane-fallback.png)
+
+`check_scene3d_analysis.cjs` now also inspects the actual Three.js meshes' local
+and world positions, render layer, shape, color, projection and absence of an
+unavailable mesh. Inverse display normalization matches the unchanged 2D SVG
+marker centers for every selected window in all 25 scenario/viewport combinations.
+Checks cover mobile canvas/control co-visibility, no playback scrolling, idle
+rendering and camera independence, as well as existing integrity/playback/fallback
+checks. Mouse orbit/wheel and emulated touch/pinch are exercised on the connected
+sweep view; the no-case camera regression remains separate. The read-only
+`scene-canvas.ibukiAnalysisPlane()` inspection reports actual rendering objects,
+not a new data schema or physical coordinates.
+
+```sh
+python -m unittest ml.analysis.tests.test_scene3d ml.analysis.tests.test_scene3d_analysis ml.analysis.tests.test_scene3d_plane ml.analysis.tests.test_spatial_explorer -v
+```
+
+The new pure coordinate checks use Node when available (no npm/Three.js install
+needed); they skip if Node is absent. The existing browser command below runs
+the full connected-plane checks against fresh exports of the five existing cases.
 
 ### Camera controls and fallback
 
@@ -918,12 +994,13 @@ selection never calls scrolling functions or moves focus during playback.
   Reset restores an overview showing both crib and sensor.
 
 There is no automatic rotation, damping, breathing animation or transition.
-Rendering is requested only on interaction, resize or visibility changes; hidden
+Rendering is requested only on interaction, selection, resize or visibility changes; hidden
 pages cancel pending draws. Pixel ratio is capped at 1.5 and static shadow maps
 are rendered once. Reduced-motion users receive the same immediate controls.
 WebGL2 availability depends on the browser/device. When creation fails or the
-context is lost, a labeled static plan replaces the scene, with camera controls
-disabled and an explanation. JavaScript-disabled browsers see the same plan.
+context is lost, a labeled SVG replaces the scene, with camera controls
+disabled and an explanation. Analysis mode keeps the selected result and playback
+in its SVG viewport; no-data and JavaScript-disabled browsers retain the static crib plan.
 This fallback is an illustration, not a measured radar map.
 
 ### Isolated dependencies and reproducibility
@@ -942,8 +1019,8 @@ npm ci
 npm run build
 ```
 
-The data-connected rebuild produced a 577,572-byte bundle with SHA-256:
-`2f98ad7ee7f80459e1418b9097592786180b2a13688b1bceb57ad5dd6df00c84`.
+The connected-plane rebuild produced a 583,533-byte bundle with SHA-256:
+`947bbf432f8a77efc2d4e45c7dfd7ed6a9b982cfccde48ac341c492858c72f88`.
 Identical committed resources produce byte-identical HTML, with no timestamps.
 Rendered pixels can differ across browser/graphics implementations.
 
@@ -977,9 +1054,11 @@ Its JSON records actual checks and browser version. Python tests require neither
 Chrome nor npm and run in existing analysis CI. The existing 2D Explorer has its
 own independent unit/browser regression checks; its implementation is unchanged.
 
-### Data-connected verification and previews
+### Data-connected verification and earlier SVG-only previews
 
-Actual offline Chrome 156.0.8078.76 screenshots (software WebGL/SwiftShader):
+The following PR #124 captures document the earlier SVG-only analysis mode.
+The current in-scene plane previews are above. Both were captured in offline
+Chrome 156.0.8078.76 (software WebGL/SwiftShader), without hardware validation:
 
 [Original no-data 3D scene](previews/scene3d-analysis-default.png)
 
