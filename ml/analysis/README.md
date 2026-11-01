@@ -673,6 +673,146 @@ accuracy, denoising gains, SNR improvement, apnea/alarm performance or medical
 performance. No new recordings, labels, filtering, model training/weights,
 firmware, live monitoring, alarms or React changes are included.
 
+## Synthetic 2.5D spatial evaluation
+
+`ml.analysis.spatial_sim` is a hardware-free algorithm experiment. **Synthetic
+accuracy does not establish real-world direction-estimation accuracy.** Actual
+antenna geometry, phase/gain calibration and independent physical measurements
+are required before validation. No board or independent E captures were used.
+
+### Signal and estimator assumptions
+
+The generator assumes an ideal horizontal collinear far-field array with antenna
+x positions `[0, 0.5, 1.0]` wavelengths, all y positions zero and elevation zero.
+These are simulation settings, not verified board dimensions. Pair 0-1 is half a
+wavelength; pair 0-2 is one wavelength by default (`--baseline-02-lambda`).
+
+For one selected bin, before signed-int16 quantization:
+
+```text
+z[t,a,k] = B[a,k] + A*sin(2*pi*f*t)*exp(0.7j)
+                    *exp(2j*pi*x_lambda[a]*sin(theta[t])) + noise[t,a,k]
+```
+
+Other bins contain static complex background `B` and noise only. Background has
+fixed magnitude and seeded random phases. Noise has independent zero-mean Gaussian
+real and imaginary components, each with the configured standard deviation.
+This is linear complex-amplitude modulation, not a calibrated chest-displacement
+or FMCW propagation model. There is no path loss, multipath, antenna pattern or
+multi-person separation. The sweep changes horizontal angle at a fixed range bin.
+
+Values round to nearest integer (ties to even); overflow is rejected, never clipped
+or wrapped. E encoding is antenna-major, then bin-major, interleaved I/Q, signed
+little-endian int16 (3 x 24 x 2 values). E values are already scaled value units:
+the emitted C scale of 10 is **not** used to divide E measurements. Generated CSV
+is ingested through the existing canonical schema-v1 pipeline, then validated and
+decoded using the report loader. Simulation truth is a separate hash-linked file;
+it never supplies estimator inputs or overwrites canonical provenance.
+
+The unchanged `ml.antennas.chest_direction()` subtracts each antenna/bin temporal
+mean, picks the strongest moving bin at least 28 cm away, and computes:
+
+```text
+phase_0a = angle(sum(moving[:,a,k] * conj(moving[:,0,k])))
+angle_0a = asin(clip(phase_0a/pi, -1, 1)) in degrees
+```
+
+That formula assumes half-wavelength spacing for **both** pairs. We use only
+pair 0-1 for position. The raw pair 0-2 angle remains a visible diagnostic, never
+fused: its assumed spacing disagrees with the default generated one-wavelength
+baseline. Phase wrapping, including the sign instability at +/-pi, is visible.
+Single-collinear-array sine phase also cannot distinguish theta and 180-theta.
+
+The wrapper requires compatible 15 cm + bin*3.75 cm geometry, 3 x 24 I/Q, at least
+8 samples, mean movement greater than 1 E value unit and pair-01 coherence at
+least 0.5. Coherence is `abs(sum(m1*conj(m0)))/sqrt(sum(abs(m1)^2)*sum(abs(m0)^2))`.
+These are illustrative measurement-only availability guards, not calibrated
+confidence or physiological thresholds. Zero-energy coherence is unavailable.
+Rejected windows retain the raw estimator result, but accepted angle/position
+and error metrics are null. Availability does not establish correctness: rear
+targets deliberately remain accepted incorrect estimates when guards pass.
+
+Canonical parent blocks and trace segments preserve discontinuities; no window
+crosses a boundary or fills missing samples. Defaults are 80 frames/window and
+20 frames/hop (4 s and 1 s at the generated 50 ms cadence). Short segments receive
+an explicit unavailable record. Truth is aligned to the earlier middle observed
+frame of each end-exclusive window. Sweep errors therefore include averaging
+within the window, quantization and the existing estimator's 0.1-degree rounding.
+Range is a discrete bin center, `r=15+3.75*k` cm; position is
+`x=r*sin(angle_01)`, `y=r*cos(angle_01)`. This is range/horizontal-angle 2.5D only.
+
+### Reproduce the demonstrations
+
+Use the existing offline analysis dependencies; no new dependency is required.
+Run from the repository root with fresh directories:
+
+```sh
+python -m ml.analysis.spatial_sim --scenario single --out-dir analysis_runs/spatial-demo/single
+python -m ml.analysis.spatial_sim --scenario angles --out-dir analysis_runs/spatial-demo/angles
+python -m ml.analysis.spatial_sim --scenario sweep --out-dir analysis_runs/spatial-demo/sweep
+python -m ml.analysis.spatial_sim --scenario noisy --out-dir analysis_runs/spatial-demo/noisy
+python -m ml.analysis.spatial_sim --scenario constant --out-dir analysis_runs/spatial-demo/constant
+python -m ml.analysis.spatial_sim --scenario ambiguous --out-dir analysis_runs/spatial-demo/ambiguous
+```
+
+Each case writes `recording.csv`, `truth.json`, the four canonical artifacts in
+`canonical/`, `evaluation.json` and headless `spatial.png`; the run writes
+`summary.json` and prints the same summary. Outputs belong under ignored
+`analysis_runs/`; nothing is uploaded. Existing directories are refused (no
+overwrite option). Original generated CSV/truth/canonical artifacts are preserved
+by evaluation. Identical settings/seed/environment produce identical files,
+including PNG; cross-library-version byte identity is not promised. JSON records
+input/artifact hashes, source type, quality, configuration, window boundaries,
+truth, accepted estimates, raw diagnostics and unavailable reasons, without
+wall-clock timestamps.
+
+Default seed is 7, duration 12 s (240 frames), motion frequency 0.5 Hz, amplitude
+200 E units, background magnitude 1000, zero noise, bin 9 (48.75 cm), angle 15 deg.
+`angles` overrides angles to -30/-15/0/15/30; `sweep` overrides endpoints to
+-30/+30; `noisy` overrides amplitude/noise to 2/40; `constant` sets both to zero;
+`ambiguous` sets angle to 150. Use `single` for entirely custom settings:
+
+```sh
+python -m ml.analysis.spatial_sim --scenario single --range-bin 12 --angle-deg -15 --motion-hz 0.4 --motion-amplitude 150 --noise-std 5 --seed 11 --duration-sec 16 --out-dir analysis_runs/spatial-custom
+```
+
+The PNG visibly labels SYNTHETIC DATA, separates simulated truth (teal hollow
+circles) from estimated positions (orange crosses), and shows radar origin,
+distance rings, angular guides, trajectory and raw pair-02 diagnostics. The
+illustrative +/-60-degree guides are **not hardware field-of-view measurements**.
+Unavailable windows have no accepted positions; consult JSON for each reason.
+
+### Actual synthetic-only observations
+
+The six commands above were executed with unchanged defaults. Each case had nine
+windows. These results describe this idealized construction only:
+
+| Scenario | Available | Accepted angular error | Observation |
+| --- | --- | --- | --- |
+| Stationary periodic, 15 deg | 9/9 | Mean/max 0.0 deg | All nine selected bin 9 |
+| Five fixed angles | 9/9 each | Mean/max 0.0 deg each | Correct bin 9; agreement at rounded 0.1-degree precision |
+| Sweep -30 to +30 deg | 9/9 | Mean 0.225523, max 0.309205 deg | Mean position error 0.191886 cm |
+| Weak/noisy (A=2, noise std=40) | 0/9 | null | Low pair-01 coherence in all nine windows |
+| Constant (A=0, noise=0) | 0/9 | null | Insufficient moving signal in all nine windows |
+| Rear ambiguous, 150 deg | 9/9 | Mean/max 120.0 deg | Estimated 30 deg; mean position error 84.437477 cm |
+
+At fixed truth angles -30/-15/0/15/30, first-window raw pair-02 angles were
+89.4/-31.2/-0.0/31.2/89.4 degrees, demonstrating why the two baselines cannot be
+combined without calibration. Generated 30-degree and 150-degree CSVs were
+byte-identical with the same seed: front/back ambiguity is intrinsic here, not
+an unavailable-confidence case. Zero rounded error in matching ideal geometry is
+agreement by construction, not physical accuracy or evidence of robustness.
+
+Tests cover independent E byte ordering and legacy-reader parity, phase/baseline
+relationships, deterministic seed/files, known angles and range-bin selection,
+actual estimator calls during movement, front/back/wrapping failures, unavailable
+signals, invalid inputs, geometry/provenance checks, PNG generation, CLI guards
+and source preservation. No CNN features/weights, training, live monitoring,
+alarms, firmware or web code changes. Next work requires verified hardware array
+geometry and independent calibrated E recordings before any spatial validation;
+this tool does not establish full 3D reconstruction, body tracking, multi-person
+tracking, breathing accuracy, infant safety or medical performance.
+
 ## Relationship to existing readers
 
 `pc/ibuki/serial_reader.py` remains the live transport/parser: it silently ignores
