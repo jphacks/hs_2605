@@ -11,14 +11,22 @@ import re
 RESOURCES = Path(__file__).with_name("scene3d")
 
 
-def build_html(result: dict | None = None) -> str:
+def build_html(result: dict | None = None, *, showcase: bool = False) -> str:
     """Use committed offline resources; Node/npm/network are not export dependencies."""
+    if showcase and result is not None:
+        raise ValueError("Showcase and synthetic analysis are separate modes")
     try:
         bundle = (RESOURCES / "scene.bundle.js").read_bytes()
         digest = (RESOURCES / "scene.bundle.sha256").read_text(encoding="ascii").strip()
         template = (RESOURCES / "page.html").read_text(encoding="utf-8")
         license_text = (RESOURCES / "THREE-LICENSE.txt").read_text(encoding="utf-8")
         panel = (RESOURCES / "analysis.html").read_text(encoding="utf-8") if result is not None else ""
+        if showcase:
+            # Reuse the trusted installation SVG; never substitute a remote asset.
+            fallback = re.search(r'<svg id="scene-fallback"[^>]*>.*?</svg>', template, re.DOTALL)
+            if fallback is None:
+                raise ValueError("Missing offline installation fallback")
+            template = (RESOURCES / "showcase.html").read_text(encoding="utf-8").replace("__INSTALLATION_FALLBACK__", fallback.group(0))
     except OSError as exc:
         raise ValueError("Missing offline scene resources; restore the checkout or run npm ci && npm run build in ml/analysis/scene3d") from exc
     if hashlib.sha256(bundle).hexdigest() != digest:
@@ -59,8 +67,10 @@ def build_html(result: dict | None = None) -> str:
     return page.replace("__CASE_DATA__", '<script id="scene-data" type="application/json">'+encoded+'</script>' if result is not None else "")
 
 
-def render_scene(output: str | Path, *, case: str | Path | None = None) -> Path:
+def render_scene(output: str | Path, *, case: str | Path | None = None, showcase: bool = False) -> Path:
     """Write a fresh self-contained HTML under ignored analysis_runs, never overwrite."""
+    if showcase and case is not None:
+        raise ValueError("--showcase cannot be combined with --case; choose a separate presentation mode")
     requested = Path(output)
     target = requested.resolve()
     runs = Path(__file__).resolve().parents[2] / "analysis_runs"
@@ -80,7 +90,7 @@ def render_scene(output: str | Path, *, case: str | Path | None = None) -> Path:
             result = load_case(case)
         except ImportError as exc:
             raise ValueError("Analysis mode needs offline dependencies: install requirements.txt and ml/analysis/requirements.txt") from exc
-    content = build_html(result).encode("utf-8")
+    content = build_html(result, showcase=showcase).encode("utf-8")
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("xb") as stream:
         stream.write(content)
@@ -91,10 +101,12 @@ def main(argv=None):
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, help="new .html under ignored analysis_runs/")
-    parser.add_argument("--case", help="optional existing, validated spatial_sim case directory; never regenerated")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--case", help="optional existing, validated spatial_sim case directory; never regenerated")
+    mode.add_argument("--showcase", action="store_true", help="guided conceptual product story; no data or real notifications")
     args = parser.parse_args(argv)
     try:
-        target = render_scene(args.output, case=args.case)
+        target = render_scene(args.output, case=args.case, showcase=args.showcase)
     except (OSError, ValueError, UnicodeError, OverflowError) as exc:
         parser.exit(2, f"error: {exc}\n")
     print(f"Saved illustrative offline 3D scene: {target}")
