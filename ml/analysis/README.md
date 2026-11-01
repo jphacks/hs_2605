@@ -835,16 +835,22 @@ already exist. Open `analysis_runs/playback-demo/sweep/explorer.html` directly i
 a browser (`file://`, double-click); no server or frontend build is required.
 Click **シミュレーションを開始** to reveal the results. The button reveals
 precomputed evaluations; it does not simulate physical hardware in the browser.
-Select a window using **調べる区間**, or click/focus a map marker and press Enter
-or Space. The same selection also drives the playback controls and discrete slider.
-On mobile, **選択した結果を見る** jumps to the selected result below the map.
+Select any window using **調べる区間** or the discrete slider. The map shows only
+that window's configured circle and available estimated diamond. Its marker buttons
+support Enter/Space and describe the current range/angle. On start, focus moves to
+the map heading and the page scrolls once to the map card, below the synthetic
+warning. Playback/stepping never forces scrolling. Controls sit directly below the
+map inside the same card. On mobile, **選択した結果を詳しく見る** explicitly jumps
+to the unchanged detailed inspection panel below it.
 
 - Green hollow circles: configured **synthetic reference** positions.
 - Brown diamonds: positions from the unchanged antenna 0–1 direction estimator.
 - Triangle: the ideal radar origin; upward is forward. Rings are centimeters.
-- Selection is indicated by an outline as well as opacity. Color and shape both
-  distinguish reference and estimate. Overlapping stationary results can always
-  be selected using the window dropdown.
+- Only the selected window's markers are visible and keyboard-focusable; every
+  window remains accessible via the dropdown/slider. An outline and the displayed
+  window number identify the selection. Color and shape both distinguish reference
+  and estimate, including when their coordinates coincide. Other windows are not
+  deleted, interpolated or combined.
 - The panel compares range, angle and absolute differences. Display rounding is
   for readability, not a claim about physical measurement resolution.
 - **推定できません** shows a readable reason and dashes for unavailable values.
@@ -954,6 +960,73 @@ submission. Identical inputs/settings/environment produce identical HTML without
 generation timestamps or absolute source/output paths.
 
 ### Verified previews and limits
+
+#### Focused Explorer UX refinement
+
+The mobile map, selector, legend and compact playback controls now share one card.
+The desktop map/inspection layout remains side by side at 1280/1440px; narrower
+layouts stack the detailed panel below the map. There is no additional sticky
+toolbar, modal, onboarding page or new analysis feature. The original synthetic
+badge remains persistent, and both validation/export functions and the single-timer
+playback controller are unchanged.
+
+Visible, active text was measured against its rendered background with WCAG
+relative-luminance calculations: minimum **5.53:1** in the tested views. Tested
+guide/control/focus/marker colors against the map background were at least
+**3.17:1**. Inactive disabled controls are excluded from the text-contrast check.
+Primary buttons, selector and slider have at least **44 CSS px** target dimensions.
+Marker hit circles adapt to SVG scaling to keep a 44px diameter; their centers and
+estimated positions never move. A transparent non-scaling stroke initially looked
+large enough but failed an actual off-center browser hit test at 320px; the final
+geometry-based hit circles passed. Only one polite, atomic status region announces
+selected window, play/pause and availability, including critical stop reasons.
+Buttons have explicit accessible labels, and the slider describes its time/context.
+
+These five task-based checks are **implementation walkthroughs, not real-user
+testing**, timed usability measurements or accessibility certification:
+
+| Task | Expected behavior | Observed result | Problem reviewed and improvement |
+| --- | --- | --- | --- |
+| A. Start | Find the map and controls without searching | At 320/390px and 900px height, the map and all playback buttons are visible together after start; no autoplay | Previously the map was below the first viewport. A single explicit start scroll and map-heading focus bring the shared card into view |
+| B. Play/pause | Observe the selected point while operating controls | Touch/keyboard play, one advance and pause keep all values synchronized; scroll position does not change during the step | Previously controls were vertically separated from the map. Compact adjacent controls and verified 44px targets reduce that separation |
+| C. Select a window | Reach any recorded evaluation window | Every dropdown option, slider input and stepping control selects its corresponding values, including discontinuous segments | Many overlapping map markers also created redundant tab stops. Only the selected pair is visible/focusable; all windows remain in the existing selector |
+| D. Identify positions | Tell configured reference from estimate | Hollow green circle and filled brown diamond remain distinct, with explicit Japanese legend and accessible range/angle names | Faded historical markers cluttered stationary/sweep views. Current-window-only rendering and stronger indicators identify the selected pair |
+| E. Interpret failure | See unavailability or the actual wrong estimate | Noisy windows have no estimated marker/values; rear truth 150° still estimates 30°, with 120° difference and the original warning | Availability is now also stated beside the map and in the single live region. Detailed reasons/differences remain in the inspection panel; no error is hidden |
+
+Actual offline before/after screenshots show the same first sweep window immediately
+after starting. The viewport is 900px high; these are browser captures, not mockups:
+
+| Width | Before | After |
+| --- | --- | --- |
+| 1280px | ![Before: desktop start](previews/explorer-ux-before-desktop.png) | ![After: desktop map and adjacent controls](previews/explorer-ux-after-desktop.png) |
+| 390px | ![Before: mobile controls visible while map is below viewport](previews/explorer-ux-before-mobile.png) | ![After: mobile map and controls visible together](previews/explorer-ux-after-mobile.png) |
+
+The focused browser checker adds `--ux` for **320/390/768/1280/1440px** across sweep,
+stationary, noisy, rear ambiguity and gap/restart cases (25 combinations). It checks
+text/indicator contrast, label overlap, primary target size and off-center marker
+hit testing, initial focus order, touch, current-only markers, co-visible map/buttons
+on small screens, unchanged scroll during playback, and existing synchronization,
+boundary, lifecycle and reduced-motion regressions. No page errors, HTTP(S) requests,
+horizontal overflow or clipped controls were observed in the final run.
+
+The verified commands reuse the synthetic cases generated above and preserve earlier
+HTML files by writing fresh names (use new names/directories when already present):
+
+```sh
+python -c "from ml.analysis.spatial_explorer import render_explorer; [render_explorer(f'analysis_runs/playback-demo/{name}/case_00', f'analysis_runs/playback-demo/{name}/ux-verified.html') for name in ('sweep','stationary','noisy','ambiguous','discontinuous')]"
+node ml/analysis/tests/check_spatial_playback.cjs --ux --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --reports analysis_runs/playback-demo --file ux-verified.html --screenshots analysis_runs/explorer-ux-verified
+```
+
+Before/after embedded evaluation/provenance objects and CSP were compared for all
+five cases and were identical. No estimator, geometry, schema, runtime or model
+behavior changed. Contrast/ARIA/keyboard assertions are useful regression evidence,
+not a full screen-reader audit; real device, assistive technology and other browser
+engine testing remain future work. Touch checks use Chrome's touch emulation.
+
+#### Earlier playback baseline (PR #120)
+
+The following playback evidence and previews record the baseline before the UX
+refinement above; the current UI is shown in the before/after comparison instead.
 
 The generated playback HTML was opened using `file://` in Chrome 156 with networking
 disabled. Sweep, stationary, noisy/unavailable, rear ambiguity and gap/restart
