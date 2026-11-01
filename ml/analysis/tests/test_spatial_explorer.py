@@ -3,6 +3,7 @@ import hashlib
 from html.parser import HTMLParser
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -10,8 +11,41 @@ import unittest
 
 from ml.analysis.ingest import ingest_recording
 from ml.analysis.report import load_dataset
-from ml.analysis.spatial_explorer import build_html, load_case, render_explorer
+from ml.analysis.spatial_explorer import _PLAYBACK_JS, build_html, load_case, render_explorer
 from ml.analysis.spatial_sim import Simulation, evaluate, generate
+
+
+def write_discontinuous_case(directory):
+    """Small deterministic synthetic fixture: gap, then sequence/uptime restart.
+
+    Also callable by the documented offline browser check; never edits an input.
+    """
+    directory = Path(directory)
+    if directory.exists():
+        raise FileExistsError("Fixture already exists; choose a fresh directory")
+    csv, truth = generate(Simulation(duration_sec=18, angle_deg=-30, end_angle_deg=30))
+    lines = csv.decode().splitlines()
+    kept = [i for i in range(len(truth["angle_deg"])) if i != 120]
+    result = [lines[0]]
+    times = []
+    for i in kept:
+        fields = lines[i+1].split(",")
+        if i >= 240:
+            fields[1], fields[2] = str(i-240), str(100000+(i-240)*50)
+        times.append(int(fields[2]))
+        result.append(",".join(fields))
+    data = ("\n".join(result)+"\n").encode()
+    truth["angle_deg"] = [truth["angle_deg"][i] for i in kept]
+    truth["board_uptime_ms"] = times
+    truth["input_sha256"] = hashlib.sha256(data).hexdigest()
+    directory.mkdir(parents=True)
+    (directory / "recording.csv").write_bytes(data)
+    (directory / "truth.json").write_text(json.dumps(truth, sort_keys=True), encoding="utf-8")
+    ingest_recording(directory / "recording.csv", directory / "canonical", source_type="synthetic",
+                     scenario="playback boundary fixture", scenario_provenance="synthetic gap at frame 120; restart at frame 240")
+    evaluated = evaluate(load_dataset(directory / "canonical"), truth)
+    (directory / "evaluation.json").write_text(json.dumps(evaluated, sort_keys=True), encoding="utf-8")
+    return directory
 
 
 class Scripts(HTMLParser):
@@ -250,6 +284,111 @@ class SpatialExplorerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside the canonical"):
             render_explorer(alias, output)
         self.assertFalse(output.exists())
+
+    def test_playback_fixture_preserves_gap_and_restart_identities(self):
+        result = load_case(write_discontinuous_case(self.root / "boundaries"))
+        windows = result["windows"]
+        self.assertEqual(len(windows), 8)
+        self.assertEqual([(w["parent_block_index"], w["trace_index"]) for w in windows],
+                         [(1, 1)]*3 + [(1, 2)]*2 + [(2, 1)]*3)
+        self.assertLess(windows[5]["reference_board_uptime_ms"], windows[4]["reference_board_uptime_ms"])
+        for w in windows:
+            times = result["simulation"]["board_uptime_ms"][w["frame_row_start"]:w["frame_row_end_exclusive"]]
+            self.assertEqual(len(times), w["observed_samples"])
+            self.assertTrue(all(b>a for a,b in zip(times,times[1:])))
+
+
+@unittest.skipUnless(shutil.which("node"), "Optional Node.js is needed to execute the embedded playback controller")
+class SpatialPlaybackTests(unittest.TestCase):
+    """Execute the exact shipped JS using a deterministic, single-queue clock."""
+
+    def run_js(self, script):
+        fixture = """
+const assert=require('node:assert/strict');
+const windows=Array.from({length:5},(_,i)=>({parent_block_index:1,trace_index:i<3?1:2,
+ reference_board_uptime_ms:100000+i*1000,source_line_start:2+i*20,source_line_end:81+i*20}));
+let serial=0;const pending=new Map(),cancelled=new Map(),updates=[];
+const options={setTimeout:(fn,ms)=>{assert.equal(ms,1000);pending.set(++serial,fn);return serial;},
+ clearTimeout:id=>{cancelled.set(id,pending.get(id));pending.delete(id);}};
+const player=createPlayback(windows,s=>updates.push(s),options);
+function tick(){assert.equal(pending.size,1);const [id,fn]=pending.entries().next().value;pending.delete(id);fn();}
+"""
+        run = subprocess.run([shutil.which("node"), "-e", _PLAYBACK_JS+fixture+script],
+                             capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+
+    def test_play_pause_and_no_initial_autoplay(self):
+        self.run_js("""
+assert.deepEqual(player.snapshot(),{selected:0,playing:false,stopReason:'initial'});
+assert.equal(pending.size,0);player.play();player.play();assert.equal(pending.size,1);
+tick();assert.equal(player.snapshot().selected,1);assert.equal(player.snapshot().playing,true);
+player.pause();assert.equal(player.snapshot().playing,false);assert.equal(pending.size,0);
+assert.deepEqual(updates.at(-1),player.snapshot());
+""")
+
+    def test_previous_next_manual_selection_pauses(self):
+        self.run_js("""
+player.previous();assert.equal(player.snapshot().selected,0);
+player.play();player.next();assert.equal(player.snapshot().selected,1);
+assert.equal(player.snapshot().playing,false);assert.equal(pending.size,0);
+player.previous();assert.equal(player.snapshot().selected,0);
+player.select(4);player.next();assert.equal(player.snapshot().selected,4);
+""")
+
+    def test_timeline_and_marker_share_one_selected_state(self):
+        self.run_js("""
+player.play();player.select(3);assert.equal(pending.size,0);
+assert.deepEqual(updates.at(-1),{selected:3,playing:false,stopReason:'manual'});
+for(const invalid of [-1,5,NaN,1.5,'1'])player.select(invalid);
+assert.equal(player.snapshot().selected,3);player.select(1);
+assert.deepEqual(updates.at(-1),player.snapshot());
+""")
+
+    def test_end_stops_without_loop_or_extra_timer(self):
+        self.run_js("""
+player.select(3);player.play();tick();
+assert.deepEqual(player.snapshot(),{selected:4,playing:false,stopReason:'end'});
+assert.equal(pending.size,0);player.play();assert.equal(pending.size,0);
+assert.equal(player.snapshot().selected,4);
+""")
+
+    def test_boundary_stops_and_requires_explicit_navigation(self):
+        self.run_js("""
+player.play();tick();tick();
+assert.deepEqual(player.snapshot(),{selected:2,playing:false,stopReason:'boundary'});
+assert.equal(pending.size,0);player.play();assert.equal(pending.size,0);
+player.next();assert.equal(player.snapshot().selected,3);
+player.play();tick();assert.equal(player.snapshot().selected,4);
+""")
+
+    def test_unreliable_metadata_disables_auto_progression(self):
+        self.run_js("""
+for(const change of [{trace_index:2},{parent_block_index:2},{trace_index:null},
+ {reference_board_uptime_ms:100000},{reference_board_uptime_ms:NaN},{source_line_start:2}]){
+ const pair=[windows[0],{...windows[1],...change}];
+ const p=createPlayback(pair,()=>{},options);p.play();
+ assert.equal(p.snapshot().playing,false);assert.equal(p.snapshot().stopReason,'boundary');
+ assert.equal(pending.size,0);p.next();assert.equal(p.snapshot().selected,1);
+}
+""")
+
+    def test_rapid_play_pause_cancels_stale_callbacks(self):
+        self.run_js("""
+for(let i=0;i<50;i++){player.play();player.play();assert.equal(pending.size,1);player.pause();assert.equal(pending.size,0);}
+player.play();for(const fn of cancelled.values())if(fn)fn();
+assert.equal(player.snapshot().selected,0);assert.equal(pending.size,1);
+tick();assert.equal(player.snapshot().selected,1);player.pause();assert.equal(pending.size,0);
+""")
+
+    def test_hidden_and_reduced_motion_block_and_clear_playback(self):
+        self.run_js("""
+let reason=null;const p=createPlayback(windows,()=>{},{...options,blockedReason:()=>reason});
+p.play();reason='hidden';tick();assert.equal(p.snapshot().selected,0);
+assert.equal(p.snapshot().stopReason,'hidden');assert.equal(pending.size,0);
+reason='reduced';p.play();assert.equal(p.snapshot().playing,false);
+assert.equal(p.snapshot().stopReason,'reduced');p.next();assert.equal(p.snapshot().selected,1);
+reason=null;p.play();assert.equal(pending.size,1);p.pause('hidden');assert.equal(pending.size,0);
+""")
 
 
 if __name__ == "__main__":
