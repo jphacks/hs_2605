@@ -338,8 +338,8 @@ function renderSelection(state){
    m.group.setAttribute('aria-label',`区間 ${index+1} の${estimated?'推定位置':'設定位置（合成）'}。距離 ${number(radius(position))} cm、角度 ${number(estimated?w.estimated_angle_deg:w.configured_angle_deg,1)} 度`);
   }
  }
+ // Keep nodes in place so activating a marker preserves keyboard focus.
  // Only this window is visible; every other window remains in the selector.
- for(const m of markerElements.filter(m=>m.index===index))byId('markers').appendChild(m.group);
  byId('window-label').textContent=`区間 ${index+1} / ${windows.length} · ブロック ${w.parent_block_index}・連続区間 ${w.trace_index}`;
  byId('status').textContent=has?'推定あり · 正しさを保証するものではありません':'推定できません';
  const warning=byId('reason');warning.hidden=has&&!w.truth_outside_front_hemisphere;

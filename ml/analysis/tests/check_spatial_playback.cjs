@@ -167,6 +167,7 @@ async function checkUx(page,width){
    await page.selectOption('#window-select','0');
    await page.locator('[data-kind="truth"][data-window="0"]').focus();
    await page.keyboard.press('Enter');await checkSelection(page,result,0);
+   if(ux)assert.ok(await page.evaluate(()=>document.activeElement.matches('.marker[data-kind="truth"][data-window="0"]')),'Marker activation must preserve keyboard focus');
    // All automatic changes update map, controls, time, errors and explanations.
    await page.locator('#play').focus();await page.keyboard.press('Enter');
    assert.ok(await page.evaluate(()=>player.snapshot().playing));
