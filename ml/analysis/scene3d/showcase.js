@@ -13,6 +13,8 @@ export function initializeShowcase(visual){
     motion.disabled=reduced.matches||!visual.available();
     motion.textContent=visual.isAnimating()?'動きを止める':'動きを見る';
     motion.setAttribute('aria-pressed',String(visual.isAnimating()));
+    motion.setAttribute('aria-describedby','show-visual-note');
+    byId('show-visual-note').textContent=steps[controller.snapshot().step].note+(reduced.matches&&controller.snapshot().step===1?' 動きを抑える設定では静止図で表示します。':'');
   }
   function render(state){
     const content=steps[state.step];root.dataset.step=state.step;root.dataset.started=state.started;
@@ -23,7 +25,7 @@ export function initializeShowcase(visual){
     byId('story-result').dataset.notification=state.step===2?'simulated':'none';
     byId('show-start').hidden=state.started;byId('show-next').hidden=!state.started;
     byId('show-previous').disabled=!state.started||state.step===0;byId('show-next').disabled=state.step===2;byId('show-restart').disabled=!state.started;
-    byId('story-status').textContent=state.started?`STEP ${state.step+1} / 3 · ${['設置する','見守る','知らせる'][state.step]}。次のステップは手動で選びます。`:'開始を押して、3つのステップを自分のペースで確認できます。';
+    byId('story-status').textContent=state.started?`STEP ${state.step+1} / 3 · ${['設置する','見守る','知らせる'][state.step]}。${state.step===2?'説明はここまでです。「最初から」で見直せます。':'次のステップは手動で選びます。'}`:'開始を押して、3つのステップを自分のペースで確認できます。';
     visual.select(state.step,state.started&&!reduced.matches);syncMotion();
   }
   const controller=createShowcase(render);
@@ -34,7 +36,12 @@ export function initializeShowcase(visual){
   motion.addEventListener('click',()=>{if(reduced.matches||!visual.available())return;if(visual.isAnimating())visual.pause();else visual.resume();syncMotion();});
   function pause(){visual.pause();syncMotion();}
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('pagehide',pause);
-  byId('scene-stage').addEventListener('scene-fallback',syncMotion);
+  function syncRenderer(){
+    const fallback=byId('scene-stage').dataset.state==='fallback';
+    byId('scene-status').hidden=!fallback;
+    if(fallback){byId('scene-status').textContent='この環境では平面図で紹介します。ステップの操作はそのまま使えます。';pause();}
+  }
+  byId('scene-stage').addEventListener('scene-fallback',syncRenderer);
   reduced.addEventListener('change',()=>{if(reduced.matches)pause();else syncMotion();});
-  visual.onEnd(syncMotion);render(controller.snapshot());
+  visual.onEnd(syncMotion);render(controller.snapshot());syncRenderer();
 }
