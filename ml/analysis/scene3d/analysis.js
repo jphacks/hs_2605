@@ -1,6 +1,6 @@
 // View adapter only. Positions/errors come unchanged from load_case/evaluate.
 // This SVG is a separate analysis plane: there is no mapping onto crib geometry.
-export function initializeAnalysis(){
+export function initializeAnalysis(onSelection=()=>{}){
   const embedded=document.getElementById('scene-data');
   if(!embedded)return;
   const data=JSON.parse(embedded.textContent),windows=data.windows;
@@ -74,6 +74,9 @@ export function initializeAnalysis(){
     byId('position-difference').textContent=has?number(w.position_error_cm)+' cm':'—';
     byId('window-info').textContent=`${timeText}。観測 ${w.observed_samples} フレーム · 元の行 ${w.source_line_start}–${w.source_line_end}。解析窓全体の推定で、瞬間の測定位置ではありません。`;
     byId('diagnostics').textContent=JSON.stringify({unavailable_reason:w.unavailable_reason,configured_range_bin:w.configured_range_bin,estimated_range_bin:w.estimated_range_bin,raw_estimate:w.raw_estimate,pair_01_coherence:w.pair_01_coherence??null,mean_movement:w.mean_movement??null},null,2);
+    // One notification from the existing selected-window controller; no timer or
+    // independent selection in the Three.js presentation.
+    onSelection(w,index,windows.length,extent);
   }
   windows.forEach((w,index)=>{
     const option=document.createElement('option');option.value=index;option.textContent=`区間 ${index+1} · ${w.estimation_available?'推定あり':'推定できません'}`;byId('window-select').appendChild(option);
