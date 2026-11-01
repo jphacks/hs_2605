@@ -981,6 +981,9 @@ large enough but failed an actual off-center browser hit test at 320px; the fina
 geometry-based hit circles passed. Only one polite, atomic status region announces
 selected window, play/pause and availability, including critical stop reasons.
 Buttons have explicit accessible labels, and the slider describes its time/context.
+Activating a marker also retains keyboard focus: the old redraw moved SVG nodes
+and dropped focus to the page body. Current-only rendering no longer needs that
+node rearrangement, and the browser checker asserts focus remains on the marker.
 
 These five task-based checks are **implementation walkthroughs, not real-user
 testing**, timed usability measurements or accessibility certification:
@@ -1013,8 +1016,8 @@ The verified commands reuse the synthetic cases generated above and preserve ear
 HTML files by writing fresh names (use new names/directories when already present):
 
 ```sh
-python -c "from ml.analysis.spatial_explorer import render_explorer; [render_explorer(f'analysis_runs/playback-demo/{name}/case_00', f'analysis_runs/playback-demo/{name}/ux-verified.html') for name in ('sweep','stationary','noisy','ambiguous','discontinuous')]"
-node ml/analysis/tests/check_spatial_playback.cjs --ux --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --reports analysis_runs/playback-demo --file ux-verified.html --screenshots analysis_runs/explorer-ux-verified
+python -c "from ml.analysis.spatial_explorer import render_explorer; [render_explorer(f'analysis_runs/playback-demo/{name}/case_00', f'analysis_runs/playback-demo/{name}/ux-accessible.html') for name in ('sweep','stationary','noisy','ambiguous','discontinuous')]"
+node ml/analysis/tests/check_spatial_playback.cjs --ux --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --reports analysis_runs/playback-demo --file ux-accessible.html --screenshots analysis_runs/explorer-ux-accessible
 ```
 
 Before/after embedded evaluation/provenance objects and CSP were compared for all
