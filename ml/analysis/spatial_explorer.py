@@ -163,38 +163,90 @@ _PAGE = """<!doctype html>
 <title>IBUKI Radar Explorer</title>
 <style>
 :root{color-scheme:light;--ink:#254842;--muted:#52665e;--line:#dce2d9;--paper:#fffef9;--sage:#e7eee5;--truth:#287269;--estimate:#a45424}
-*{box-sizing:border-box}body{margin:0;background:#f5f3eb;color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI","Yu Gothic",sans-serif}
-[hidden]{display:none!important}.safety{position:sticky;top:0;z-index:3;background:#e9eedf;border-bottom:1px solid #c4cebb;padding:10px 20px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.03em}
-.shell{max-width:1180px;margin:auto;padding:32px 28px 40px}.brand{font-size:13px;letter-spacing:.1em;color:var(--muted);margin:0 0 8px}h1{font-size:clamp(26px,3vw,38px);letter-spacing:-.035em;line-height:1.25;margin:0 0 12px}h2{font-size:20px;line-height:1.4;margin:0}p{margin:8px 0 16px}.lede{color:var(--muted);max-width:820px}.intro{padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:24px;margin:24px 0}.intro p{margin:8px 0 0;max-width:650px}button,select{font:inherit}button{border:0;border-radius:9px;background:var(--ink);color:white;padding:12px 20px;font-weight:700;cursor:pointer;flex-shrink:0}button:hover{background:#356052}button:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #ac6822;outline-offset:4px}a{color:var(--truth);text-underline-offset:3px}select{max-width:100%;min-width:0;background:var(--paper);border:1px solid #a5b4a7;border-radius:8px;color:var(--ink);padding:10px;width:100%}.toolbar{display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:20px;margin:24px 0 18px}.toolbar label{font-weight:700;display:block;margin-bottom:6px}.toolbar p{color:var(--muted);font-size:14px;margin:0}.stats{display:flex;gap:20px;flex-wrap:wrap;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:14px}.stats strong{font-size:23px;margin-right:5px}.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(310px,1fr);gap:20px;align-items:start}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;min-width:0}.map-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.map-head a{font-size:14px;white-space:nowrap}.hint{font-size:13px;color:var(--muted);margin:6px 0}.map{display:block;width:100%;height:auto;margin:8px 0;overflow:visible}.ring{fill:none;stroke:#d6dfd3;stroke-width:1.2}.axis{stroke:#c6d1c2;stroke-width:1;stroke-dasharray:4 5}.map text{font-family:inherit;fill:var(--muted);font-size:16px}.marker{cursor:pointer;outline:none}.marker .halo{fill:none;stroke:transparent;stroke-width:4}.marker[aria-pressed="true"] .halo{stroke:var(--ink);stroke-dasharray:3 3}.marker:focus-visible .halo{stroke:#ac6822;stroke-width:5}.legend{display:flex;gap:14px 20px;flex-wrap:wrap;font-size:14px}.legend span{display:flex;align-items:center;gap:8px}.dot{display:inline-block;width:15px;height:15px;border:3px solid var(--truth);border-radius:50%;flex:none}.diamond{display:inline-block;width:12px;height:12px;background:var(--estimate);transform:rotate(45deg);margin:0 3px;flex:none}.eyebrow{font-size:13px;color:var(--muted);margin:0 0 8px}.state{display:inline-block;font-size:13px;font-weight:700;padding:5px 10px;border-radius:6px;background:var(--sage);margin:12px 0}.notice{background:#f8eedc;border-left:3px solid #b97b34;padding:12px;font-size:14px;margin:12px 0 18px}.measure{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.measure>div{background:#f3f5ed;border-radius:9px;padding:12px}.measure h3{font-size:13px;margin:0 0 8px;color:var(--muted)}dl{margin:0}dt{font-size:13px;color:var(--muted)}dd{margin:0 0 6px;font-size:20px;font-weight:600}.difference{border-top:1px solid var(--line);padding-top:16px}.difference dl{display:grid;grid-template-columns:1fr auto;gap:5px 12px;align-items:baseline}.difference dd{font-size:18px}details{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}summary{cursor:pointer;font-weight:600;font-size:14px}pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0 0;max-height:340px;overflow:auto;background:#f0f2eb;padding:12px;border-radius:8px}.footnote{font-size:13px;color:var(--muted);margin-top:24px}.provenance{margin-top:24px}noscript p{padding:20px;background:#f8eedc}footer{margin-top:24px;font-size:13px;color:var(--muted)}
-.map-head{flex-wrap:wrap}#inspection{scroll-margin-top:65px}
-.playback{margin:0 0 20px;padding:18px 20px;background:var(--paper);border:1px solid var(--line);border-radius:12px}.playback-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.secondary{background:var(--sage);color:var(--ink);border:1px solid #a5b4a7}.secondary:hover{background:#d8e3d4}button:disabled{opacity:.5;cursor:default}button:disabled:hover{background:var(--ink)}button.secondary:disabled:hover{background:var(--sage)}.playback label{display:block;font-weight:700;margin-top:16px}input[type=range]{width:100%;margin:10px 0;accent-color:var(--truth);min-height:28px;cursor:pointer}input:focus-visible{outline:3px solid #ac6822;outline-offset:4px}.playback-status{font-size:14px;font-weight:700;margin:10px 0}.playback p:last-child{margin-bottom:0}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
-@media(max-width:760px){.playback-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.playback-actions button{padding:12px 8px}}
-@media(max-width:760px){.shell{padding:24px 18px}.intro{display:block;padding:20px}.intro button{width:100%;margin-top:20px}.toolbar{grid-template-columns:1fr;gap:10px}.grid{grid-template-columns:1fr}.card{padding:18px}.stats{gap:8px 18px}.stats strong{font-size:20px}.map text{font-size:19px}.legend{font-size:13px;gap:10px}h2{font-size:19px}.measure{gap:8px}dd{font-size:19px}.safety{font-size:12px;padding:9px 12px}.map-head a{font-size:13px}}
+*{box-sizing:border-box}
+body{margin:0;background:#f5f3eb;color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI","Yu Gothic",sans-serif}
+[hidden]{display:none!important}
+.safety{position:sticky;top:0;z-index:3;background:#e9eedf;border-bottom:1px solid #c4cebb;padding:9px 12px;text-align:center;font-size:12px;font-weight:700}
+.shell{max-width:1180px;margin:auto;padding:24px 24px 32px}
+.brand{font-size:13px;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
+h1{font-size:clamp(25px,3vw,36px);letter-spacing:-.03em;line-height:1.25;margin:0 0 10px}
+h2{font-size:20px;line-height:1.4;margin:0}
+p{margin:8px 0 12px}.lede{color:var(--muted);max-width:820px}
+.intro{padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:20px;margin:20px 0}
+.intro p{margin:8px 0 0;max-width:650px}
+button,select,input{font:inherit}
+button{border:0;border-radius:8px;background:var(--ink);color:white;min-height:44px;padding:10px 16px;font-weight:700;cursor:pointer}
+button:hover{background:#356052}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible,h2:focus-visible{outline:3px solid #ac6822;outline-offset:3px}
+a{color:var(--truth);text-underline-offset:3px}
+select{width:100%;max-width:100%;min-width:0;min-height:44px;padding:8px;background:var(--paper);color:var(--ink);border:1px solid #a5b4a7;border-radius:8px}
+.stats{display:flex;gap:10px 20px;flex-wrap:wrap;padding:12px 0;margin:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:14px}
+.stats strong{font-size:21px;margin-right:4px}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,1fr);gap:20px;align-items:start}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px;min-width:0}
+#map-card,#inspection{scroll-margin-top:70px}
+.window-choice{margin:10px 0 6px}.window-choice label{display:block;font-weight:700;font-size:14px;margin-bottom:4px}
+.selected-summary{font-size:14px;font-weight:700;margin:6px 0}
+.hint{font-size:13px;color:var(--muted);margin:6px 0}
+.map{display:block;width:100%;max-width:440px;height:auto;margin:0 auto}
+.ring{fill:none;stroke:#d6dfd3;stroke-width:1.2}.axis{stroke:#c6d1c2;stroke-width:1;stroke-dasharray:4 5}
+.map text{font-family:inherit;fill:var(--muted);font-size:23px}
+.marker{cursor:pointer;outline:none}.marker .halo{fill:none;stroke:transparent;stroke-width:3}
+.marker[aria-pressed="true"] .halo{stroke:var(--ink);stroke-dasharray:3 3}.marker:focus-visible .halo{stroke:#ac6822;stroke-width:4}
+.legend{display:flex;gap:5px 18px;flex-wrap:wrap;font-size:13px;margin:6px 0}
+.legend span{display:flex;align-items:center;gap:8px}
+.dot{display:inline-block;width:15px;height:15px;border:3px solid var(--truth);border-radius:50%;flex:none}
+.diamond{display:inline-block;width:12px;height:12px;background:var(--estimate);transform:rotate(45deg);margin:0 3px;flex:none}
+.playback{border-top:1px solid var(--line);margin-top:4px;padding-top:12px}
+.playback-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.playback-actions button{padding:9px 4px;font-size:14px;white-space:nowrap;min-width:0}
+.secondary{background:var(--sage);color:var(--ink);border:1px solid #a5b4a7}.secondary:hover{background:#d8e3d4}
+button:disabled{opacity:.5;cursor:default}button:disabled:hover{background:var(--ink)}button.secondary:disabled:hover{background:var(--sage)}
+.playback-status{font-size:14px;font-weight:700;margin:8px 0}
+.playback label{font-size:14px;font-weight:700}
+input[type=range]{display:block;width:100%;margin:0;accent-color:var(--truth);min-height:44px;cursor:pointer}
+.inspection-link{display:inline-flex;align-items:center;min-height:44px;font-size:14px;margin-top:4px}
+.eyebrow{font-size:13px;color:var(--muted);margin:0 0 8px}
+.state{display:inline-block;font-size:13px;font-weight:700;padding:5px 10px;border-radius:6px;background:var(--sage);margin:12px 0}
+.notice{background:#f8eedc;border-left:3px solid #b97b34;padding:12px;font-size:14px;margin:12px 0 18px}
+.measure{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+.measure>div{background:#f3f5ed;border-radius:9px;padding:12px;min-width:0}
+.measure h3{font-size:13px;margin:0 0 8px;color:var(--muted)}dl{margin:0}dt{font-size:13px;color:var(--muted)}
+dd{margin:0 0 6px;font-size:20px;font-weight:600}
+.difference{border-top:1px solid var(--line);padding-top:16px}.difference dl{display:grid;grid-template-columns:1fr auto;gap:5px 12px;align-items:baseline}.difference dd{font-size:18px}
+details{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}summary{cursor:pointer;font-weight:600;font-size:14px;min-height:44px;padding:8px 0}
+pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0 0;max-height:340px;overflow:auto;background:#f0f2eb;padding:12px;border-radius:8px}
+.provenance{margin-top:20px}noscript p{padding:20px;background:#f8eedc}footer{margin-top:20px;font-size:13px;color:var(--muted)}
+@media(max-width:1023px){.grid{grid-template-columns:1fr}}
+@media(max-width:600px){.shell{padding:18px 14px}.intro{display:block;padding:18px}.intro button{width:100%;margin-top:16px}.card{padding:14px}.stats{gap:6px 16px}.stats strong{font-size:19px}h2{font-size:18px}.map text{font-size:26px}.playback-actions{gap:6px}.measure{gap:8px}.measure>div{padding:10px}dd{font-size:18px}}
+@media(max-width:359px){.shell{padding:16px 12px}.card{padding:12px}.map text{font-size:28px}.playback-actions button{font-size:13px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 <div class="safety">シミュレーション / SYNTHETIC DATA · 実測ではありません</div>
 <main class="shell">
 <header><p class="brand">息吹 ｜ オフライン解析</p><h1>IBUKI Radar Explorer</h1>
 <p class="lede">合成レーダー信号から求めた位置を、あらかじめ設定した位置と見比べるツールです。</p></header>
 <section class="intro" id="welcome" aria-labelledby="intro-title"><div><h2 id="intro-title">位置の「設定」と「推定」を、見比べる。</h2>
-<p>丸は合成の参照値、ひし形は既存の方向推定器の出力です。点や区間を選ぶと、その違いを確認できます。</p></div>
+<p>○は設定した位置、◆は信号から推定した位置です。開始したら、地図の下の「再生」で区間を見比べられます。実測ではありません。</p></div>
 <button id="start" type="button" aria-controls="workspace">シミュレーションを開始</button></section>
 <noscript><p>このファイルの操作には JavaScript が必要です。外部への通信は行いません。</p></noscript>
 <section id="workspace" hidden aria-label="位置推定の比較">
 <div class="stats" aria-label="評価区間の集計"><span><strong id="total">—</strong>区間</span><span><strong id="available">—</strong>推定あり</span><span><strong id="unavailable">—</strong>推定できません</span></div>
-<div class="toolbar"><div><label for="window-select">調べる区間</label><select id="window-select"></select></div><p>計算済みの解析窓を選びます。隣り合う窓の観測期間は重なる場合があります。欠測や位置の間を補間しません。</p></div>
+<div class="grid">
+<section class="card" id="map-card" aria-labelledby="map-title"><h2 id="map-title" tabindex="-1">レーダーから見た位置</h2>
+<div class="window-choice"><label for="window-select">調べる区間</label><select id="window-select"></select></div>
+<p id="map-selection" class="selected-summary"></p>
+<div class="legend"><span><i class="dot" aria-hidden="true"></i>設定位置（合成の参照値）</span><span><i class="diamond" aria-hidden="true"></i>推定位置（アンテナ 0–1）</span></div>
+<svg id="map" class="map" viewBox="0 0 600 570" role="group" aria-labelledby="map-title" aria-describedby="map-selection map-description"><desc id="map-description">選択中の区間だけを表示しています。○は設定位置、◆は推定位置。上が前方、▲がレーダーの原点です。すべての区間は選択欄や目盛りから選べます。</desc><g id="guides"></g><g id="markers"></g></svg>
 <section class="playback" aria-label="計算済み区間のデモ再生">
 <div class="playback-actions"><button id="play" type="button">再生</button><button id="pause" class="secondary" type="button" disabled>一時停止</button><button id="previous" class="secondary" type="button">前へ</button><button id="next" class="secondary" type="button">次へ</button></div>
-<p id="playback-status" class="playback-status" role="status" aria-live="polite">一時停止</p>
-<label for="timeline">評価区間の目盛り</label><input id="timeline" type="range" min="0" max="0" step="1" value="0">
+<p id="playback-status" class="playback-status" role="status" aria-live="polite" aria-atomic="true">一時停止</p>
+<label for="timeline">評価区間の目盛り</label><input id="timeline" type="range" min="0" max="0" step="1" value="0" aria-describedby="time-readout playback-message cadence">
 <p class="hint" id="time-readout" aria-live="off"></p><p class="hint" id="playback-message"></p>
-<p class="hint">デモ再生は目安 1 秒に 1 区間。実測時間の倍率ではありません。目盛りは区間番号で、実測時間に比例しません。</p>
+<p class="hint" id="cadence">目安 1 秒に 1 区間のデモ。実測時間の倍率ではありません。</p>
 </section>
-<div class="grid">
-<section class="card" aria-labelledby="map-title"><div class="map-head"><h2 id="map-title">レーダーから見た位置</h2><a href="#inspection">選択した結果を見る</a></div>
-<p class="hint">上が前方、下が後方。距離は cm、レーダーが原点です。</p>
-<svg id="map" class="map" viewBox="0 0 600 570" role="group" aria-labelledby="map-title map-description"><desc id="map-description">距離と水平方向のみの模式図。丸は設定位置、ひし形は推定位置です。点を選択できます。</desc><g id="guides"></g><g id="markers"></g></svg>
-<div class="legend"><span><i class="dot" aria-hidden="true"></i>設定位置（合成の参照値）</span><span><i class="diamond" aria-hidden="true"></i>推定位置（アンテナ 0–1）</span></div>
-<p class="hint">角度線は目安です。実機の視野角・部屋の座標・高さを示すものではありません。</p></section>
+<a class="inspection-link" href="#inspection">選択した結果を詳しく見る ↓</a>
+<p class="hint">角度線は目安です。実機の視野角・部屋の座標・高さではありません。</p></section>
 <section class="card" id="inspection" aria-labelledby="selection-title" tabindex="-1">
 <p class="eyebrow" id="window-label"></p><h2 id="selection-title">選択した区間</h2><div id="status" class="state" role="status" aria-live="polite"></div>
 <p class="notice" id="reason" hidden></p>
@@ -204,7 +256,7 @@ _PAGE = """<!doctype html>
 <p class="hint" id="window-info"></p>
 <details><summary>アンテナの診断値</summary><p class="hint">アンテナ 0–2 は参考値で、位置に合成していません。I/Q は標準データセットに保持されています。</p><pre id="diagnostics"></pre></details>
 </section></div></section>
-<details class="provenance"><summary>検証・来歴と計算条件</summary><p class="hint">ハッシュは成果物の整合性確認であり、出所の真正性や実機の精度を証明しません。時刻はボード起動後の経過時間で、日時ではありません。</p><pre id="provenance"></pre></details>
+<details class="provenance"><summary>検証・来歴と計算条件</summary><p class="hint">ハッシュは成果物の整合性確認であり、出所の真正性や実機の精度を証明しません。時刻はボード起動後の経過時間で、日時ではありません。目盛りは区間番号で、実測時間に比例しません。隣り合う解析窓の観測期間は重なる場合があり、欠測や位置の間を補間しません。</p><pre id="provenance"></pre></details>
 <footer>理想化した単一の移動反射点による実験です。実機の校正・精度検証、人体追跡、乳児の呼吸精度や医療性能の検証ではありません。前後の方向を取り違える場合もあります。</footer>
 </main>
 <script type="application/json" id="explorer-data">__IBUKI_DATA__</script>
@@ -289,7 +341,12 @@ byId('next').addEventListener('click',()=>player.next());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)player.pause('hidden');});
 window.addEventListener('pagehide',()=>player.pause('hidden'));
 reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)player.pause('reduced');else renderSelection(player.snapshot());});
-byId('start').addEventListener('click',()=>{byId('workspace').hidden=false;byId('welcome').hidden=true;player.select(0);byId('window-select').focus();});
+byId('start').addEventListener('click',()=>{
+ byId('workspace').hidden=false;byId('welcome').hidden=true;player.select(0);
+ byId('map-title').focus({preventScroll:true});
+ // One explicit start action brings map and controls into view. Steps never scroll.
+ scrollTo({top:byId('map-card').getBoundingClientRect().top+scrollY-document.querySelector('.safety').offsetHeight-8,behavior:'instant'});
+});
 </script>
 </html>"""
 
