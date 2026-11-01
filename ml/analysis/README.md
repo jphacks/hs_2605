@@ -813,6 +813,122 @@ geometry and independent calibrated E recordings before any spatial validation;
 this tool does not establish full 3D reconstruction, body tracking, multi-person
 tracking, breathing accuracy, infant safety or medical performance.
 
+## Guided product showcase (no data)
+
+Showcase Mode is a separate Japanese-language product explanation for a
+nontechnical audience. It introduces **設置する → 見守る → 知らせる** using the
+illustrative crib and sensor. It contains no recording, numerical radar chart,
+analysis table, classifier result or real notification. Understanding the story
+within roughly 15 seconds is a design goal, not a measured usability result.
+
+```sh
+python -m ml.analysis.spatial_scene3d --showcase --output analysis_runs/ibuki_showcase.html
+```
+
+Open the HTML directly in a browser (`file://`). Export needs only Python 3.10+
+standard-library modules and the committed offline bundle. No data directory,
+NumPy, npm install, server, CDN, external assets or network are needed. Output
+must be a **new** `.html` under ignored `analysis_runs/`; choose another filename
+if it exists. The normal safe-output and bundle-hash checks remain in place.
+`--showcase` and `--case` are mutually exclusive in both CLI and Python API.
+
+| Mode | Input and purpose |
+| --- | --- |
+| No mode flag | Original no-case installation illustration and camera controls |
+| `--case path/to/case_00` | Existing validated synthetic evaluation, original windows/metrics and provenance |
+| `--showcase` | Manual three-step product story; no case loading, data generation or inference |
+
+### What the visitor does
+
+1. **開始 / 設置する**: identify the highlighted radar beside the crib. The text
+   explains that the concept needs neither contact with the baby nor a camera.
+2. **次へ / 見守る**: see abstract sensor-to-crib rings. They illustrate a concept,
+   not observed beams, coverage, infant movement or breathing measurements.
+3. **次へ / 知らせる**: read a clearly labeled simulated guardian-notification
+   example. No event was detected and nothing is sent; the final message explains
+   that the walkthrough is complete.
+
+`前へ` moves back and `最初から` restarts the story at step 1. Navigation never
+starts automatically or advances on a timer, and ordinary step changes do not
+scroll the page. The current step is indicated by text and `aria-current`.
+Drag/touch, wheel/pinch, keyboard arrows/+/−/Home on the focused model and
+`視点を戻す` keep their camera roles; they never change the story step. Restarting
+the story does not independently change the camera.
+
+The step-2 effect runs for approximately 3.6 seconds, then stops rendering
+continuously. `動きを止める` stops the effect and `動きを見る` resumes/replays it.
+These controls are beside the model rather than below a long instruction block.
+There is no sound, flashing alarm, timed navigation or body/breathing animation.
+With `prefers-reduced-motion`, the rings stay static and motion controls are
+disabled with an explanation. Returning from a hidden page or leaving reduced
+motion does not automatically restart the effect. Paused/idle scenes render only
+on interaction/resize, using the existing renderer's requestAnimationFrame path.
+
+### Interpretation, compatibility and author inspection
+
+The disclaimer remains visible near the top:
+`説明用シミュレーションです。実測データや医療性能を示すものではありません。`
+Each step also labels its illustrative geometry, waves or simulated notification.
+The sensor halo is a location cue, not measured coverage. Enclosure, mount,
+dimensions and sensing direction are uncalibrated. This presentation establishes
+no physical 3D localization, infant event detection, CNN performance, alert
+accuracy/latency, clinical validation or safety claim.
+
+Showcase uses the existing pinned Three.js/OrbitControls bundle and procedural
+geometry. A modern WebGL2 browser enables 3D. If creation fails or the context is
+lost, the original static installation SVG replaces it, camera/motion controls
+are disabled, and all three story steps still work. With JavaScript disabled,
+the static SVG and a readable three-step list remain, with an explicit explanation
+that interaction/animation is unavailable.
+
+Author inspection of actual browser captures found: the gold sensor outline and
+label make its location explicit; step 1 says no camera/contact; the three short
+headlines and notification card follow one visual sequence; simulation labels
+remain distinct from actual measurement/alert performance; no data dashboards or
+JSON are shown; native previous/next/restart controls require no technical input.
+This is an implementation review, **not** real-user testing, judge feedback or a
+timed comprehension study.
+
+### Verification and real previews
+
+The optional browser checker covers 320/390/768/1280/1440px at 900px height and
+additional 320/390px phone layouts at 740px height. It checks all three steps,
+no autoplay/timed progression, keyboard/native focus, emulated touch, camera
+independence, pause/resume, finite effect completion and idle rendering, native
+reduced-motion changes, visibility/pagehide, offline requests, WebGL/context-loss
+and no-JavaScript fallbacks. Smaller/unusual physical-device viewports may still
+need vertical scrolling; no physical mobile/GPU performance study was done.
+Visibility is tested with a `document.hidden` override plus `visibilitychange`,
+and persisted `pagehide`, rather than an OS background-process experiment.
+
+```sh
+python -m unittest ml.analysis.tests.test_showcase -v
+node ml/analysis/tests/check_showcase.cjs --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --html analysis_runs/ibuki_showcase.html --screenshots analysis_runs/showcase-browser
+```
+
+Use the isolated Playwright setup documented below; Chrome must be installed,
+and the screenshot directory must be fresh. Pure navigation tests use Node when
+available without npm dependencies (skip when Node is absent); export tests need
+neither browser nor Node. Existing installation, case/3D-plane, 2D Explorer and
+offline analysis tests remain separate regression checks. No new dependencies
+were added to production or offline requirements.
+
+Actual offline Chrome 156.0.8078.76 captures using software WebGL/SwiftShader:
+
+| STEP 1 — 設置する | STEP 2 — 見守る | STEP 3 — 知らせる |
+| --- | --- | --- |
+| [![Installation with the highlighted sensor](previews/showcase-step1-desktop.png)](previews/showcase-step1-desktop.png) | [![Abstract sensing-wave illustration](previews/showcase-step2-desktop.png)](previews/showcase-step2-desktop.png) | [![Scripted guardian-notification example](previews/showcase-step3-desktop.png)](previews/showcase-step3-desktop.png) |
+
+[Mobile sensing step](previews/showcase-step2-mobile.png) ·
+[Mobile notification step](previews/showcase-step3-mobile.png) ·
+[WebGL fallback](previews/showcase-fallback.png)
+
+Step-2 captures show the active explanatory effect; other captures are static.
+These are native-clock implementation screenshots, not mockups. Touch was
+emulated, not tested on an actual handset. The next delivery step is to review
+the video narration/capture sequence while keeping the simulation labels visible;
+this mode does not introduce new radar or model functionality.
+
 ## Standalone conceptual 3D crib scene
 
 `ml.analysis.spatial_scene3d` shows a procedural crib, still sleeping silhouette,
@@ -1019,8 +1135,8 @@ npm ci
 npm run build
 ```
 
-The connected-plane rebuild produced a 583,533-byte bundle with SHA-256:
-`947bbf432f8a77efc2d4e45c7dfd7ed6a9b982cfccde48ac341c492858c72f88`.
+The bundle including optional Showcase Mode is 589,361 bytes, with SHA-256:
+`f03061b65f7fed5c71e24ad6d2c31130ea051fe4f46cdb8d0e82ed139bc5c6c3`.
 Identical committed resources produce byte-identical HTML, with no timestamps.
 Rendered pixels can differ across browser/graphics implementations.
 
