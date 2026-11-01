@@ -1,0 +1,25 @@
+<section class="analysis-card" aria-labelledby="analysis-title">
+<p class="analysis-eyebrow">SYNTHETIC DATA · 実測ではありません</p>
+<h2 id="analysis-title">合成解析の座標面</h2>
+<p class="hint" id="analysis-limits">ベッドとは別の説明用座標系です。距離と水平角のみ。高さ・身体の位置は表しません。</p>
+<div class="analysis-legend"><span><i class="reference-symbol" aria-hidden="true"></i>設定位置（合成の参照値）</span><span><i class="estimate-symbol" aria-hidden="true"></i>推定位置</span></div>
+<svg id="analysis-map" viewBox="0 0 600 570" role="img" aria-labelledby="analysis-title" aria-describedby="analysis-limits map-selection"><g id="analysis-guides"></g><g id="analysis-markers"></g></svg>
+<p id="map-selection" class="selected-summary">全区間の値は、JavaScript が無効でも下の表で確認できます。</p>
+<button id="analysis-start" type="button" aria-controls="analysis-controls" hidden>解析デモを開始</button>
+<div id="analysis-controls" hidden>
+<label for="window-select">調べる区間</label><select id="window-select"></select>
+<div class="playback-actions"><button id="play" type="button" aria-label="評価区間のデモを再生" aria-controls="analysis-map analysis-details">再生</button><button id="pause" type="button" aria-label="デモ再生を一時停止" aria-controls="analysis-map analysis-details" disabled>一時停止</button><button id="previous" type="button" aria-label="前の評価区間へ" aria-controls="analysis-map analysis-details">前へ</button><button id="next" type="button" aria-label="次の評価区間へ" aria-controls="analysis-map analysis-details">次へ</button></div>
+<label class="visually-hidden" for="timeline">評価区間の目盛り</label><input id="timeline" type="range" min="0" max="0" step="1" value="0">
+<p id="playback-message" class="hint"></p><p class="hint">計算済みの窓を1秒ごとに切り替えます。実測時間の倍率ではありません。補間しません。</p>
+</div>
+<p id="playback-status" role="status" aria-live="polite" aria-atomic="true"></p>
+<p id="reason" class="analysis-warning" hidden></p>
+<dl class="key-result"><dt>位置の差</dt><dd id="position-difference">—</dd></dl>
+<details id="analysis-details"><summary>詳しく見る</summary>
+<p id="window-label"></p><p id="status"></p><p id="time-readout"></p><p id="window-info"></p>
+<div class="analysis-values"><section><h3>設定位置</h3><dl><dt>距離</dt><dd id="truth-range">—</dd><dt>水平角</dt><dd id="truth-angle">—</dd></dl></section><section><h3>推定位置</h3><dl><dt>距離</dt><dd id="estimate-range">—</dd><dt>水平角</dt><dd id="estimate-angle">—</dd></dl></section></div>
+<dl><dt>距離の差</dt><dd id="range-difference">—</dd><dt>水平角の差</dt><dd id="angle-difference">—</dd></dl>
+<pre id="diagnostics"></pre><h3>来歴と整合性</h3><pre id="provenance"></pre>
+</details>
+<noscript><p>区間の選択には JavaScript が必要です。以下は全区間の元の評価値です。起動後はボード相対時刻です。</p><div class="static-windows"><table><caption>全評価区間（距離・差：cm、角度：度、時刻：秒）</caption><thead><tr><th>区間</th><th>基準：起動後</th><th>設定距離</th><th>設定角</th><th>推定距離</th><th>推定角</th><th>位置の差</th><th>可用性</th></tr></thead><tbody>__STATIC_ROWS__</tbody></table></div></noscript>
+</section>
