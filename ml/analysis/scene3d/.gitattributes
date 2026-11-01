@@ -1,3 +1,6 @@
 # The committed bundle is verified byte-for-byte before offline export.
 # Keep hashes and rebuilds stable across Windows and Unix checkouts.
 * text eol=lf
+# Upstream GLSL template strings preserve their own indentation and blank lines.
+# Check handwritten sources normally; do not rewrite vendor shader literals.
+scene.bundle.js whitespace=-blank-at-eol,-space-before-tab

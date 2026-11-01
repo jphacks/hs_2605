@@ -813,6 +813,111 @@ geometry and independent calibrated E recordings before any spatial validation;
 this tool does not establish full 3D reconstruction, body tracking, multi-person
 tracking, breathing accuracy, infant safety or medical performance.
 
+## Standalone conceptual 3D crib scene
+
+`ml.analysis.spatial_scene3d` shows a procedural crib, still sleeping silhouette,
+radar-like enclosure and a faint illustrative sensing direction. It explains the
+**contactless monitoring concept**, without a camera feed, measurements or live
+connection. The Japanese interface continuously identifies it as an installation
+illustration, not measured data. It is independent of the 2D Explorer below:
+there is no simulation-result loading or synchronization with analysis windows.
+
+### Generate and open
+
+From the repository root, with Python 3.10+ (standard library only):
+
+```sh
+python -m ml.analysis.spatial_scene3d --output analysis_runs/ibuki_crib_3d.html
+```
+
+Open that file directly in a browser (`file://`); no HTTP server, npm install,
+dataset, CDN or network is needed. All JavaScript, styles, procedural geometry,
+static SVG fallback and the Three.js license are embedded. Only a **new `.html`
+under this checkout's ignored `analysis_runs/`** is accepted. Missing directories
+are created. Existing files and symlink destinations are protected; use a fresh
+filename to export again. Errors return CLI status 2 without a traceback.
+No input artifacts or canonical datasets are modified or read.
+
+### Camera controls and fallback
+
+- Drag / one-finger drag: rotate. Wheel / two-finger pinch: zoom.
+- Visible Japanese buttons: rotate horizontally or vertically, zoom and reset.
+- Focus the scene with Tab: arrow keys rotate, `+`/`−` zoom, Home resets.
+  Native buttons also support Tab, Enter and Space with visible focus.
+- Rotation stays above the floor; zoom and rotation have fixed limits.
+  Reset restores an overview showing both crib and sensor.
+
+There is no automatic rotation, damping, breathing animation or transition.
+Rendering is requested only on interaction, resize or visibility changes; hidden
+pages cancel pending draws. Pixel ratio is capped at 1.5 and static shadow maps
+are rendered once. Reduced-motion users receive the same immediate controls.
+WebGL2 availability depends on the browser/device. When creation fails or the
+context is lost, a labeled static plan replaces the scene, with camera controls
+disabled and an explanation. JavaScript-disabled browsers see the same plan.
+This fallback is an illustration, not a measured radar map.
+
+### Isolated dependencies and reproducibility
+
+Three.js **0.187.0**, including OrbitControls, and build-only esbuild **0.28.2**
+are pinned in `scene3d/package-lock.json`. The generated IIFE and SHA-256 are
+committed; Python verifies that hash before export. LF attributes preserve the
+bundle bytes on Windows and Unix. No production requirements or dashboard
+packages change. See [licenses and notices](scene3d/THIRD_PARTY_NOTICES.md).
+
+Only maintainers rebuilding the JavaScript need Node/npm:
+
+```sh
+cd ml/analysis/scene3d
+npm ci
+npm run build
+```
+
+The verified rebuild produced the same 570,076-byte bundle and SHA-256:
+`aa6d9c92c10c260aa62b8066d96a010f5acd2fea4ee68a79be38599c76532443`.
+Identical committed resources produce byte-identical HTML, with no timestamps.
+Rendered pixels can differ across browser/graphics implementations.
+
+### Browser evidence and repeatable checks
+
+Actual local-file screenshots, captured offline in Chrome 156.0.8078.76 using
+software WebGL (SwiftShader), rather than hardware validation:
+
+| Desktop default, 1280px | Mobile default, 390px |
+| --- | --- |
+| [![3D crib and nearby illustrative radar](previews/scene3d-desktop.png)](previews/scene3d-desktop.png) | [![Mobile scene and camera controls](previews/scene3d-mobile.png)](previews/scene3d-mobile.png) |
+
+[Rotated camera](previews/scene3d-rotated.png) ·
+[WebGL-unavailable static fallback](previews/scene3d-fallback.png)
+
+The optional browser check tests 320, 390, 768, 1280 and 1440px with offline
+`file://` loading; keyboard/native buttons, drag, wheel, emulated touch/pinch,
+rotation/zoom limits, reset, reduced-motion and idle rendering; no horizontal
+overflow, unexpected HTTP(S) requests or unhandled JS errors; WebGL creation
+failure, context loss and disabled JavaScript. It uses isolated Playwright,
+not a new CI/runtime dependency. Example from the repository root:
+
+```sh
+npm install --prefix .venv/ibuki-browser-qa --no-save playwright@1.64.1
+node ml/analysis/tests/check_scene3d.cjs --playwright ./.venv/ibuki-browser-qa/node_modules/playwright --html analysis_runs/ibuki_crib_3d.html --screenshots analysis_runs/scene3d-browser
+python -m unittest ml.analysis.tests.test_scene3d -v
+```
+
+The browser script needs installed Chrome; choose a fresh screenshot directory.
+Its JSON records actual checks and browser version. Python tests require neither
+Chrome nor npm and run in existing analysis CI. The existing 2D Explorer has its
+own independent unit/browser regression checks; its implementation is unchanged.
+
+### Interpretation and next steps
+
+All scene units, shapes, enclosure, support, placement and sensing direction are
+arbitrary explanatory geometry. None establishes verified installation safety,
+hardware dimensions, radar field of view, localization, reconstruction, breathing
+detection or medical performance. The sleeping figure is static and supplies no
+artificial breathing values. No first-viewer comprehension study or real-device
+touch/performance validation has been performed. A later separately scoped step
+may link a selected analysis window to illustrative presentation, with explicit
+provenance; this PR does not implement that connection or new estimators.
+
 ## Standalone synthetic Radar Explorer
 
 `ml.analysis.spatial_explorer` is the first interactive **offline, synthetic-only**
