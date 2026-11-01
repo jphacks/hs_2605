@@ -120,3 +120,144 @@ def build_spectrogram(dataset: ReportDataset, bin_index=0, *, window_sec=12, hop
             available_segments=sum(s["status"] == "available" for s in segments)),
         unavailable_reason="No exported frames" if not segments else None,
         versions=dict(numpy=np.__version__, scipy=scipy.__version__), segments=segments)
+
+
+def build_figure(result):
+    """Flat PSD cells at measured window centers, separate axes across boundaries."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.colors import Normalize
+    from matplotlib.figure import Figure
+
+    segments = result["segments"]
+    figure = Figure(figsize=(11, max(4.5, 4*len(segments))), layout="constrained")
+    FigureCanvasAgg(figure)
+    axes = figure.subplots(max(1,len(segments)), 1, squeeze=False)[:,0]
+    floor = 1e-12
+    maximum = max((max(max(row) for row in s["power_density"]) for s in segments if s["status"] == "available"), default=floor)
+    norm = Normalize(-120, max(-119, 10*math.log10(max(floor, maximum))))
+    if not segments:
+        axes[0].axis("off")
+        axes[0].text(.05,.5,"STFT unavailable: no exported frames",transform=axes[0].transAxes)
+    for ax, segment in zip(axes, segments):
+        label = f"Segment {segment['segment_index']} ({segment['message_type']}), {segment['observed_samples']} observed samples"
+        if segment["status"] != "available":
+            ax.axis("off")
+            ax.text(.02,.75,label,transform=ax.transAxes,fontsize=12)
+            from textwrap import fill
+            ax.text(.02,.5,fill("STFT unavailable: "+segment["unavailable_reason"],width=90),transform=ax.transAxes)
+            continue
+        centers = np.array([w["center_offset_s"] for w in segment["windows"]])
+        frequencies = np.asarray(segment["frequency_hz"])
+        power = np.asarray(segment["power_density"])
+        # Cell edges are display boundaries, not interpolated measurements/power.
+        if len(centers) > 1:
+            half = np.diff(centers)/2
+            time_edges = np.r_[centers[0]-half[0], centers[:-1]+half, centers[-1]+half[-1]]
+        else:
+            window = segment["windows"][0]
+            reference = segment["reference_board_uptime_ms"]
+            time_edges = [(window["first_board_uptime_ms"]-reference)/1000,
+                          (window["last_board_uptime_ms"]-reference)/1000]
+        df = segment["frequency_spacing_hz"]
+        freq_edges = np.r_[0, (frequencies[:-1]+frequencies[1:])/2, frequencies[-1]+df/2]
+        freq_edges[-1] = min(freq_edges[-1], segment["sampling_rate_estimate_hz"]/2)
+        image = ax.pcolormesh(time_edges, freq_edges, 10*np.log10(np.maximum(power,floor)),
+                             shading="flat",cmap="magma",norm=norm)
+        figure.colorbar(image, ax=ax, label="PSD (dB re 1 radar unit²/Hz)")
+        ax.set_ylabel("Frequency (Hz)")
+        ax.set_xlabel(f"Window center offset (s), observed board uptime reference {segment['reference_board_uptime_ms']} ms")
+        ax.set_title(label+f"; bin {result['bin_index']} at {segment['distance_cm']:g} cm\n"
+                     f"Measured fs={segment['sampling_rate_estimate_hz']:.6g} Hz; Hann N={segment['window_samples']}; df={df:.6g} Hz")
+    figure.suptitle(f"Offline STFT - antenna 0, bin {result['bin_index']}\nDisplay floor -120 dB; exploratory power, not breathing or medical validation",fontsize=13)
+    return figure
+
+
+def export_spectrogram(directory, output, bin_index=0, *, window_sec=12, hop_sec=3, force=False):
+    """Render both outputs before writing; protect canonical input and both paths."""
+    import hashlib
+    from io import BytesIO
+    import json
+    import os
+    from pathlib import Path
+    import tempfile
+    import matplotlib
+    from .report import load_dataset
+
+    root, requested = Path(directory).resolve(), Path(output)
+    if requested.suffix.lower() != ".png":
+        raise ValueError("Spectrogram output must have a .png extension")
+    paths = (requested, requested.with_suffix(".json"))
+    for path in paths:
+        if path.is_symlink():
+            raise ValueError("Spectrogram output must not be a symlink")
+        resolved = path.resolve()
+        if resolved == root or root in resolved.parents:
+            raise ValueError("Spectrogram outputs must be outside the canonical dataset directory")
+        if path.exists() and not force:
+            raise FileExistsError(f"Output already exists: {path}; use --force")
+    result = build_spectrogram(load_dataset(root),bin_index,window_sec=window_sec,hop_sec=hop_sec)
+    figure = build_figure(result)
+    try:
+        with BytesIO() as buffer:
+            figure.savefig(buffer,format="png",dpi=120,metadata={"Software":"IBUKI offline analysis"})
+            png = buffer.getvalue()
+    finally:
+        figure.clear()
+    result["rendering"] = dict(matplotlib=matplotlib.__version__,power_floor=1e-12,
+        color="10*log10(max(PSD,1e-12)/(1 radar value unit^2/Hz))",png_sha256=hashlib.sha256(png).hexdigest(),
+        cells="flat colors at measured window centers; midpoint edges are display only, not interpolated measurements")
+    encoded = (json.dumps(result,sort_keys=True,indent=2,allow_nan=False)+"\n").encode("utf-8")
+    created = []
+    try:
+        for path, content in zip(paths,(png,encoded)):
+            if not force:
+                with path.open("xb") as stream:
+                    created.append(path)
+                    stream.write(content)
+            else:
+                with tempfile.NamedTemporaryFile(dir=path.resolve().parent,prefix=".ibuki-stft-",delete=False) as stream:
+                    stage = Path(stream.name)
+                    try:
+                        stream.write(content)
+                    except OSError:
+                        stream.close()
+                        stage.unlink()
+                        raise
+                try:
+                    os.replace(stage,path)
+                finally:
+                    if stage.exists():
+                        stage.unlink()
+    except OSError:
+        for path in created:
+            path.unlink()
+        raise
+    return result
+
+
+def main(argv=None):
+    import argparse
+    import json
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("dataset",help="canonical schema-v1 directory, never raw CSV")
+    parser.add_argument("--bin",type=int,default=0,dest="bin_index")
+    parser.add_argument("--output",required=True,help="PNG path; matching JSON is always written beside it")
+    parser.add_argument("--window-sec",type=float,default=12)
+    parser.add_argument("--hop-sec",type=float,default=3)
+    parser.add_argument("--json",action="store_true",help="also emit the same results JSON to stdout")
+    parser.add_argument("--force",action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        result = export_spectrogram(args.dataset,args.output,args.bin_index,window_sec=args.window_sec,
+                                    hop_sec=args.hop_sec,force=args.force)
+    except (OSError,ValueError,ImportError,OverflowError) as exc:
+        parser.exit(2,f"error: {exc}\n")
+    if args.json:
+        print(json.dumps(result,sort_keys=True,indent=2,allow_nan=False))
+    else:
+        print(f"Saved spectrogram PNG and JSON: {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
