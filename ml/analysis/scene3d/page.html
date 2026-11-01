@@ -24,14 +24,27 @@ button{font:inherit;font-size:14px;font-weight:600;min-width:48px;min-height:44p
 button:hover{background:#d8e3d4}button:focus-visible,summary:focus-visible{outline:3px solid #ac6822;outline-offset:3px}button:disabled{opacity:.5;cursor:default}.reset{background:var(--ink);color:white}
 .hint{font-size:13px;color:var(--muted);margin:8px 0}#scene-status{font-size:14px;margin:12px 0 6px}.limitations{font-size:13px;color:var(--muted);padding-top:12px;border-top:1px solid var(--line)}
 details{margin-top:16px;font-size:13px}summary{cursor:pointer;min-height:44px;padding:8px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,monospace;max-height:240px;overflow:auto;background:#ecefe5;padding:12px}
+.analysis-mode{max-width:1280px}.analysis-mode .scene-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}.scene-column{min-width:0}
+.analysis-mode .scene-stage{height:440px}.analysis-mode .controls{flex-wrap:wrap;gap:10px}.analysis-mode .controls button{padding:8px 10px}
+.analysis-card{min-width:0;background:var(--paper);border:1px dashed #6d8274;border-radius:16px;padding:16px}.analysis-card h2{font-size:21px;margin:0}.analysis-eyebrow{font-size:12px;font-weight:700;color:#52665e;margin:0 0 4px}
+.analysis-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px}.analysis-legend span{display:flex;align-items:center;gap:8px}.reference-symbol{display:inline-block;border:3px solid #287269;border-radius:50%;width:14px;height:14px;flex:none}.estimate-symbol{display:inline-block;background:#a45424;transform:rotate(45deg);width:12px;height:12px;margin:0 2px;flex:none}
+#analysis-map{display:block;width:100%;height:auto;max-height:250px;margin:auto}#analysis-map text{fill:var(--muted);font-size:24px}#analysis-map .guide{stroke:#849487;fill:none;vector-effect:non-scaling-stroke}
+.selected-summary,#playback-status{font-size:14px;font-weight:700;margin:8px 0}.analysis-card label{display:block;font-size:14px;font-weight:700}.analysis-card select{display:block;width:100%;min-width:0;max-width:100%;min-height:44px;background:var(--paper);color:var(--ink);font:inherit;border:1px solid #6d8274;border-radius:8px;padding:8px}
+.playback-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:10px 0 0}.playback-actions button{padding:8px 2px;font-size:13px;min-width:0;white-space:nowrap}
+input[type=range]{display:block;width:100%;min-height:44px;margin:0;accent-color:var(--ink)}select:focus-visible,input:focus-visible{outline:3px solid #ac6822;outline-offset:3px}
+.analysis-warning{font-size:13px;padding:10px;background:#f8eedc;border-left:3px solid #ac6822}.key-result{display:flex;align-items:baseline;gap:12px;border-top:1px solid var(--line);padding-top:10px;margin:8px 0 0}.key-result dd{font-size:23px;font-weight:700;margin:0}
+.analysis-values{display:grid;grid-template-columns:1fr 1fr;gap:10px}.analysis-card h3{font-size:14px}.analysis-card dt{font-size:13px;color:var(--muted)}.analysis-card dd{margin:0 0 6px}.analysis-card details p{font-size:13px}.analysis-card pre{max-height:240px}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.static-windows table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;overflow-wrap:anywhere}.static-windows th,.static-windows td{padding:4px 2px;border-bottom:1px solid var(--line)}
+@media(max-width:1023px){.analysis-mode .scene-layout{grid-template-columns:1fr}.analysis-mode .scene-stage{height:400px}.analysis-card{max-width:100%}}
 @media(max-width:600px){main{padding:20px 12px}.scene-stage{height:360px}.controls{padding:12px;flex-direction:column;gap:10px}.zoom-controls .reset{flex:1}.scene-label{font-size:12px;padding:4px 7px}button{padding:8px;font-size:14px}.intro{font-size:14px}}
+@media(max-width:600px){.analysis-mode .scene-stage{height:360px}.analysis-card{padding:12px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
-<div class="notice">設置イメージ · 実測ではありません</div>
-<main>
+<div class="notice">設置イメージ · 実測ではありません__DATA_NOTICE__</div>
+<main__MAIN_CLASS__>
 <header><p class="brand">息吹 ｜ カメラを使わない見守りの構想</p><h1>IBUKI 3D 設置イメージ</h1>
 <p class="intro">赤ちゃんのベッドのそばに、レーダーを。触れずに見守る構想を、説明用の模型で見る。</p></header>
-<section class="scene-frame" aria-label="ベビーベッドとレーダーの説明用3D模型">
+<div class="scene-layout"><div class="scene-column"><section class="scene-frame" aria-label="ベビーベッドとレーダーの説明用3D模型">
 <div id="scene-stage" class="scene-stage" data-state="loading" data-render-count="0">
 <canvas id="scene-canvas" hidden tabindex="0" role="img" aria-label="操作できる3D設置イメージ：ベビーベッド、眠る赤ちゃんの模式図、そのそばのレーダーセンサー" aria-describedby="camera-help scene-limitations"></canvas>
 <svg id="scene-fallback" viewBox="0 0 640 460" role="img" aria-labelledby="fallback-title fallback-desc">
@@ -59,8 +72,10 @@ details{margin-top:16px;font-size:13px}summary{cursor:pointer;min-height:44px;pa
 </section>
 <p id="scene-status" role="status" aria-live="polite">3D の準備中です。平面図でも設置イメージを確認できます。</p>
 <p id="camera-help" class="hint">ドラッグで回転、ホイール・2本指で拡大縮小。キーボードでは矢印キー、＋/−、Home。自動回転や慣性の動きはありません。</p>
+</div>__ANALYSIS_PANEL__</div>
 <noscript><p>JavaScript が無効なため、説明用の平面図を表示しています。</p></noscript>
 <p id="scene-limitations" class="limitations">形状・設置位置・大きさ・検知方向は説明用です。実機で検証した構成ではなく、実際の3D座標や呼吸を計測・表示するものではありません。医療性能や安全性の検証結果ではありません。</p>
 <details><summary>表示の技術とライセンス</summary><p>Three.js 0.187.0 をこのファイルに同梱しています。外部の画像・3Dモデル・通信は使いません。画面を操作したときだけ再描画します。</p><pre>__THREE_LICENSE__</pre></details>
 </main>
-<script>__SCENE_BUNDLE__</script></html>
+__CASE_DATA__<script>__PLAYBACK_JS__
+__SCENE_BUNDLE__</script></html>

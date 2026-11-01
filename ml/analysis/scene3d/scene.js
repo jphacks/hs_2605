@@ -7,6 +7,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {initializeAnalysis} from './analysis.js';
 
 const stage=document.getElementById('scene-stage');
 const canvas=document.getElementById('scene-canvas');
@@ -182,3 +183,5 @@ catch(error){
   if(renderer)renderer.dispose();
   showFallback('この環境では 3D を表示できないため、設置イメージの平面図を表示しています。');
 }
+// Analysis stays usable even when WebGL initialization failed.
+initializeAnalysis();
