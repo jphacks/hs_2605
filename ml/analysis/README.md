@@ -524,6 +524,155 @@ ALERT status messages were present. Its isolated rerun passed (1 test, 16.535 s)
 from `pc/`. PC code/tests were unchanged. Full remote PC/web regression results
 are recorded in the PR, including any retry evidence.
 
+## Offline STFT spectrogram
+
+`ml.analysis.spectrogram` shows how the frequency content of one distance bin
+changes over time. It consumes a canonical schema-v1 directory through
+`report.load_dataset`; it never reads the original CSV as a fallback. NumPy,
+SciPy and headless Matplotlib are already available; Parquet uses the existing
+offline-only requirements. Antenna 0 is the only supported antenna in this version.
+
+```bash
+python -m ml.analysis.ingest recordings/samples/breathing.sample.csv --out-dir analysis_runs/stft-samples/breathing --source-type repository_sample
+python -m ml.analysis.spectrogram analysis_runs/stft-samples/breathing --bin 9 --output analysis_runs/stft-samples/breathing_stft.png
+python -m ml.analysis.ingest recordings/samples/hold.sample.csv --out-dir analysis_runs/stft-samples/hold --source-type repository_sample
+python -m ml.analysis.spectrogram analysis_runs/stft-samples/hold --bin 9 --output analysis_runs/stft-samples/hold_stft.png
+python -m ml.analysis.ingest recordings/samples/leave.sample.csv --out-dir analysis_runs/stft-samples/leave --source-type repository_sample
+python -m ml.analysis.spectrogram analysis_runs/stft-samples/leave --bin 9 --output analysis_runs/stft-samples/leave_stft.png
+```
+
+Each export writes both the PNG and a matching `.json` beside it. Optional
+`--json` also prints the same JSON to stdout, instead of a success message.
+`--window-sec` defaults to 12 and `--hop-sec` to 3; both must be positive/finite
+and hop must not exceed window. Bin indices are zero-based (default 0). An
+out-of-range bin in a usable block is an error; absent geometry instead has an
+explicit unavailable result. Existing PNG **or** JSON requires `--force`.
+Outputs must be outside the canonical directory; parents must exist, symlinks
+are rejected, and original recordings/canonical artifacts are never modified.
+Keep generated files in ignored `analysis_runs/`, not Git. Rendering and JSON
+encoding complete before writes. Use a single writer; force replacement of the
+two files is not a cross-file transaction. JSON includes the PNG SHA-256.
+
+### Signal and segmentation
+
+The input is the **real linear I/Q projection** from `signal.project_iq`, not
+magnitude or an independently filtered I/Q signal. For each continuous segment,
+subtract its complex mean, rotate by half the angle of the sum of centered
+complex squares, and take the real component. The axis is fixed over that
+segment rather than recomputed at arbitrary STFT windows. This shares PR #108's
+projection definition; it does not produce CNN features or predictions. D uses
+observed C.scale, E values are already scaled and never divided by C.scale.
+The projection sign is not physical direction, and one axis can miss orthogonal
+motion; its spectrum is not the full complex I/Q spectrum.
+
+`report.prepare_blocks` and existing visualization trace segments separate
+sequence discontinuities, repeated/backward board time/sequence, explicit S
+restart status, D/E/configuration transitions, long intervals and malformed-row
+boundaries. STFT windows never span these boundaries. The shared
+`signal.sampling_cadence` uses recorded endpoints:
+
+```text
+dt_ms = (t_last - t_first) / (observed_count - 1)
+fs = 1000 / dt_ms
+tolerance_ms = max(1 ms, 0.02 * dt_ms)
+```
+
+Both the maximum adjacent-interval deviation and cumulative uniform-grid
+deviation must stay within that tolerance across the segment. Small timestamp
+quantization/jitter is accepted as an approximately regular sampling grid;
+samples themselves are never interpolated. Irregular segments beyond this
+conservative policy are unavailable, even if a small portion might be usable.
+No fixed firmware/model sampling rate is assumed.
+
+### STFT, power units and time coordinates
+
+Window/hop seconds become sample counts N/H by nearest-integer, half-up rounding
+using the measured fs. N must be at least 8 and H at least 1. Only complete
+windows are used: no boundary padding, tail padding, resampling or invented
+measurements. Uncovered tail samples are explicitly counted. The initial
+12-second setting is close to the model's 200-frame context for these samples;
+N is measured-cadence dependent and the model context/weights remain unchanged.
+
+```text
+w[n] = 0.5 - 0.5*cos(2*pi*n/N), n=0..N-1        # periodic Hann
+X[m,k] = sum(w[n]*x[m*H+n]*exp(-2*pi*i*k*n/N))
+P[m,k] = abs(X[m,k])^2 / (fs * sum(w[n]^2))
+```
+
+Positive non-Nyquist one-sided bins are doubled; DC and an even-N Nyquist bin
+are not. The implementation uses SciPy STFT with `scaling="psd"`, then squares
+the normalized coefficients and applies this one-sided factor. There is no
+per-window detrending; the segment projection already subtracts its global mean.
+DC is retained. P is **radar value units squared/Hz**, not calibrated motion or
+SNR. Integrated PSD equals Hann-weighted window energy, which need not equal
+the unweighted energy of a short sine window.
+
+The DFT has no zero padding (`nfft=N`). Frequency spacing is fs/N (approximately
+1/window duration). This is grid spacing, not uncertainty or guaranteed ability
+to resolve two peaks; Hann broadens peaks (equivalent noise bandwidth about
+1.5 bins). Longer windows trade time localization for finer frequency spacing;
+overlap increases plotted window count, not independent evidence.
+
+Each time coordinate is the arithmetic mean of **actual observed timestamps in
+that window**, minus the segment's integer uptime reference. JSON retains exact
+integer first/last window uptimes, original source lines and end-exclusive frame
+row indices, so large uptime values do not lose their small relative offsets.
+Time is board uptime, never Unix time. Separate segments use separate panels and
+origins. Flat color cells are centered on those times; midpoint display edges
+are not interpolation of input measurements or spectral estimates. A singleton
+STFT column uses its actual first/last observed window times as display edges.
+
+### Color scale, metadata and unavailable results
+
+PNG colors use `10*log10(max(P, 1e-12) / (1 radar value unit²/Hz))`. The fixed
+-120 dB **display floor** is not a measured noise floor or physiological cutoff.
+The upper color limit follows the largest PSD in the report; panels share a
+scale, but separate PNGs can have different upper limits. Compare colorbar
+numbers/JSON, not colors alone. Zero-power constant signals display at the floor
+without inventing a peak.
+
+JSON stores linear PSD as `[frequency][window]`, frequency coordinates, measured
+cadence/errors, effective window/hop duration, all window bounds, segment source
+lines, coverage/tail counts, selected antenna, scale semantics, provenance,
+verified artifact hashes, authoritative quality and numerical-library versions.
+Missing/incompatible C geometry, short segments/windows, irregular timing or
+non-finite projection/power produce explicit reasons with null spectral arrays.
+Empty input produces an unavailable PNG and JSON; nothing is fabricated.
+Identical input/settings/library/font environment gives deterministic JSON/PNG
+bytes with no generation clock or absolute output path. Cross-version byte
+identity is not promised. Loading/rendering is in memory; many discontinuities
+can produce a tall PNG.
+
+### Executed public-sample processing and limits
+
+The commands above processed all three public samples at bin 9 / 48.75 cm with
+the default requested 12-second window / 3-second hop. All had one usable
+segment and no integrity diagnostics. Measured values (rounded here):
+
+| File label only | Observed frames | fs (Hz) | N / H | STFT columns | fs/N (Hz) | Covered frames | Tail not windowed |
+| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| breathing | 999 | 16.640822 | 200 / 50 | 16 | 0.083204 | 950 | 49 |
+| hold | 1,000 | 16.640570 | 200 / 50 | 17 | 0.083203 | 1,000 | 0 |
+| leave | 996 | 16.640744 | 200 / 50 | 16 | 0.083204 | 950 | 46 |
+
+All three PNGs were visually inspected for axes, labels, power scale and clipping.
+Tests compare known sinusoid frequencies at multiple sampling rates, a frequency
+change over time, PSD against independent SciPy periodograms (even/odd N), and
+Hann-weighted energy, plus missing data/restarts/configuration, timestamps,
+constant/short/empty input, deterministic exports and file preservation.
+
+```bash
+python -m unittest ml.analysis.tests.test_spectrogram -v
+python -m unittest discover -s ml/analysis/tests -t . -v
+python -m unittest discover -s pc/tests -t pc -v
+```
+
+Spectral peaks are **not automatically breathing frequencies**. Filenames are
+not ground-truth labels, and this exploratory plot does not measure classifier
+accuracy, denoising gains, SNR improvement, apnea/alarm performance or medical
+performance. No new recordings, labels, filtering, model training/weights,
+firmware, live monitoring, alarms or React changes are included.
+
 ## Relationship to existing readers
 
 `pc/ibuki/serial_reader.py` remains the live transport/parser: it silently ignores
