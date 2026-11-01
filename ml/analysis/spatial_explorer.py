@@ -162,7 +162,7 @@ _PAGE = """<!doctype html>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>IBUKI Radar Explorer</title>
 <style>
-:root{color-scheme:light;--ink:#254842;--muted:#52665e;--line:#dce2d9;--paper:#fffef9;--sage:#e7eee5;--truth:#287269;--estimate:#a45424}
+:root{color-scheme:light;--ink:#254842;--muted:#52665e;--line:#dce2d9;--paper:#fffef9;--sage:#e7eee5;--truth:#287269;--estimate:#a45424;--guide:#849487;--control:#6d8274;--focus:#ac6822}
 *{box-sizing:border-box}
 body{margin:0;background:#f5f3eb;color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI","Yu Gothic",sans-serif}
 [hidden]{display:none!important}
@@ -177,9 +177,9 @@ p{margin:8px 0 12px}.lede{color:var(--muted);max-width:820px}
 button,select,input{font:inherit}
 button{border:0;border-radius:8px;background:var(--ink);color:white;min-height:44px;padding:10px 16px;font-weight:700;cursor:pointer}
 button:hover{background:#356052}
-button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible,h2:focus-visible{outline:3px solid #ac6822;outline-offset:3px}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible,h2:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 a{color:var(--truth);text-underline-offset:3px}
-select{width:100%;max-width:100%;min-width:0;min-height:44px;padding:8px;background:var(--paper);color:var(--ink);border:1px solid #a5b4a7;border-radius:8px}
+select{width:100%;max-width:100%;min-width:0;min-height:44px;padding:8px;background:var(--paper);color:var(--ink);border:1px solid var(--control);border-radius:8px}
 .stats{display:flex;gap:10px 20px;flex-wrap:wrap;padding:12px 0;margin:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:14px}
 .stats strong{font-size:21px;margin-right:4px}
 .grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,1fr);gap:20px;align-items:start}
@@ -189,10 +189,12 @@ select{width:100%;max-width:100%;min-width:0;min-height:44px;padding:8px;backgro
 .selected-summary{font-size:14px;font-weight:700;margin:6px 0}
 .hint{font-size:13px;color:var(--muted);margin:6px 0}
 .map{display:block;width:100%;max-width:440px;height:auto;margin:0 auto}
-.ring{fill:none;stroke:#d6dfd3;stroke-width:1.2}.axis{stroke:#c6d1c2;stroke-width:1;stroke-dasharray:4 5}
+.ring{fill:none;stroke:var(--guide);stroke-width:1.2}.axis{stroke:var(--guide);stroke-width:1;stroke-dasharray:4 5}
 .map text{font-family:inherit;fill:var(--muted);font-size:23px}
 .marker{cursor:pointer;outline:none}.marker .halo{fill:none;stroke:transparent;stroke-width:3}
-.marker[aria-pressed="true"] .halo{stroke:var(--ink);stroke-dasharray:3 3}.marker:focus-visible .halo{stroke:#ac6822;stroke-width:4}
+.marker[aria-pressed="true"] .halo{stroke:var(--ink);stroke-dasharray:3 3}.marker:focus-visible .halo{stroke:var(--focus);stroke-width:4}
+.ring,.axis,.halo{vector-effect:non-scaling-stroke}
+.hit-target{fill:transparent;stroke:none;pointer-events:all}
 .legend{display:flex;gap:5px 18px;flex-wrap:wrap;font-size:13px;margin:6px 0}
 .legend span{display:flex;align-items:center;gap:8px}
 .dot{display:inline-block;width:15px;height:15px;border:3px solid var(--truth);border-radius:50%;flex:none}
@@ -200,11 +202,15 @@ select{width:100%;max-width:100%;min-width:0;min-height:44px;padding:8px;backgro
 .playback{border-top:1px solid var(--line);margin-top:4px;padding-top:12px}
 .playback-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .playback-actions button{padding:9px 4px;font-size:14px;white-space:nowrap;min-width:0}
-.secondary{background:var(--sage);color:var(--ink);border:1px solid #a5b4a7}.secondary:hover{background:#d8e3d4}
+.secondary{background:var(--sage);color:var(--ink);border:1px solid var(--control)}.secondary:hover{background:#d8e3d4}
 button:disabled{opacity:.5;cursor:default}button:disabled:hover{background:var(--ink)}button.secondary:disabled:hover{background:var(--sage)}
 .playback-status{font-size:14px;font-weight:700;margin:8px 0}
 .playback label{font-size:14px;font-weight:700}
-input[type=range]{display:block;width:100%;margin:0;accent-color:var(--truth);min-height:44px;cursor:pointer}
+input[type=range]{display:block;width:100%;margin:0;appearance:none;background:transparent;min-height:44px;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;background:var(--guide);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:24px;height:24px;margin-top:-9px;background:var(--ink);border:2px solid var(--paper);border-radius:50%}
+input[type=range]::-moz-range-track{height:6px;background:var(--guide);border-radius:3px}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;background:var(--ink);border:2px solid var(--paper);border-radius:50%}
 .inspection-link{display:inline-flex;align-items:center;min-height:44px;font-size:14px;margin-top:4px}
 .eyebrow{font-size:13px;color:var(--muted);margin:0 0 8px}
 .state{display:inline-block;font-size:13px;font-weight:700;padding:5px 10px;border-radius:6px;background:var(--sage);margin:12px 0}
@@ -239,7 +245,7 @@ pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anyw
 <div class="legend"><span><i class="dot" aria-hidden="true"></i>設定位置（合成の参照値）</span><span><i class="diamond" aria-hidden="true"></i>推定位置（アンテナ 0–1）</span></div>
 <svg id="map" class="map" viewBox="0 0 600 570" role="group" aria-labelledby="map-title" aria-describedby="map-selection map-description"><desc id="map-description">選択中の区間だけを表示しています。○は設定位置、◆は推定位置。上が前方、▲がレーダーの原点です。すべての区間は選択欄や目盛りから選べます。</desc><g id="guides"></g><g id="markers"></g></svg>
 <section class="playback" aria-label="計算済み区間のデモ再生">
-<div class="playback-actions"><button id="play" type="button">再生</button><button id="pause" class="secondary" type="button" disabled>一時停止</button><button id="previous" class="secondary" type="button">前へ</button><button id="next" class="secondary" type="button">次へ</button></div>
+<div class="playback-actions"><button id="play" type="button" aria-label="評価区間のデモを再生" aria-controls="map inspection">再生</button><button id="pause" class="secondary" type="button" aria-label="デモ再生を一時停止" aria-controls="map inspection" disabled>一時停止</button><button id="previous" class="secondary" type="button" aria-label="前の評価区間へ" aria-controls="map inspection">前へ</button><button id="next" class="secondary" type="button" aria-label="次の評価区間へ" aria-controls="map inspection">次へ</button></div>
 <p id="playback-status" class="playback-status" role="status" aria-live="polite" aria-atomic="true">一時停止</p>
 <label for="timeline">評価区間の目盛り</label><input id="timeline" type="range" min="0" max="0" step="1" value="0" aria-describedby="time-readout playback-message cadence">
 <p class="hint" id="time-readout" aria-live="off"></p><p class="hint" id="playback-message"></p>
@@ -248,7 +254,7 @@ pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anyw
 <a class="inspection-link" href="#inspection">選択した結果を詳しく見る ↓</a>
 <p class="hint">角度線は目安です。実機の視野角・部屋の座標・高さではありません。</p></section>
 <section class="card" id="inspection" aria-labelledby="selection-title" tabindex="-1">
-<p class="eyebrow" id="window-label"></p><h2 id="selection-title">選択した区間</h2><div id="status" class="state" role="status" aria-live="polite"></div>
+<p class="eyebrow" id="window-label"></p><h2 id="selection-title">選択した区間</h2><div id="status" class="state"></div>
 <p class="notice" id="reason" hidden></p>
 <div class="measure"><div><h3>設定（合成の参照値）</h3><dl><dt>距離</dt><dd id="truth-range"></dd><dt>角度</dt><dd id="truth-angle"></dd></dl></div>
 <div><h3>推定（信号から計算）</h3><dl><dt>距離</dt><dd id="estimate-range"></dd><dt>角度</dt><dd id="estimate-angle"></dd></dl></div></div>
@@ -284,14 +290,22 @@ svg('text',{x:300,y:322,'text-anchor':'middle'},guides,'レーダー（原点）
 const markerElements=[];
 function marker(position,index,isEstimate){
  const [x,y]=xy(position),group=svg('g',{class:'marker',role:'button',tabindex:'0','data-window':index,'data-kind':isEstimate?'estimate':'truth','aria-label':`区間 ${index+1} の${isEstimate?'推定位置':'設定位置'}`,'aria-pressed':'false'},byId('markers'));
- svg('circle',{cx:x,cy:y,r:21,class:'halo'},group);
- if(isEstimate)svg('path',{d:`M${x} ${y-10} l10 10 l-10 10 l-10 -10 Z`,fill:'#a45424',stroke:'#fffef9','stroke-width':2},group);
- else svg('circle',{cx:x,cy:y,r:14,fill:'#fffef9',stroke:'#287269','stroke-width':3},group);
+ svg('circle',{cx:x,cy:y,r:55,class:'hit-target'},group);
+ svg('circle',{cx:x,cy:y,r:29,class:'halo'},group);
+ if(isEstimate)svg('path',{d:`M${x} ${y-14} l14 14 l-14 14 l-14 -14 Z`,fill:'#a45424',stroke:'#fffef9','stroke-width':2,'vector-effect':'non-scaling-stroke'},group);
+ else svg('circle',{cx:x,cy:y,r:20,fill:'#fffef9',stroke:'#287269','stroke-width':3,'vector-effect':'non-scaling-stroke'},group);
  group.addEventListener('click',()=>player.select(index));
  group.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();player.select(index);}});
  markerElements.push({group,index});
 }
 windows.forEach((w,index)=>{const option=document.createElement('option');option.value=index;option.textContent=`区間 ${index+1} · ${w.estimation_available?'推定あり':'推定できません'}`;byId('window-select').appendChild(option);marker(w.truth_position_cm,index,false);if(w.estimation_available)marker(w.position_cm,index,true);});
+function resizeTargets(){
+ const map=byId('map'),width=map.getBoundingClientRect().width;
+ if(width>0)for(const m of markerElements)m.group.querySelector('.hit-target').setAttribute('r',22*map.viewBox.baseVal.width/width);
+}
+// Geometry-based hit areas stay 44 CSS pixels even when the SVG scales down.
+// A non-scaling transparent stroke alone is not reliably included in hit tests.
+new ResizeObserver(resizeTargets).observe(byId('map'));
 const reasons={insufficient_moving_signal:'動きの信号が小さく、位置を推定できません。',low_pair_01_coherence:'アンテナ 0–1 の信号の対応が弱いため、位置を推定できません。',insufficient_samples_for_window:'この区間は解析に必要な観測数が足りません。'};
 function renderSelection(state){
  const index=state.selected;
@@ -307,11 +321,24 @@ function renderSelection(state){
  byId('pause').disabled=!state.playing;
  byId('previous').disabled=index===0;
  byId('next').disabled=index===windows.length-1;
- byId('playback-status').textContent=`${state.playing?'再生中':'一時停止'} · 区間 ${index+1} / ${windows.length}`;
  const messages={initial:'再生は自動で始まりません。',pause:'表示を一時停止しました。',manual:'手動で区間を選びました。再生は停止中です。',end:'最後の区間で停止しました。',boundary:'データの区切りで停止しました。「次へ」や目盛りで別の区間を選べます。',hidden:'ページが非表示になったため停止しました。戻っても自動では再開しません。',reduced:'動きを抑える設定のため、自動再生は無効です。前後のボタンや目盛りで選べます。'};
  byId('playback-message').textContent=reducedMotion.matches?messages.reduced:(messages[state.stopReason]||'同じ連続区間の中で、計算済みの窓を順に表示しています。');
- for(const m of markerElements){m.group.setAttribute('aria-pressed',String(m.index===index));m.group.style.opacity=m.index===index?'1':'.35';}
- // Raise selected markers without connecting points or interpolating gaps.
+ const availability=has?'推定あり':'推定できません';
+ const stopNotice=['boundary','end','hidden','reduced'].includes(state.stopReason)?'。'+byId('playback-message').textContent:'';
+ byId('playback-status').textContent=`${state.playing?'再生中':'一時停止'} · 区間 ${index+1} / ${windows.length} · ${availability}${stopNotice}`;
+ byId('map-selection').textContent=`表示中：区間 ${index+1} / ${windows.length} · ${availability}`;
+ for(const m of markerElements){
+  const selected=m.index===index;
+  m.group.toggleAttribute('hidden',!selected);
+  m.group.setAttribute('aria-hidden',String(!selected));
+  m.group.setAttribute('tabindex',selected?'0':'-1');
+  m.group.setAttribute('aria-pressed',String(selected));
+  if(selected){
+   const estimated=m.group.dataset.kind==='estimate',position=estimated?w.position_cm:w.truth_position_cm;
+   m.group.setAttribute('aria-label',`区間 ${index+1} の${estimated?'推定位置':'設定位置（合成）'}。距離 ${number(radius(position))} cm、角度 ${number(estimated?w.estimated_angle_deg:w.configured_angle_deg,1)} 度`);
+  }
+ }
+ // Only this window is visible; every other window remains in the selector.
  for(const m of markerElements.filter(m=>m.index===index))byId('markers').appendChild(m.group);
  byId('window-label').textContent=`区間 ${index+1} / ${windows.length} · ブロック ${w.parent_block_index}・連続区間 ${w.trace_index}`;
  byId('status').textContent=has?'推定あり · 正しさを保証するものではありません':'推定できません';
@@ -342,7 +369,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)player.paus
 window.addEventListener('pagehide',()=>player.pause('hidden'));
 reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)player.pause('reduced');else renderSelection(player.snapshot());});
 byId('start').addEventListener('click',()=>{
- byId('workspace').hidden=false;byId('welcome').hidden=true;player.select(0);
+ byId('workspace').hidden=false;byId('welcome').hidden=true;player.select(0);resizeTargets();
  byId('map-title').focus({preventScroll:true});
  // One explicit start action brings map and controls into view. Steps never scroll.
  scrollTo({top:byId('map-card').getBoundingClientRect().top+scrollY-document.querySelector('.safety').offsetHeight-8,behavior:'instant'});
