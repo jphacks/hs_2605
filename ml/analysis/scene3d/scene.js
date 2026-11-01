@@ -9,6 +9,8 @@ import {
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {initializeAnalysis} from './analysis.js';
 import {createAnalysisPlane} from './plane.js';
+import {createShowcaseVisuals} from './showcase_scene.js';
+import {initializeShowcase} from './showcase.js';
 
 const stage=document.getElementById('scene-stage');
 const canvas=document.getElementById('scene-canvas');
@@ -20,6 +22,8 @@ let renderer,controls,frame=null,resizeObserver,scene,camera;
 let renderCount=0;
 let analysisPlane=null,requestSceneRender=()=>{};
 const hasAnalysis=!!document.getElementById('scene-data');
+const hasShowcase=!!document.getElementById('showcase');
+let showcaseVisuals=null,showcaseAnimationEnd=()=>{};
 function viewports(){
   const {width,height}=stage.getBoundingClientRect();
   if(!hasAnalysis)return {crib:{x:0,y:0,width,height},plane:null};
@@ -122,6 +126,10 @@ function initialize(){
     tip.clone().addScaledVector(sensorDirection,reach/2).toArray());
   direction.quaternion.setFromUnitVectors(new Vector3(0,-1,0),sensorDirection);
   direction.castShadow=false;direction.receiveShadow=false;
+  if(hasShowcase){
+    showcaseVisuals=createShowcaseVisuals(scene,sensor.position,sensorDirection);
+    Object.defineProperty(canvas,'ibukiShowcaseVisuals',{value:()=>showcaseVisuals.snapshot()});
+  }
 
   const anchors=[new Vector3(-.8,1.8,-1.4),new Vector3(2.05,2.6,-.25)];
   function updateLabels(){
@@ -140,8 +148,10 @@ function initialize(){
       el.style.left=`${bounds.x+x}px`;el.style.top=`${top+y}px`;placed.push({x,y,w});
     });
   }
-  function render(){
+  function render(time){
     frame=null;if(document.hidden||stage.dataset.state!=='webgl')return;
+    const wasAnimating=showcaseVisuals?.isAnimating();
+    if(showcaseVisuals)showcaseVisuals.update(time,camera);
     const views=viewports();
     renderer.setScissorTest(true);
     const draw=(view,viewCamera)=>{
@@ -155,6 +165,8 @@ function initialize(){
     const view=new Spherical().setFromVector3(camera.position.clone().sub(controls.target));
     stage.dataset.camera=JSON.stringify({azimuth:view.theta,polar:view.phi,distance:view.radius});
     stage.dataset.renderCount=String(++renderCount);
+    if(showcaseVisuals?.isAnimating())requestRender();
+    else if(wasAnimating)showcaseAnimationEnd();
   }
   function requestRender(){if(frame===null&&!document.hidden&&stage.dataset.state==='webgl')frame=requestAnimationFrame(render);}
   requestSceneRender=requestRender;
@@ -219,4 +231,12 @@ catch(error){
 // Analysis stays usable even when WebGL initialization failed.
 initializeAnalysis((window,index,total,extent)=>{
   if(analysisPlane){analysisPlane.update(window,index,total,extent);requestSceneRender();}
+});
+initializeShowcase({
+  available:()=>!!showcaseVisuals&&stage.dataset.state==='webgl',
+  select(step,animate){showcaseVisuals?.select(step,animate&&stage.dataset.state==='webgl'&&!document.hidden);requestSceneRender();},
+  isAnimating:()=>!!showcaseVisuals?.isAnimating()&&stage.dataset.state==='webgl',
+  pause(){showcaseVisuals?.pause();requestSceneRender();},
+  resume(){if(stage.dataset.state==='webgl'&&!document.hidden){showcaseVisuals?.resume();requestSceneRender();}},
+  onEnd(callback){showcaseAnimationEnd=callback;},
 });
