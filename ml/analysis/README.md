@@ -813,6 +813,127 @@ geometry and independent calibrated E recordings before any spatial validation;
 this tool does not establish full 3D reconstruction, body tracking, multi-person
 tracking, breathing accuracy, infant safety or medical performance.
 
+## Standalone synthetic Radar Explorer
+
+`ml.analysis.spatial_explorer` is the first interactive **offline, synthetic-only**
+viewer for the spatial simulation above. It does not connect to a radar, run a
+new estimator, or alter the guardian dashboard. All visible interface labels are
+Japanese; a persistent `シミュレーション / SYNTHETIC DATA` banner remains visible
+before and after starting.
+
+### Generate, open, inspect
+
+From the repository root, with the existing offline analysis environment:
+
+```sh
+python -m ml.analysis.spatial_sim --scenario sweep --out-dir analysis_runs/explorer-demo/sweep
+python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/sweep/case_00 --output analysis_runs/explorer-demo/sweep/explorer.html
+```
+
+These exact commands were executed. Choose fresh directories/filenames if they
+already exist. Open `analysis_runs/explorer-demo/sweep/explorer.html` directly in
+a browser (`file://`, double-click); no server or frontend build is required.
+Click **シミュレーションを開始** to reveal the results. The button reveals
+precomputed evaluations; it does not simulate physical hardware in the browser.
+Select a window using **調べる区間**, or click/focus a map marker and press Enter
+or Space. The matching inspection panel updates without any animation or playback.
+On mobile, **選択した結果を見る** jumps to the selected result below the map.
+
+- Green hollow circles: configured **synthetic reference** positions.
+- Brown diamonds: positions from the unchanged antenna 0–1 direction estimator.
+- Triangle: the ideal radar origin; upward is forward. Rings are centimeters.
+- Selection is indicated by an outline as well as opacity. Color and shape both
+  distinguish reference and estimate. Overlapping stationary results can always
+  be selected using the window dropdown.
+- The panel compares range, angle and absolute differences. Display rounding is
+  for readability, not a claim about physical measurement resolution.
+- **推定できません** shows a readable reason and dashes for unavailable values.
+  No estimated marker or substitute zero-angle position is invented. Raw outputs
+  remain available in the diagnostic disclosure.
+- The 150-degree rear scenario retains the actual wrong 30-degree estimate and
+  120-degree discrepancy; a warning explains the front/back ambiguity. Passing
+  the signal guards does not establish that an estimate is correct.
+
+To reproduce the other inspected cases (each uses a fresh output directory):
+
+```sh
+python -m ml.analysis.spatial_sim --scenario ambiguous --out-dir analysis_runs/explorer-demo/ambiguous
+python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/ambiguous/case_00 --output analysis_runs/explorer-demo/ambiguous/explorer.html
+python -m ml.analysis.spatial_sim --scenario noisy --out-dir analysis_runs/explorer-demo/noisy
+python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/noisy/case_00 --output analysis_runs/explorer-demo/noisy/explorer.html
+python -m ml.analysis.spatial_sim --scenario constant --out-dir analysis_runs/explorer-demo/constant
+python -m ml.analysis.spatial_explorer analysis_runs/explorer-demo/constant/case_00 --output analysis_runs/explorer-demo/constant/explorer.html
+```
+
+### Inputs, integrity and safe export
+
+Input is a spatial simulation **case directory**, not the run summary or a CSV.
+The viewer uses `canonical/{manifest.json,frames.parquet,events.jsonl,quality.json}`
+and `truth.json`. The existing canonical loader validates schema, artifact hashes,
+counts, configurations and event encoding. Only declared `source_type=synthetic`,
+explicit synthetic/unvalidated spatial truth, E 3×24 data, and compatible known
+15 cm / 37.5 mm geometry are accepted. Empty captures, missing/incompatible
+geometry and invalid provenance stop with an actionable error.
+
+If `evaluation.json` exists, its window/hop/availability settings are reused and
+the **entire saved result must match** re-evaluation using the existing
+`spatial_sim.evaluate`. Stale/modified results are rejected with instructions to
+regenerate the case in the current environment. If it is absent, the same existing
+evaluator uses its documented defaults (80/20 frames, movement >1, coherence >=0.5).
+There is no parallel estimator or truth-derived replacement for estimated positions.
+The original CSV and PNG are not read or used as fallbacks; no input file is modified.
+
+The HTML includes hashes of truth, canonical manifest and optional saved evaluation,
+the original input hash, verified canonical artifact hashes, quality, window/block
+boundaries, simulation settings and calculation assumptions in disclosures. These
+hashes detect inconsistency, not malicious replacement of an entire case or the
+authenticity of declared provenance. Separate synthetic truth is not medical truth;
+canonical scenario names retain their original non-ground-truth semantics.
+
+Existing block/trace segmentation is reused. No window bridges resets, gaps or
+invalid timing, and the map draws **no lines between windows**. Time is observed
+board-relative uptime, not Unix time. No interpolation, filtering or tuning occurs.
+
+Output must be a **new `.html` under this repository's ignored `analysis_runs/`**,
+outside the canonical directory. Its parent must exist. Existing outputs and
+symlinks are refused; there is deliberately no `--force`. CLI input/output errors
+return code 2 without a traceback. Generated HTML/recordings stay untracked.
+
+All CSS, JavaScript, SVG map and JSON data are embedded. There are no remote fonts,
+CDNs, APIs, local `fetch()` or server dependencies. JSON escapes script-boundary
+characters; displayed dynamic text uses `textContent`. A restrictive content
+security policy blocks network connections, external scripts/images and form
+submission. Identical inputs/settings/environment produce identical HTML without
+generation timestamps or absolute source/output paths.
+
+### Verified previews and limits
+
+The generated HTML was opened using `file://` in Chrome with networking disabled.
+All four scenarios above were checked at **1280px and 390px**: no horizontal
+overflow, no browser page errors and no HTTP(S) requests. All nine windows per
+scenario were selected and compared to embedded evaluation values; keyboard
+marker selection, unavailable markers and the 120-degree ambiguity were checked.
+
+| Desktop | Mobile |
+| --- | --- |
+| ![Synthetic Explorer desktop, selected sweep window](previews/spatial-explorer-desktop.png) | ![Synthetic Explorer mobile, selected sweep window](previews/spatial-explorer-mobile.png) |
+
+[Rear ambiguity inspection](previews/spatial-explorer-ambiguity.png) ·
+[Unavailable noisy-signal inspection](previews/spatial-explorer-unavailable.png)
+
+The committed previews contain public synthetic results only. Unit coverage includes
+provenance/integrity, saved/default evaluation settings, missing geometry, empty
+input, gaps/resets, unavailable and incorrect results, JSON injection boundaries,
+determinism, source preservation, output restrictions and CLI failures.
+
+**Synthetic algorithm tests are not proof of real radar accuracy.** This remains an
+idealized single-target range/horizontal-angle experiment, not room localization,
+full 3D reconstruction, multi-person/body tracking, breathing performance or medical
+validation. The current scope has no timeline, autoplay, temporal synchronization,
+live integration or runtime/model changes. Playback and further accessibility
+polish belong to a later PR; physical evaluation requires independently calibrated
+antenna geometry and real E recordings first.
+
 ## Relationship to existing readers
 
 `pc/ibuki/serial_reader.py` remains the live transport/parser: it silently ignores
